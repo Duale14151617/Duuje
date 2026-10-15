@@ -1,0 +1,68 @@
+services:
+  - type: web
+    name: armyhq-demo
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/v1/health/live/
+    envVars:
+      - key: DJANGO_DEBUG
+        value: "0"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: FIELD_ENCRYPTION_KEY
+        sync: false
+      - key: TRUST_PROXY_HEADERS
+        value: "1"
+      - key: ARMYHQ_DEMO_MODE
+        value: "1"
+      - key: ARMYHQ_DEMO_PASSWORD
+        sync: false
+      - key: SECURE_SSL_REDIRECT
+        value: "0"
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: armyhq-demo-db
+          property: database
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: armyhq-demo-db
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: armyhq-demo-db
+          property: password
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: armyhq-demo-db
+          property: host
+      - key: POSTGRES_PORT
+        fromDatabase:
+          name: armyhq-demo-db
+          property: port
+      - key: POSTGRES_SSLMODE
+        value: require
+      - key: SESSION_COOKIE_AGE
+        value: "1800"
+      - key: SESSION_ABSOLUTE_SECONDS
+        value: "43200"
+      - key: PERSONNEL_EXPORT_ENABLED
+        value: "0"
+      - key: REPORT_EXPORT_ENABLED
+        value: "0"
+      - key: INTEGRATIONS_ENABLED
+        value: "0"
+      - key: ENABLE_API_DOCS
+        value: "0"
+      - key: LOG_LEVEL
+        value: INFO
+
+databases:
+  - name: armyhq-demo-db
+    databaseName: armyhq_demo
+    user: armyhq_demo_user
+    plan: free
+    region: singapore
+    postgresMajorVersion: "16"
