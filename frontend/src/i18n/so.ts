@@ -227,6 +227,8 @@ export const so: Record<keyof typeof en, string> = {
   "err.service_number_taken": "Lambarkaas adeegga hore ayaa loo isticmaalay.",
   "err.service_number_invalid": "Isticmaal 3–32 xaraf, tiro, / ama -.",
   "err.phone_invalid": "Geli lambar taleefan oo sax ah.",
+  "err.name_letters_only": "Magacu waa inuu ka kooban yahay xarfo kaliya (lambar ma ogola).",
+  "err.phone_digits_only": "Taleefanku waa inuu ka kooban yahay lambarro kaliya (6-15 lambar, + bilowga ayaa la ogol yahay).",
   "err.rank_branch_mismatch": "Darajadaas waxay ka tirsan tahay laan adeeg oo kale.",
   "err.rank_not_approved": "Darajadaas weli lama ansixin.",
   "err.rank_inactive": "Darajadaas mar dambe ma firfircoona.",

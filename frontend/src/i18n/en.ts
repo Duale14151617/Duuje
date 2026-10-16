@@ -223,6 +223,8 @@ export const en = {
   "err.service_number_taken": "That service number is already used.",
   "err.service_number_invalid": "Use 3–32 letters, digits, / or -.",
   "err.phone_invalid": "Enter a valid phone number.",
+  "err.name_letters_only": "Name must contain letters only (no numbers).",
+  "err.phone_digits_only": "Phone must contain numbers only (6-15 digits, optional + at the start).",
   "err.rank_branch_mismatch": "That rank belongs to a different service branch.",
   "err.rank_not_approved": "That rank is not approved yet.",
   "err.rank_inactive": "That rank is no longer active.",
