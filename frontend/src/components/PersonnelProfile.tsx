@@ -1,5 +1,5 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
-import { api, upload } from "../api/client";
+import { api, upload, photoUrl } from "../api/client";
 import { useFetch } from "../api/useFetch";
 import { ErrorNotice, Field, Loading } from "./ui";
 import { useI18n } from "../i18n";
@@ -24,19 +24,24 @@ async function shrink(file: File): Promise<File> {
   } catch { return file; }
 }
 
+/** Name: keep letters (any script), spaces, dots, apostrophes and hyphens. Digits and other symbols are dropped as you type. */
+const cleanName = (v: string) => v.replace(/[^\p{L}\s.'\u2019-]/gu, "");
+/** Phone: digits only, with an optional + at the very start. */
+const cleanPhone = (v: string) => { const plus = v.trimStart().startsWith("+"); return (plus ? "+" : "") + v.replace(/\D/g, "").slice(0, 15); };
+
 const BLOOD = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
 const L = {
   en: {
     title: "Identity profile", photo: "Photo", noPhoto: "No photo", upload: "Upload photo", change: "Change photo",
     blood: "Blood type", gender: "Sex", male: "Male", female: "Female", weapon: "Weapon ID", dob: "Date of birth",
-    enlisted: "Enlistment date", district: "Home district", ecName: "Emergency contact", ecPhone: "Emergency phone",
+    enlisted: "Enlistment date", district: "Home district", ecName: "Emergency contact / Guardian (name only)", ecPhone: "Emergency contact / Guardian phone (numbers only)",
     edit: "Edit profile", save: "Save", cancel: "Cancel", choose: "Choose", sensitive: "Sensitive: access is logged.",
   },
   so: {
     title: "Xogta aqoonsiga", photo: "Sawir", noPhoto: "Sawir ma jiro", upload: "Soo geli sawir", change: "Beddel sawirka",
     blood: "Nooca dhiigga", gender: "Jinsi", male: "Lab", female: "Dhedig", weapon: "Lambarka hubka", dob: "Taariikhda dhalashada",
-    enlisted: "Taariikhda ku biiridda", district: "Degmada guriga", ecName: "Qofka degdegga ah", ecPhone: "Taleefanka degdegga ah",
+    enlisted: "Taariikhda ku biiridda", district: "Degmada guriga", ecName: "Qofka degdegga ah / Masuulka (magac kaliya)", ecPhone: "Taleefanka degdegga ah / Masuulka (lambar kaliya)",
     edit: "Wax ka beddel", save: "Kaydi", cancel: "Jooji", choose: "Dooro", sensitive: "Xasaasi: marin-gelidda waa la diiwaangeliyaa.",
   },
 } as const;
@@ -87,6 +92,9 @@ export function PersonnelProfile({ personId, canManage }: { personId: string; ca
     } catch (x) { setErr(x); } finally { setBusy(false); }
   }
 
+  const setClean = (k: "emergency_contact_name" | "emergency_contact_phone", fn: (v: string) => string) =>
+    (e: ChangeEvent<HTMLInputElement>) => setForm((f) => (f ? { ...f, [k]: fn(e.target.value) } : f));
+
   const row = (label: string, value: string | null | undefined) => (
     <div className="stat"><span>{label}</span><b>{value || "-"}</b></div>
   );
@@ -97,7 +105,7 @@ export function PersonnelProfile({ personId, canManage }: { personId: string; ca
       <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "flex-start" }}>
         <div style={{ width: 120 }}>
           {!broken ? (
-            <img src={`/api/v1/personnel/${personId}/photo/?v=${photoV}`} alt={s.photo} width={120} height={150}
+            <img src={photoUrl(personId, photoV)} alt={s.photo} width={120} height={150}
                  style={{ objectFit: "cover", borderRadius: 6, display: "block" }} onError={() => setBroken(true)} />
           ) : (
             <div className="muted" style={{ width: 120, height: 150, border: "1px dashed currentColor", borderRadius: 6,
@@ -147,8 +155,8 @@ export function PersonnelProfile({ personId, canManage }: { personId: string; ca
               <Field label={s.dob}><input type="date" value={form.date_of_birth ?? ""} onChange={set("date_of_birth")} /></Field>
               <Field label={s.enlisted}><input type="date" value={form.enlistment_date ?? ""} onChange={set("enlistment_date")} /></Field>
               <Field label={s.district}><input value={form.home_district} maxLength={120} onChange={set("home_district")} /></Field>
-              <Field label={s.ecName}><input value={form.emergency_contact_name} maxLength={100} onChange={set("emergency_contact_name")} /></Field>
-              <Field label={s.ecPhone}><input type="tel" value={form.emergency_contact_phone} onChange={set("emergency_contact_phone")} /></Field>
+              <Field label={s.ecName}><input value={form.emergency_contact_name} maxLength={100} autoComplete="off" onChange={setClean("emergency_contact_name", cleanName)} /></Field>
+              <Field label={s.ecPhone}><input type="tel" inputMode="numeric" value={form.emergency_contact_phone} maxLength={16} autoComplete="off" placeholder="252901234567" onChange={setClean("emergency_contact_phone", cleanPhone)} /></Field>
               <div className="row">
                 <button type="submit" disabled={busy}>{s.save}</button>
                 <button type="button" className="secondary" onClick={() => setEditing(false)}>{s.cancel}</button>
