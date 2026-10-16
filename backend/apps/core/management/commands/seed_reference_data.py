@@ -101,6 +101,9 @@ ROLES = {
     "structure_approver": ("Structure approver", "Ansixiyaha qaab-dhismeedka", True, False, ["headquarters"],
                            ["dashboard.view", "org.view", "org.structure_approve"]),
     "auditor": ("Auditor", "Hubiyaha", True, False, ["headquarters"], ["dashboard.view", "org.view", "audit.view"]),
+    # Owner-level role: every permission, HQ-wide, MFA required. Separation-of-duties rules in the code still apply
+    # (nobody can approve their own submission), so keep a second approver account for those flows.
+    "super_admin": ("Super administrator", "Maamulaha sare", True, False, ["headquarters"], list(PERMISSIONS)),
     "read_only": ("Read-only user", "Isticmaale akhrin oo keliya", False, False, [],
                   BASIC + ["personnel.view", "reports.view"]),
 }
