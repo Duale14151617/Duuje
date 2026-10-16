@@ -10,6 +10,20 @@ interface Profile {
   has_photo: boolean; photo_updated_at: string | null;
 }
 
+/** Phone photos are huge; shrink to <=1600px JPEG in the browser so uploads stay small and fast. Falls back to the original. */
+async function shrink(file: File): Promise<File> {
+  if (file.size < 1_000_000 && file.type === "image/jpeg") return file;
+  try {
+    const bmp = await createImageBitmap(file);
+    const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext("2d")!.drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise<Blob | null>((r) => c.toBlob(r, "image/jpeg", 0.85));
+    return blob ? new File([blob], "photo.jpg", { type: "image/jpeg" }) : file;
+  } catch { return file; }
+}
+
 const BLOOD = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
 const L = {
@@ -68,7 +82,7 @@ export function PersonnelProfile({ personId, canManage }: { personId: string; ca
     if (!f) return;
     setBusy(true); setErr(null);
     try {
-      await upload(`/personnel/${personId}/photo/upload/`, "photo", f);
+      await upload(`/personnel/${personId}/photo/upload/`, "photo", await shrink(f));
       setBroken(false); setPhotoV((v) => v + 1); profile.reload();
     } catch (x) { setErr(x); } finally { setBusy(false); }
   }
