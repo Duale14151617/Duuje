@@ -16,11 +16,13 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--username", required=True)
         parser.add_argument("--full-name", required=True)
+        parser.add_argument("--role", default="hq_admin", choices=["hq_admin", "super_admin"],
+                            help="super_admin = every permission, HQ-wide (run seed_reference_data first)")
 
     @transaction.atomic
     def handle(self, *args, **opts):
         hq = OrganizationalUnit.objects.filter(level="headquarters").first()
-        role = Role.objects.filter(code="hq_admin").first()
+        role = Role.objects.filter(code=opts["role"]).first()
         if not hq or not role:
             raise CommandError("Run `manage.py seed_reference_data` first.")
         username = opts["username"].lower()
