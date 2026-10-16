@@ -58,8 +58,11 @@ const x = (n) => {
 function A(n, e, t = {}) {
   return n.filter((r) => Object.entries(e).every(([s, o]) => o === "" || s === "page" || s === "page_size" || s === "placeable" || s === "at" ? true : t[s] ? t[s](r, o) : s === "q" ? JSON.stringify(r).toLowerCase().includes(o.toLowerCase()) : s in r && typeof r[s] != "object" ? String(r[s]) === o : true));
 }
+const demoProfiles = {};
+const demoProfile = (id) => (demoProfiles[id] ??= { blood_type: "", gender: "", weapon_id: "", date_of_birth: null, enlistment_date: null, home_district: "", emergency_contact_name: "", emergency_contact_phone: "", has_photo: false, photo_updated_at: null });
 function ie(n, e) {
   let t;
+  if (t = n.match(/^\/personnel\/([^/]+)\/profile\/$/)) return demoProfile(u(d, t[1]).id);
   if (n === "/auth/csrf/") return { csrf_token: "demo" };
   if (n === "/auth/me/") {
     if (!Q) throw new C(401, { code: "not_authenticated", detail: "Sign in" });
@@ -144,6 +147,12 @@ function ae(n, e, t) {
       s.rank = { id: o.id, code: o.code, name_en: o.name_en, name_so: o.name_so, approval_status: o.approval_status };
     }
     return r[2] === "change-status" && (s.status = t.status), s.version++, s;
+  }
+  if ((r = e.match(/^\/personnel\/([^/]+)\/profile\/$/)) && n === "PATCH") {
+    const s = demoProfile(u(d, r[1]).id);
+    if (t.emergency_contact_name && /\d/.test(t.emergency_contact_name)) throw new C(400, { code: "validation_error", detail: "Invalid", errors: { emergency_contact_name: [{ message: "Letters only", code: "name_letters_only" }] } });
+    if (t.emergency_contact_phone && !/^\+?[0-9]{6,15}$/.test(t.emergency_contact_phone)) throw new C(400, { code: "validation_error", detail: "Invalid", errors: { emergency_contact_phone: [{ message: "Digits only", code: "phone_digits_only" }] } });
+    return Object.assign(s, t), s;
   }
   if ((r = e.match(/^\/personnel\/([^/]+)\/$/)) && n === "PATCH") {
     const s = u(d, r[1]);
