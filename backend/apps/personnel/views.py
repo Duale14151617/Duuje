@@ -20,6 +20,7 @@ from apps.core.negotiation import IgnoreNegotiation
 from apps.core.params import uuid_param
 from apps.organization.models import OrganizationalUnit
 
+from . import profile as profile_svc
 from . import services as svc
 from .models import ImportBatch, Personnel
 from .serializers import (HistorySerializer, PersonnelCreateSerializer, PersonnelSerializer,
@@ -64,6 +65,8 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
     permission_map = {
         "list": ("personnel.view", "any"), "retrieve": ("personnel.view", "unit"),
         "history": ("personnel.view", "unit"),
+        "photo": ("personnel.view", "unit"), "photo_upload": ("personnel.manage", "unit"),
+        "profile": ("personnel.manage", "unit"),
         "create": ("personnel.manage", "any"), "partial_update": ("personnel.manage", "unit"),
         "transfer": ("personnel.manage", "unit"), "change_rank": ("personnel.manage", "unit"),
         "change_status": ("personnel.manage", "unit"),
@@ -152,6 +155,41 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
     def history(self, request, pk=None):
         person = self.get_object()
         return Response(HistorySerializer(person.history.all(), many=True).data)
+
+    # --- sensitive profile: photo, blood type, weapon ID, emergency contact (encrypted at rest) ----------
+    @action(detail=True, methods=["get", "patch"])
+    def profile(self, request, pk=None):
+        person = self.get_object()
+        if request.method == "PATCH":
+            ser = profile_svc.ProfileSerializer(data=request.data, partial=True)
+            ser.is_valid(raise_exception=True)
+            fields = profile_svc.save(person, ser.validated_data)
+            record("personnel.profile_update", request=request, entity_type="personnel", entity_id=person.pk,
+                   metadata={"fields": fields})  # field names only, never values
+        else:
+            record("personnel.profile_view", request=request, entity_type="personnel", entity_id=person.pk)
+        return Response(profile_svc.read(person))
+
+    @action(detail=True, methods=["get"], content_negotiation_class=IgnoreNegotiation)
+    def photo(self, request, pk=None):
+        person = self.get_object()
+        jpeg = profile_svc.read_photo(person)
+        if jpeg is None:
+            return HttpResponse(status=404)
+        resp = HttpResponse(jpeg, content_type="image/jpeg")
+        resp["Cache-Control"] = "private, no-store"
+        resp["Content-Disposition"] = 'inline; filename="photo.jpg"'
+        return resp
+
+    @action(detail=True, methods=["post"], url_path="photo/upload", parser_classes=[MultiPartParser])
+    def photo_upload(self, request, pk=None):
+        person = self.get_object()
+        upload = request.FILES.get("photo")
+        if upload is None:
+            raise field_error("photo", "photo_required", "Choose a photo.")
+        profile_svc.save_photo(person, profile_svc.process_photo(upload))
+        record("personnel.photo_update", request=request, entity_type="personnel", entity_id=person.pk)
+        return Response({"has_photo": True})
 
     # --- safe import: preview -> commit -----------------------------------
     @action(detail=False, methods=["post"], url_path="import/preview", parser_classes=[MultiPartParser], throttle_scope="bulk")
