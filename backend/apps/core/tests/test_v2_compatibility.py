@@ -62,7 +62,7 @@ V14_MIGRATIONS = {
 }
 NEW_PERMISSIONS = {"analytics.view", "integrations.view", "integrations.manage", "org.structure_propose", "org.structure_approve"}
 ROLES_GAINING_ANALYTICS = {"hq_reporting", "regional_chief", "branch_admin"}
-NEW_ROLES = {"structure_approver"}
+NEW_ROLES = {"structure_approver", "super_admin"}
 # hq_admin receives every non-sensitive permission automatically, so it gains the integration and structure-proposal ones.
 HQ_ADMIN_GAINS = {"integrations.view", "integrations.manage", "org.structure_propose"}
 
