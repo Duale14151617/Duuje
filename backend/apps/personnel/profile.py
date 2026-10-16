@@ -21,6 +21,10 @@ from .services import PHONE_RE
 BLOOD_TYPES = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]
 GENDERS = ["male", "female"]
 WEAPON_RE = re.compile(r"^[A-Za-z0-9/-]{3,32}$")
+# Emergency contact / guardian NAME: letters only (any script), with spaces, dots, apostrophes and hyphens between words. No digits.
+CONTACT_NAME_RE = re.compile(r"^[^\W\d_]+(?:[ .'\u2019-]+[^\W\d_]+)*\.?$")
+# Emergency contact PHONE: digits only, optional leading +.
+CONTACT_PHONE_RE = re.compile(r"^\+?[0-9]{6,15}$")
 FIELDS = ["blood_type", "gender", "weapon_id", "date_of_birth", "enlistment_date", "home_district",
           "emergency_contact_name", "emergency_contact_phone"]
 PHOTO_MAX_BYTES = 5 * 1024 * 1024
@@ -43,9 +47,16 @@ class ProfileSerializer(serializers.Serializer):
             raise serializers.ValidationError("Invalid weapon ID.", code="weapon_id_invalid")
         return value
 
+    def validate_emergency_contact_name(self, value):
+        value = " ".join(value.split())
+        if value and not CONTACT_NAME_RE.match(value):
+            raise serializers.ValidationError("Use letters only (no numbers).", code="name_letters_only")
+        return value
+
     def validate_emergency_contact_phone(self, value):
-        if value and not PHONE_RE.match(value):
-            raise serializers.ValidationError("Invalid phone number.", code="phone_invalid")
+        value = value.strip()
+        if value and not CONTACT_PHONE_RE.match(value):
+            raise serializers.ValidationError("Use numbers only.", code="phone_digits_only")
         return value
 
     def validate_date_of_birth(self, value):
