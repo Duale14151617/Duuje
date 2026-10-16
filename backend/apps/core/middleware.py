@@ -56,7 +56,9 @@ class RequestSizeLimitMiddleware:
         from django.http import JsonResponse
         length = request.META.get("CONTENT_LENGTH") or "0"
         try:
-            too_big = int(length) > settings.MAX_REQUEST_BYTES
+            # Phone photos are routinely 2-5 MB; the photo endpoint validates the file itself (5 MB cap).
+            limit = max(settings.MAX_REQUEST_BYTES, 6_000_000) if request.path.endswith("/photo/upload/") else settings.MAX_REQUEST_BYTES
+            too_big = int(length) > limit
         except ValueError:
             too_big = True
         if too_big:
