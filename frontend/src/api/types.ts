@@ -65,8 +65,6 @@ export interface Dashboard {
   reports?: { my_open: number; awaiting_review?: number };
   logistics?: { low_stock: number; assets_attention: number };
   training?: { in_progress: number; enrolled: number };
-  demo: { synthetic: true; personnel_records: number; pending_requests: number;
-          reports_awaiting_review: number; training_completions_30d: number };
 }
 
 export interface RankBrief { id: string; code: string; name_en: string; name_so: string; approval_status: string }
