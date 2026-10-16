@@ -110,10 +110,15 @@ export async function upload<T>(path: string, field: string, file: File): Promis
   }
   const form = new FormData();
   form.append(field, file);
+  const send = () => fetch(`/api/v1${path}`, {
+    method: "POST", credentials: "same-origin", headers: { "X-CSRFToken": csrfToken }, body: form });
   let res: Response;
   try {
-    res = await fetch(`/api/v1${path}`, {
-      method: "POST", credentials: "same-origin", headers: { "X-CSRFToken": csrfToken }, body: form });
+    res = await send();
+    if (res.status === 403) {
+      const peek = (await res.clone().json().catch(() => null)) as ErrorBody | null;
+      if (peek?.detail && /CSRF/i.test(peek.detail)) { await refreshCsrf(); res = await send(); }
+    }
   } catch {
     throw unreachable();
   }
