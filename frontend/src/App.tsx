@@ -15,6 +15,7 @@ import { ReportDetail, ReportForm, ReportList } from "./pages/Reports";
 import { Summary } from "./pages/Summary";
 import { Organization } from "./pages/Organization";
 import { Structure } from "./pages/Structure";
+import { Institutions } from "./pages/Institutions";
 import { Ranks } from "./pages/Ranks";
 import { Analytics } from "./pages/Analytics";
 import { Integrations } from "./pages/Integrations";
@@ -35,6 +36,7 @@ export default function App() {
         <Route index element={<Dashboard />} />
         <Route path="organization" element={<Organization />} />
         <Route path="structure" element={<Structure />} />
+        <Route path="institutions" element={<Institutions />} />
         <Route path="tree" element={<OrgTree />} />
         <Route path="structure-changes" element={<StructureChanges />} />
         <Route path="analytics" element={<Analytics />} />
