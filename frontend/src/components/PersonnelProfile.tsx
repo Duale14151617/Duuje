@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import { useRef, useState, type ChangeEvent, type CSSProperties, type FormEvent } from "react";
 import { api, upload, photoUrl } from "../api/client";
 import { useFetch } from "../api/useFetch";
 import { ErrorNotice, Field, Loading } from "./ui";
@@ -29,17 +29,20 @@ const cleanName = (v: string) => v.replace(/[^\p{L}\s.'\u2019-]/gu, "");
 /** Phone: digits only, with an optional + at the very start. */
 const cleanPhone = (v: string) => { const plus = v.trimStart().startsWith("+"); return (plus ? "+" : "") + v.replace(/\D/g, "").slice(0, 15); };
 
+/** Visually hidden but still in the layout: some mobile browsers ignore programmatic clicks on display:none file inputs. */
+const HIDDEN_INPUT: CSSProperties = { position: "absolute", width: 1, height: 1, opacity: 0, overflow: "hidden", pointerEvents: "none" };
+
 const BLOOD = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
 const L = {
   en: {
-    title: "Identity profile", photo: "Photo", noPhoto: "No photo", upload: "Upload photo", change: "Change photo",
+    title: "Identity profile", photo: "Photo", noPhoto: "No photo", upload: "Upload photo", change: "Change photo", tapAdd: "Tap to add photo", uploading: "Uploading...",
     blood: "Blood type", gender: "Sex", male: "Male", female: "Female", weapon: "Weapon ID", dob: "Date of birth",
     enlisted: "Enlistment date", district: "Home district", ecName: "Emergency contact / Guardian (name only)", ecPhone: "Emergency contact / Guardian phone (numbers only)",
     edit: "Edit profile", save: "Save", cancel: "Cancel", choose: "Choose", sensitive: "Sensitive: access is logged.",
   },
   so: {
-    title: "Xogta aqoonsiga", photo: "Sawir", noPhoto: "Sawir ma jiro", upload: "Soo geli sawir", change: "Beddel sawirka",
+    title: "Xogta aqoonsiga", photo: "Sawir", noPhoto: "Sawir ma jiro", upload: "Soo geli sawir", change: "Beddel sawirka", tapAdd: "Taabo si aad sawir ugu darto", uploading: "Waa la soo gelinayaa...",
     blood: "Nooca dhiigga", gender: "Jinsi", male: "Lab", female: "Dhedig", weapon: "Lambarka hubka", dob: "Taariikhda dhalashada",
     enlisted: "Taariikhda ku biiridda", district: "Degmada guriga", ecName: "Qofka degdegga ah / Masuulka (magac kaliya)", ecPhone: "Taleefanka degdegga ah / Masuulka (lambar kaliya)",
     edit: "Wax ka beddel", save: "Kaydi", cancel: "Jooji", choose: "Dooro", sensitive: "Xasaasi: marin-gelidda waa la diiwaangeliyaa.",
@@ -58,6 +61,7 @@ export function PersonnelProfile({ personId, canManage }: { personId: string; ca
   const [photoV, setPhotoV] = useState(0);
   const [busy, setBusy] = useState(false);
   const [broken, setBroken] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const d = profile.data;
 
   const set = (k: keyof Profile) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -104,20 +108,43 @@ export function PersonnelProfile({ personId, canManage }: { personId: string; ca
       <h2>{s.title}</h2>
       <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "flex-start" }}>
         <div style={{ width: 120 }}>
-          {!broken ? (
-            <img src={photoUrl(personId, photoV)} alt={s.photo} width={120} height={150}
-                 style={{ objectFit: "cover", borderRadius: 6, display: "block" }} onError={() => setBroken(true)} />
-          ) : (
-            <div className="muted" style={{ width: 120, height: 150, border: "1px dashed currentColor", borderRadius: 6,
-                                            display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
-              {s.noPhoto}
-            </div>
-          )}
+          {(() => {
+            // Managers know from the profile whether a photo exists; viewers just try to load it.
+            const showImg = !broken && (canManage ? photoV > 0 || !!d?.has_photo : true);
+            const box: CSSProperties = {
+              width: 120, height: 150, borderRadius: 6, padding: 0, display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center", textAlign: "center", overflow: "hidden",
+              border: "2px dashed var(--control-border, #7B8AA0)", background: "var(--surface-2, #f2f4f7)",
+              color: "var(--accent-text, #1d2b4f)", fontSize: ".8rem", gap: ".25rem",
+              cursor: canManage ? "pointer" : "default",
+            };
+            const inner = showImg ? (
+              <img src={photoUrl(personId, photoV)} alt={s.photo} width={120} height={150}
+                   style={{ objectFit: "cover", display: "block", width: 120, height: 150 }} onError={() => setBroken(true)} />
+            ) : (
+              <>
+                <span style={{ fontSize: "2rem", lineHeight: 1 }} aria-hidden="true">{canManage ? "\uD83D\uDCF7" : "\uD83D\uDC64"}</span>
+                <span>{canManage ? (busy ? s.uploading : s.tapAdd) : s.noPhoto}</span>
+              </>
+            );
+            return canManage ? (
+              <button type="button" aria-label={broken || !showImg ? s.upload : s.change} disabled={busy}
+                      onClick={() => fileRef.current?.click()}
+                      style={{ ...box, border: showImg ? "1px solid var(--control-border, #7B8AA0)" : box.border }}>
+                {inner}
+              </button>
+            ) : (
+              <div style={box}>{inner}</div>
+            );
+          })()}
           {canManage && (
-            <label className="secondary" style={{ display: "block", marginTop: ".5rem", textAlign: "center", cursor: "pointer" }}>
-              {broken ? s.upload : s.change}
-              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={pick} disabled={busy} style={{ display: "none" }} />
-            </label>
+            <>
+              <button type="button" className="secondary" disabled={busy} onClick={() => fileRef.current?.click()}
+                      style={{ display: "block", width: "100%", marginTop: ".5rem" }}>
+                {busy ? s.uploading : broken || !(photoV > 0 || d?.has_photo) ? s.upload : s.change}
+              </button>
+              <input ref={fileRef} type="file" accept="image/*" onChange={pick} tabIndex={-1} aria-hidden="true" style={HIDDEN_INPUT} />
+            </>
           )}
         </div>
         <div style={{ flex: 1, minWidth: 200 }}>
