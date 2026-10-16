@@ -14,6 +14,17 @@ const ICONS = {
   logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5M21 12H9" /></>,
   map: <><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0z" /><circle cx="12" cy="10" r="3" /></>,
   arrow: <path d="m9 18 6-6-6-6" />,
+  grid: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
+  building: <><rect x="4" y="2" width="16" height="20" rx="2" /><path d="M9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01" /></>,
+  tree: <><rect x="9" y="2" width="6" height="5" rx="1" /><rect x="2" y="17" width="6" height="5" rx="1" /><rect x="16" y="17" width="6" height="5" rx="1" /><path d="M12 7v5M5 17v-5h14v5" /></>,
+  swap: <path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16" />,
+  list: <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />,
+  plug: <><path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0V8z" /><path d="M12 18v4" /></>,
+  bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></>,
+  menu: <path d="M3 6h18M3 12h18M3 18h18" />,
+  close: <path d="M18 6 6 18M6 6l12 12" />,
+  chevronsLeft: <path d="m11 17-5-5 5-5M18 17l-5-5 5-5" />,
+  chevronsRight: <path d="m13 17 5-5-5-5M6 17l5-5-5-5" />,
 } satisfies Record<string, ReactNode>;
 
 export type IconName = keyof typeof ICONS;
