@@ -94,7 +94,7 @@ class ScopeTests(BaseApiTest):
         data = reader.get("/api/v1/dashboard/").data
         self.assertNotIn("accounts", data)
         self.assertNotIn("audit", data)
-        self.assertTrue(data["demo"]["synthetic"])
+        self.assertNotIn("demo", data)  # no fabricated figures
         admin = self.client_for(self.make_user("adm", "hq_admin"))
         data = admin.get("/api/v1/dashboard/").data
         self.assertIn("accounts", data)
