@@ -120,7 +120,7 @@ class RouteCompatibilityTests(BaseApiTest):
         self.assertTrue({"personnel_export", "report_export"} <= set(me["features"]))
         self.assertIs(me["features"]["integrations"], False)  # off unless explicitly enabled
         dash = c.get("/api/v1/dashboard/").json()
-        self.assertEqual(set(dash), {"scope", "ranks", "personnel", "reports", "demo"})  # no new blocks
+        self.assertEqual(set(dash), {"scope", "ranks", "personnel", "reports"})  # no new blocks
 
     def test_exports_and_integrations_remain_off_by_default(self):
         self.assertFalse(settings.PERSONNEL_EXPORT_ENABLED)
