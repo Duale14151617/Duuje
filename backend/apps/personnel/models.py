@@ -40,6 +40,25 @@ class Personnel(models.Model):
         ]
 
 
+class PersonnelProfile(models.Model):
+    """Sensitive extras for one person: photo, blood type, weapon ID, date of birth, emergency contact...
+
+    Everything personal is encrypted at rest (Fernet, FIELD_ENCRYPTION_KEY): the text fields as one JSON blob
+    and the photo as encrypted JPEG bytes. weapon_key is a keyed hash of the weapon ID so the database can
+    guarantee one weapon is never assigned to two people without storing the ID in the clear.
+    """
+
+    personnel = models.OneToOneField(Personnel, primary_key=True, on_delete=models.CASCADE, related_name="profile")
+    data_enc = models.TextField(blank=True, default="")
+    photo_enc = models.BinaryField(null=True, blank=True)
+    photo_updated_at = models.DateTimeField(null=True, blank=True)
+    weapon_key = models.CharField(max_length=64, null=True, blank=True, editable=False, unique=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "personnel_profile"
+
+
 class PersonnelHistory(AppendOnlyModel):
     """Effective-dated record of rank / unit / status changes. Written only by the service layer."""
 
