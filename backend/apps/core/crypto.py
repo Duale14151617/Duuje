@@ -12,3 +12,11 @@ def encrypt(value: str) -> str:
 
 def decrypt(token: str) -> str:
     return _fernet().decrypt(token.encode()).decode()
+
+
+def encrypt_bytes(value: bytes) -> bytes:
+    return _fernet().encrypt(value)
+
+
+def decrypt_bytes(token: bytes) -> bytes:
+    return _fernet().decrypt(bytes(token))
