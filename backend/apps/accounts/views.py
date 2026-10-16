@@ -187,8 +187,17 @@ class MfaSetupView(APIView):
         user = request.user
         if user.mfa_enabled:
             return error("mfa_already_enabled", "MFA is already enabled.", 409)
-        secret = pyotp.random_base32()
-        User.objects.filter(pk=user.pk).update(mfa_secret_enc=crypto.encrypt(secret))
+        # Reuse an unconfirmed secret so repeated setup attempts (or a page reload) don't pile up
+        # dead entries in the authenticator app. It rotates only once enrolment is reset.
+        secret = None
+        if user.mfa_secret_enc:
+            try:
+                secret = crypto.decrypt(user.mfa_secret_enc)
+            except Exception:
+                secret = None
+        if not secret:
+            secret = pyotp.random_base32()
+            User.objects.filter(pk=user.pk).update(mfa_secret_enc=crypto.encrypt(secret))
         uri = pyotp.TOTP(secret).provisioning_uri(name=user.username, issuer_name="ARMY HQ")
         return Response({"secret": secret, "otpauth_uri": uri})
 
