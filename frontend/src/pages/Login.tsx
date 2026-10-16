@@ -43,7 +43,6 @@ export function Login() {
       </div>
       <h1 style={{ marginTop: "1.5rem" }}>{t("login.title")}</h1>
       <p className="muted">{t("app.tagline")}</p>
-      <Notice>{t("common.demoBuild")}</Notice>
       {offline && !error && <Notice kind="error">{t("err.network")}</Notice>}
       <ErrorNotice error={error} />
       <form onSubmit={(e) => void submit(e)}>
@@ -70,6 +69,7 @@ export function Login() {
         <img src="/ministry.jpg" alt="Ministry of Security Puntland emblem" width={48} height={48} style={{ borderRadius: 4 }} />
         <small>Ministry of Security Puntland</small>
       </div>
+      <p className="muted small" style={{ textAlign: "center", marginTop: "1rem" }}>ARMY HQ · Pilot build</p>
     </div>
   );
 }

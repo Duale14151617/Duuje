@@ -70,9 +70,6 @@ export function Dashboard() {
         warn("dash.noMfa", n.accounts.privileged_without_mfa, n.accounts.privileged_without_mfa > 0 ? "bad" : "")] });
     if (n.audit) panels.push({ icon: "activity", title: t("dash.auditTitle"),
       rows: [plain("dash.events", n.audit.events_24h), warn("dash.failedLogins", n.audit.failed_logins_24h), warn("dash.denied", n.audit.denied_24h)] });
-    panels.push({ icon: "file", title: t("dash.demoTitle"),
-      rows: [plain("dash.personnel", n.demo.personnel_records), plain("dash.requests", n.demo.pending_requests),
-        plain("dash.reports", n.demo.reports_awaiting_review), plain("dash.training", n.demo.training_completions_30d)] });
     pdfSections = panels.map((p) => ({ title: p.title, rows: p.rows.map(([l, v]) => [l, v.toLocaleString()] as [string, string]) }));
 
     body = (
@@ -97,7 +94,6 @@ export function Dashboard() {
         )}
         <h2 className="section-title">{t("dash.details")}</h2>
         <div className="grid">{panels.map((p) => <Panel key={p.title} {...p} />)}</div>
-        <p className="muted small">{t("dash.demoBanner")}</p>
       </>
     );
   }
@@ -105,9 +101,12 @@ export function Dashboard() {
   return (
     <>
       <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div className="hero">
-          <p className="muted">{t("dash.welcome")}{first ? `, ${first}` : ""}</p>
-          <h1>{t("dash.title")}</h1>
+        <div className="hero" style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <img src="/defence-force.jpg" alt="Puntland Defence Force emblem" width={64} height={64} style={{ borderRadius: 6 }} />
+          <div>
+            <p className="muted">{t("dash.welcome")}{first ? `, ${first}` : ""}</p>
+            <h1>{t("dash.title")}</h1>
+          </div>
         </div>
         {n && (
           <ExportPdfButton filename="dashboard.pdf" build={() => ({
