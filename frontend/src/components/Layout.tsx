@@ -81,6 +81,7 @@ export function Layout() {
       <main>
         <Outlet />
       </main>
+      <footer className="muted small" style={{ textAlign: "center", padding: "1rem" }}>ARMY HQ · Pilot build</footer>
     </div>
   );
 }
