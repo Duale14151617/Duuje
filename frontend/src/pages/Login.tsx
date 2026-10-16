@@ -32,12 +32,14 @@ export function Login() {
   return (
     <div className="auth">
       <div className="row" style={{ justifyContent: "space-between" }}>
-        <span className="brand" style={{ display: "inline-flex", alignItems: "center", gap: ".6rem" }}>
-          <img src="/defence-force.jpg" alt="Puntland Defence Force emblem" width={40} height={40} style={{ borderRadius: 4 }} />
-          {t("app.name")}
-        </span>
+        <span className="brand">{t("app.name")}</span>
         <ThemeToggle />
         <button className="secondary" onClick={() => setLang(lang === "en" ? "so" : "en")}>{t("lang.other")}</button>
+      </div>
+      <div style={{ textAlign: "center", marginTop: "1.5rem" }}>
+        <img src="/defence-force.jpg" alt="Puntland Defence Force emblem" width={112} height={112} style={{ borderRadius: 8 }} />
+        <div style={{ marginTop: ".6rem", fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase" }}>Puntland Defence Force</div>
+        <div className="muted">Headquarters Administration</div>
       </div>
       <h1 style={{ marginTop: "1.5rem" }}>{t("login.title")}</h1>
       <p className="muted">{t("app.tagline")}</p>
@@ -64,6 +66,10 @@ export function Login() {
         <button type="submit" disabled={busy} style={{ width: "100%" }}>{t("login.submit")}</button>
       </form>
       <p style={{ marginTop: "1rem" }}><a href="/reset">{t("reset.have")}</a></p>
+      <div style={{ marginTop: "2rem", paddingTop: "1rem", borderTop: "1px solid currentColor", opacity: .85, display: "flex", alignItems: "center", gap: ".75rem" }}>
+        <img src="/ministry.jpg" alt="Ministry of Security Puntland emblem" width={48} height={48} style={{ borderRadius: 4 }} />
+        <small>Ministry of Security Puntland</small>
+      </div>
     </div>
   );
 }
