@@ -103,8 +103,24 @@ export async function api<T = unknown>(path: string, opts: Options = {}): Promis
 }
 
 /** Multipart upload (CSV). The browser sets the multipart boundary, so no Content-Type header here. */
+/** Demo build only: photos "uploaded" this session, kept in memory as object URLs (nothing is sent anywhere). */
+export const demoPhotos = new Map<string, string>();
+
+/** URL of a person's photo. In the demo build it is the in-memory preview; otherwise the API endpoint. */
+export function photoUrl(personId: string, v: number): string {
+  if (import.meta.env.VITE_DEMO === "1") return demoPhotos.get(personId) ?? "";
+  return `/api/v1/personnel/${personId}/photo/?v=${v}`;
+}
+
 export async function upload<T>(path: string, field: string, file: File): Promise<T> {
   if (import.meta.env.VITE_DEMO === "1") {
+    const m = path.match(/^\/personnel\/([^/]+)\/photo\/upload\/$/);
+    if (m) {
+      const old = demoPhotos.get(m[1]);
+      if (old) URL.revokeObjectURL(old);
+      demoPhotos.set(m[1], URL.createObjectURL(file));
+      return { has_photo: true } as T;
+    }
     const { demoUpload } = await import("../demo/mock");
     return demoUpload() as T;
   }
