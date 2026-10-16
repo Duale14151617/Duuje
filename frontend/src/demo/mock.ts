@@ -65,7 +65,7 @@ function ie(n, e) {
     if (!Q) throw new C(401, { code: "not_authenticated", detail: "Sign in" });
     return R();
   }
-  if (n === "/dashboard/") return { scope: { units_in_scope: p.length, regions_in_scope: 4, branch_commands_in_scope: 9 }, ranks: { draft: 0, approved: m.length }, accounts: { active: 5, disabled: 1, privileged_without_mfa: 0 }, audit: { events_24h: 14, failed_logins_24h: 1, denied_24h: 2 }, personnel: { total: d.length, active: d.filter((r) => r.status === "active").length }, reports: { my_open: 1, awaiting_review: 2 }, logistics: { low_stock: 2, assets_attention: 1 }, training: { in_progress: 3, enrolled: 4 }, demo: { synthetic: true, personnel_records: d.length, pending_requests: 1, reports_awaiting_review: 2, training_completions_30d: 6 } };
+  if (n === "/dashboard/") return { scope: { units_in_scope: p.length, regions_in_scope: 4, branch_commands_in_scope: 9 }, ranks: { draft: 0, approved: m.length }, accounts: { active: 5, disabled: 1, privileged_without_mfa: 0 }, audit: { events_24h: 14, failed_logins_24h: 1, denied_24h: 2 }, personnel: { total: d.length, active: d.filter((r) => r.status === "active").length }, reports: { my_open: 1, awaiting_review: 2 }, logistics: { low_stock: 2, assets_attention: 1 }, training: { in_progress: 3, enrolled: 4 } };
   if (n === "/notifications/unread-count/") return { count: U.filter((r) => !r.read_at).length };
   if (n === "/notifications/") return c(U, e);
   if (n === "/ranks/") return c(A(m, e), e);
