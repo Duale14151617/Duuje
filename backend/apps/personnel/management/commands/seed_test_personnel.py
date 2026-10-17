@@ -1,0 +1,147 @@
+"""Synthetic test personnel for demos and load/UX testing - clearly tagged and removable in one go.
+
+  python manage.py seed_test_personnel --count 150     add test people (idempotent: tops up to 150)
+  python manage.py seed_test_personnel --delete        remove every test person (and their history/training rows)
+  python manage.py seed_test_personnel --from-env      used at container start, see below
+
+On Render (no shell on the free plan) the start command runs `--from-env`, driven by ONE environment variable:
+  ARMYHQ_TEST_PERSONNEL=150   -> make sure 150 test people exist
+  unset / 0                   -> delete all test people
+
+Test people are identified ONLY by the service-number prefix "TST-", so real records are never touched.
+Names are common Somali given names with father/grandfather names; no two test people share a name.
+"""
+import os
+import random
+from datetime import date, timedelta
+
+from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
+
+from apps.organization.models import OrganizationalUnit as OU
+from apps.personnel import services as svc
+from apps.personnel.models import Personnel, PersonnelHistory
+from apps.ranks.models import Rank
+
+PREFIX = "TST-"
+REGIONS = ("BARI", "KARKAAR", "NUGAAL", "MUDUG")
+
+MALE = ["Abdirahman", "Abdullahi", "Abdiweli", "Abdikarim", "Abdinasir", "Abdisalam", "Abdulkadir", "Abshir", "Ahmed", "Ali",
+        "Bashir", "Barre", "Dahir", "Elmi", "Farah", "Fuad", "Guled", "Hassan", "Hersi", "Hussein", "Ibrahim",
+        "Ismail", "Jama", "Jibril", "Khalif", "Liban", "Mahad", "Mohamed", "Mukhtar", "Mustafe", "Nuur", "Omar", "Osman",
+        "Said", "Samatar", "Shire", "Suleiman", "Warsame", "Yasin", "Yusuf", "Zakariye", "Abdiaziz", "Abdirizak",
+        "Ayanle", "Deeq", "Faisal", "Gaas", "Idris", "Kaahin", "Mursal", "Salad", "Tahlil",
+        "Yonis"]
+FEMALE = ["Amina", "Asha", "Ayaan", "Deeqa", "Faduma", "Halima", "Hawa", "Hodan", "Ifrah", "Khadija", "Ladan",
+          "Maryan", "Muna", "Nasra", "Rukia", "Sagal", "Sahra", "Ubah", "Zamzam"]
+FAMILY = ["Abdi", "Abdullahi", "Adan", "Ahmed", "Ali", "Aw", "Barre", "Bile", "Botan", "Dahir", "Duale", "Egal", "Elmi",
+          "Farah", "Gedi", "Guled", "Hassan", "Hussein", "Ibrahim", "Ismail", "Jama", "Jimcaale", "Kahin", "Khalif",
+          "Liban", "Mohamud", "Muse", "Nur", "Omar", "Osman", "Qorane", "Robleh", "Saed", "Salah", "Samatar",
+          "Sheikh", "Warsame", "Yare", "Yusuf"]
+STATUS = ["active"] * 17 + ["on_leave"] * 2 + ["suspended"]
+# the 16 supplied ranks, junior -> senior; the two top appointments are left out. Junior ranks are more common.
+WEIGHTS = [14, 12, 10, 9, 8, 7, 6, 5, 5, 4, 3, 3, 2, 2, 1, 1]
+
+
+def _candidates(n):
+    """Deterministic, unique-by-full-name list of (full_name) so reruns continue the same sequence."""
+    rng = random.Random(20260)
+    seen, out = set(), []
+    while len(out) < n:
+        first = rng.choice(FEMALE) if rng.random() < 0.12 else rng.choice(MALE)
+        father, grand = rng.sample(FAMILY, 2)
+        name = f"{first} {father} {grand}"
+        key = svc.normalize_name(name)
+        if key not in seen:
+            seen.add(key)
+            out.append(name)
+    return out
+
+
+def _units():
+    units = []
+    for r in REGIONS:
+        cmd = OU.objects.filter(code=f"{r}-ARMY").first()
+        if not cmd:
+            continue
+        unit = OU.objects.filter(code=f"{r}-ARMY-DEMO-A").first() or OU.objects.create(
+            code=f"{r}-ARMY-DEMO-A", name_en="Synthetic Unit A", name_so="Cutubka Tijaabada A",
+            level=OU.Level.UNIT, parent=cmd)
+        units.append(unit)
+    return units
+
+
+def add_test_personnel(count):
+    units = _units()
+    ranks = list(Rank.objects.filter(branch__code="ARMY", approval_status=Rank.Approval.APPROVED, active=True)
+                 .order_by("sort_order")[:16])
+    if not units or not ranks:
+        raise CommandError("Reference data missing (regional Army commands or approved ranks). Run seed_reference_data first.")
+    have = set(Personnel.objects.filter(service_number__startswith=PREFIX).values_list("service_number", flat=True))
+    taken = set(Personnel.objects.values_list("name_key", flat=True))
+    names = _candidates(count + 400)  # spare names in case a real person already has one
+    rng = random.Random(1)
+    today, created, name_i = date.today(), 0, 0
+    with transaction.atomic():
+        for i in range(1, count + 1):
+            number = f"{PREFIX}{i:04d}"
+            if number in have:
+                continue
+            while svc.normalize_name(names[name_i]) in taken:
+                name_i += 1
+            name = names[name_i]
+            name_i += 1
+            taken.add(svc.normalize_name(name))
+            # every rank appears at least once among the first people, then weighted towards junior ranks
+            rank = ranks[(i - 1) % len(ranks)] if i <= len(ranks) else rng.choices(ranks, weights=WEIGHTS[:len(ranks)])[0]
+            svc.create_personnel(
+                None, full_name=name, phone=f"+252907{i:06d}", service_number=number, org_unit=units[(i - 1) % len(units)],
+                rank=rank, status=rng.choice(STATUS), effective_date=today - timedelta(days=rng.randint(30, 1500)),
+                reason="Synthetic test record")
+            created += 1
+    return created
+
+
+def delete_test_personnel():
+    """Remove every TST- person. History is append-only through the normal manager, so it is cleared with the plain
+    base manager here; training rows protect the person, so they go first. Nothing else is touched."""
+    from apps.training.models import TrainingRecord
+    with transaction.atomic():
+        ids = list(Personnel.objects.filter(service_number__startswith=PREFIX).values_list("pk", flat=True))
+        if not ids:
+            return 0
+        TrainingRecord.objects.filter(personnel_id__in=ids).delete()
+        PersonnelHistory._base_manager.filter(personnel_id__in=ids).delete()
+        Personnel.objects.filter(pk__in=ids).delete()  # profile rows cascade
+    return len(ids)
+
+
+class Command(BaseCommand):
+    help = "Add or remove clearly-tagged synthetic test personnel (service numbers TST-0001...)."
+
+    def add_arguments(self, parser):
+        g = parser.add_mutually_exclusive_group()
+        g.add_argument("--count", type=int, help="make sure this many test people exist (max 1000)")
+        g.add_argument("--delete", action="store_true", help="delete ALL test people")
+        g.add_argument("--from-env", action="store_true", help="use ARMYHQ_TEST_PERSONNEL (0/unset = delete all)")
+
+    def handle(self, *args, **opts):
+        if opts["from_env"]:
+            raw = os.environ.get("ARMYHQ_TEST_PERSONNEL", "0").strip()
+            try:  # start-up must never fail because of test data
+                n = max(0, min(int(raw or 0), 1000))
+                if n:
+                    self.stdout.write(f"Test personnel: {add_test_personnel(n)} added (target {n}).")
+                else:
+                    self.stdout.write(f"Test personnel: {delete_test_personnel()} removed.")
+            except Exception as exc:  # noqa: BLE001
+                self.stderr.write(f"Test personnel skipped: {exc}")
+            return
+        if opts["delete"]:
+            self.stdout.write(self.style.SUCCESS(f"Deleted {delete_test_personnel()} test personnel."))
+        elif opts["count"]:
+            if not 1 <= opts["count"] <= 1000:
+                raise CommandError("--count must be between 1 and 1000.")
+            self.stdout.write(self.style.SUCCESS(f"Added {add_test_personnel(opts['count'])} test personnel."))
+        else:
+            raise CommandError("Use --count N, --delete or --from-env.")
