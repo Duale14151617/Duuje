@@ -28,7 +28,7 @@ This package adds a Render Blueprint and a single-origin Docker deployment. It k
 
 ## Demo accounts
 
-The `seed_demo_data` command creates synthetic usernames documented in `docs/SETUP.md` (for example `demo.hqadmin`, `demo.hqreports`, `demo.auditor`, `demo.bari.chief`, and others). They all use the password set in `ARMYHQ_DEMO_PASSWORD`. Privileged roles must enrol an authenticator app at first login. Keep this demo site unlisted and do not use real data.
+The `seed_demo_data` command creates synthetic usernames documented in `docs/SETUP.md` (for example `hqadmin`, `hqreports`, `auditor`, `bari.chief`, and others). They all use the password set in `ARMYHQ_DEMO_PASSWORD`. Privileged roles must enrol an authenticator app at first login. Keep this demo site unlisted and do not use real data.
 
 ## What this deployment configuration does
 
