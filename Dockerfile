@@ -15,4 +15,4 @@ RUN pip install -r requirements.txt
 COPY backend/ ./
 COPY --from=frontend-build /src/frontend/dist ./frontend_dist
 EXPOSE 10000
-CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py createcachetable && python manage.py seed_reference_data && python manage.py seed_demo_data && python -m gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-10000} --workers 2 --timeout 60 --access-logfile -"]
+CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py createcachetable && python manage.py seed_reference_data && python manage.py seed_demo_data && python manage.py seed_test_personnel --from-env && python -m gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-10000} --workers 2 --timeout 60 --access-logfile -"]
