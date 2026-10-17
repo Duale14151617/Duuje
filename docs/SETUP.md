@@ -27,7 +27,9 @@ python manage.py seed_demo_data
 python manage.py runserver
 ```
 Demo users: `hqadmin`, `hqreports`, `auditor`, `bari.chief`, `nugaal.chief`,
-`bari.armyadmin`, `bari.unitadmin`, `logistics`, `readonly`. Privileged ones must enrol
+`bari.armyadmin`, `bari.unitadmin`, `logistics`, `readonly`. Karkaar, Nugaal and Mudug each have the same regional set
+as Bari, named `<region>.chief`, `.armyadmin`, `.unitadmin`, `.reporter`, `.logistics`, `.restricted`, `.trainer`
+(for example `karkaar.chief`, `mudug.reporter`). Privileged ones must enrol
 an authenticator app (TOTP) at first sign-in. Compare what each user can see to check scoping.
 
 Personnel needs approved ranks. In a demo, `seed_demo_data` approves a few Army ranks with placeholder Somali names
