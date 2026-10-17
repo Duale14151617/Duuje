@@ -39,11 +39,11 @@ export function Layout() {
 
   // ---- responsive sidebar: drawer < 768px, persistent sidebar/rail >= 768px ----
   const isMobile = useMedia("(max-width: 767px)");
-  const isTablet = useMedia("(max-width: 1199px)");
+  const isTablet = useMedia("(max-width: 959px)");
   const [pref, setPref] = useState<"collapsed" | "expanded" | null>(() => {
     try { const v = localStorage.getItem(SIDEBAR_KEY); return v === "collapsed" || v === "expanded" ? v : null; } catch { return null; }
   });
-  const collapsed = isTablet || pref === "collapsed"; // below 1200px always the icon rail; from 1200px the full sidebar unless the user collapsed it
+  const collapsed = isTablet || pref === "collapsed"; // below 960px always the icon rail; from 960px the full sidebar unless the user collapsed it
   const [open, setOpen] = useState(false);
   const drawerOpen = open && isMobile;
   const menuBtn = useRef<HTMLButtonElement>(null);
