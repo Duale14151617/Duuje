@@ -74,17 +74,19 @@ for (const width of [1440, 1280]) {
 }
 
 for (const width of [1024, 768]) {
-  test(`sidebar @${width}: collapsed rail by default, no sideways scroll`, async ({ page }) => {
+  test(`sidebar @${width}: icon rail only (no hamburger, no collapse button), no sideways scroll`, async ({ page }) => {
     test.skip(!user || !password, "set E2E_USER and E2E_PASSWORD");
     await page.setViewportSize({ width, height: 800 });
     await signIn(page);
     const w = (await page.locator("#app-sidebar").boundingBox())?.width ?? 0;
-    expect(w).toBeCloseTo(width >= 1024 ? 208 : 64, 0);
+    expect(w).toBeCloseTo(64, 0);
+    await expect(page.getByRole("button", { name: /open menu|fur liiska/i })).toBeHidden();
+    await expect(page.getByRole("button", { name: /collapse sidebar|expand sidebar|yaree dhinaca|balaadhi dhinaca/i })).toBeHidden();
     expect(await noSideways(page)).toBe(false);
   });
 }
 
-for (const width of [430, 390, 360]) {
+for (const width of [430, 390, 360, 320]) {
   test(`drawer @${width}: hidden at first, opens, closes via button / backdrop / Escape / link`, async ({ page }) => {
     test.skip(!user || !password, "set E2E_USER and E2E_PASSWORD");
     await page.setViewportSize({ width, height: 700 });
