@@ -10,17 +10,22 @@ On Render (no shell on the free plan) the start command runs `--from-env`, drive
 
 Test people are identified ONLY by the service-number prefix "TST-", so real records are never touched.
 Names are common Somali given names with father/grandfather names; no two test people share a name.
+Each person also gets a complete identity profile (blood type, gender, date of birth, enlistment date, home district,
+emergency contact, a weapon ID for about 3 in 4, and a neutral placeholder portrait).
 """
 import os
 import random
 from datetime import date, timedelta
+from io import BytesIO
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from PIL import Image, ImageDraw
 
 from apps.organization.models import OrganizationalUnit as OU
+from apps.personnel import profile as profile_svc
 from apps.personnel import services as svc
-from apps.personnel.models import Personnel, PersonnelHistory
+from apps.personnel.models import Personnel, PersonnelHistory, PersonnelProfile
 from apps.ranks.models import Rank
 
 PREFIX = "TST-"
@@ -38,6 +43,10 @@ FAMILY = ["Abdi", "Abdullahi", "Adan", "Ahmed", "Ali", "Aw", "Barre", "Bile", "B
           "Farah", "Gedi", "Guled", "Hassan", "Hussein", "Ibrahim", "Ismail", "Jama", "Jimcaale", "Kahin", "Khalif",
           "Liban", "Mohamud", "Muse", "Nur", "Omar", "Osman", "Qorane", "Robleh", "Saed", "Salah", "Samatar",
           "Sheikh", "Warsame", "Yare", "Yusuf"]
+DISTRICTS = ["Garowe", "Bosaso", "Galkayo North", "Qardho", "Eyl", "Burtinle", "Dangorayo", "Iskushuban", "Bandarbeyla",
+             "Jariban", "Gardo", "Caluula", "Bargaal", "Godobjiraan", "Goldogob", "Armo"]
+BLOOD = ["O+"] * 8 + ["A+"] * 6 + ["B+"] * 4 + ["O-", "A-", "B-", "AB+", "AB-"]
+BACKDROPS = [(28, 46, 78), (40, 58, 92), (52, 64, 84), (34, 52, 66), (60, 70, 96)]
 STATUS = ["active"] * 17 + ["on_leave"] * 2 + ["suspended"]
 # the 16 supplied ranks, junior -> senior; the two top appointments are left out. Junior ranks are more common.
 WEIGHTS = [14, 12, 10, 9, 8, 7, 6, 5, 5, 4, 3, 3, 2, 2, 1, 1]
@@ -71,6 +80,50 @@ def _units():
     return units
 
 
+def _placeholder_photo(rng):
+    """Neutral silhouette on a navy backdrop (clearly not a real face) at the app's 360x450 portrait size."""
+    w, h = profile_svc.PHOTO_SIZE
+    img = Image.new("RGB", (w, h), rng.choice(BACKDROPS))
+    d = ImageDraw.Draw(img)
+    tone = (150, 160, 178)
+    d.ellipse((w * .31, h * .17, w * .69, h * .50), fill=tone)             # head
+    d.ellipse((w * .12, h * .56, w * .88, h * 1.25), fill=tone)            # shoulders
+    d.rectangle((0, h - 6, w, h), fill=(196, 160, 60))                     # thin gold base line
+    buf = BytesIO()
+    img.save(buf, "JPEG", quality=80)
+    return buf.getvalue()
+
+
+def fill_profiles():
+    """Give every test person a complete identity profile (blood type, gender, weapon ID, dates, district, emergency
+    contact, placeholder photo). Only people whose profile is still empty are filled, so admin edits are never overwritten."""
+    filled = 0
+    today = date.today()
+    for person in Personnel.objects.filter(service_number__startswith=PREFIX).order_by("service_number"):
+        n = int(person.service_number[len(PREFIX):])
+        rng = random.Random(9000 + n)
+        existing = PersonnelProfile.objects.filter(pk=person.pk).first()
+        if not (existing and existing.data_enc):
+            first = person.full_name.split()[0]
+            dob = today - timedelta(days=rng.randint(21 * 365, 48 * 365))
+            earliest, latest = dob + timedelta(days=18 * 365 + 30), today - timedelta(days=60)
+            enlisted = earliest + timedelta(days=rng.randint(0, (latest - earliest).days))
+            contact_first = rng.choice(MALE + FEMALE)
+            changes = {
+                "blood_type": rng.choice(BLOOD), "gender": "female" if first in FEMALE else "male",
+                "date_of_birth": dob, "enlistment_date": enlisted, "home_district": rng.choice(DISTRICTS),
+                "emergency_contact_name": f"{contact_first} {rng.choice(FAMILY)}",
+                "emergency_contact_phone": f"+252908{n:06d}",
+            }
+            if rng.random() < 0.75:  # not everyone is issued a personal weapon
+                changes["weapon_id"] = f"TSTW-{n:04d}"
+            profile_svc.save(person, changes)
+            filled += 1
+        if not (existing and existing.photo_enc):
+            profile_svc.save_photo(person, _placeholder_photo(rng))
+    return filled
+
+
 def add_test_personnel(count):
     units = _units()
     ranks = list(Rank.objects.filter(branch__code="ARMY", approval_status=Rank.Approval.APPROVED, active=True)
@@ -99,6 +152,7 @@ def add_test_personnel(count):
                 rank=rank, status=rng.choice(STATUS), effective_date=today - timedelta(days=rng.randint(30, 1500)),
                 reason="Synthetic test record")
             created += 1
+    fill_profiles()  # also completes people created before profiles were added
     return created
 
 
