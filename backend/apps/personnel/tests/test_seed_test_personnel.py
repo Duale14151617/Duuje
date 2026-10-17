@@ -22,12 +22,23 @@ class SeedTestPersonnelTests(BaseApiTest):
         self.assertGreater(len({p.rank_id for p in tst}), 10)           # many different ranks
         self.assertGreater(len({p.org_unit_id for p in tst}), 3)        # spread over the regions
 
+        from apps.personnel import profile as profile_svc
+        from apps.personnel.models import PersonnelProfile
+        for p in tst[:5]:                                              # identity profile is pre-filled
+            prof = profile_svc.read(p)
+            self.assertTrue(prof["blood_type"] and prof["gender"] and prof["home_district"] and prof["has_photo"])
+            self.assertTrue(prof["date_of_birth"] and prof["enlistment_date"] and prof["emergency_contact_phone"])
+        self.assertEqual(PersonnelProfile.objects.filter(personnel__in=tst).count(), 150)
+        weapons = list(PersonnelProfile.objects.filter(personnel__in=tst).exclude(weapon_key=None).values_list("weapon_key", flat=True))
+        self.assertEqual(len(weapons), len(set(weapons)))              # weapon IDs are unique
+
         call_command("seed_test_personnel", count=150, verbosity=0)     # idempotent
         self.assertEqual(Personnel.objects.filter(service_number__startswith="TST-").count(), 150)
 
         call_command("seed_test_personnel", delete=True, verbosity=0)
         self.assertFalse(Personnel.objects.filter(service_number__startswith="TST-").exists())
         self.assertFalse(PersonnelHistory.objects.filter(personnel__service_number__startswith="TST-").exists())
+        self.assertFalse(PersonnelProfile.objects.filter(personnel__service_number__startswith="TST-").exists())
         self.assertTrue(Personnel.objects.filter(pk=real.pk).exists())   # real records untouched
 
     def test_from_env_zero_deletes_and_never_raises(self):
