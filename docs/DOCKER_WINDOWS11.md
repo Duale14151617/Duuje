@@ -38,7 +38,7 @@ The API health endpoint is:
 http://localhost:8000/api/v1/health/live/
 
 ## 6. Demo login
-The seed command creates synthetic accounts including `demo.hqadmin`, `demo.hqreports`, `demo.auditor`, `demo.bari.chief`, and `demo.readonly`. They use the `ARMYHQ_DEMO_PASSWORD` value set above. Privileged roles require authenticator-app MFA enrollment on first sign-in. Use only the synthetic demo accounts.
+The seed command creates synthetic accounts including `hqadmin`, `hqreports`, `auditor`, `bari.chief`, and `readonly`. They use the `ARMYHQ_DEMO_PASSWORD` value set above. Privileged roles require authenticator-app MFA enrollment on first sign-in. Use only the synthetic demo accounts.
 
 ## 7. Useful Docker commands
 View logs:

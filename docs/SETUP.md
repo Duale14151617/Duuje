@@ -26,8 +26,8 @@ python manage.py seed_demo_data
 
 python manage.py runserver
 ```
-Demo users: `demo.hqadmin`, `demo.hqreports`, `demo.auditor`, `demo.bari.chief`, `demo.nugaal.chief`,
-`demo.bari.armyadmin`, `demo.bari.unitadmin`, `demo.logistics`, `demo.readonly`. Privileged ones must enrol
+Demo users: `hqadmin`, `hqreports`, `auditor`, `bari.chief`, `nugaal.chief`,
+`bari.armyadmin`, `bari.unitadmin`, `logistics`, `readonly`. Privileged ones must enrol
 an authenticator app (TOTP) at first sign-in. Compare what each user can see to check scoping.
 
 Personnel needs approved ranks. In a demo, `seed_demo_data` approves a few Army ranks with placeholder Somali names
@@ -35,13 +35,13 @@ Personnel needs approved ranks. In a demo, `seed_demo_data` approves a few Army 
 Export: set `PERSONNEL_EXPORT_ENABLED=1` only after institutional approval.
 
 Reports: re-run `seed_reference_data` after upgrading (adds permissions, role grants and the three starter report types).
-Summary export: set `REPORT_EXPORT_ENABLED=1` only after institutional approval. Demo user `demo.bari.reporter` can submit;
-`demo.bari.chief` can review; `demo.hqreports` sees summaries.
+Summary export: set `REPORT_EXPORT_ENABLED=1` only after institutional approval. Demo user `bari.reporter` can submit;
+`bari.chief` can review; `hqreports` sees summaries.
 
 Logistics/training: re-run `seed_reference_data` after upgrading (new permissions, two new roles, draft categories and
 starter courses). Categories must be approved by a `logistics_reviewer` (never the creator) before use. In a demo,
-`seed_demo_data` approves two harmless categories and adds sample stock/vehicles; demo users: `demo.logistics`,
-`demo.restricted`, `demo.reviewer`, `demo.trainer`.
+`seed_demo_data` approves two harmless categories and adds sample stock/vehicles; demo users: `logistics`,
+`restricted`, `reviewer`, `trainer`.
 
 Hardening (1.4): `python manage.py check --deploy --fail-level ERROR` must pass in production. Password recovery: an
 administrator issues a one-time code from the user's page; the user opens `/reset`, enters username + code + new password.
