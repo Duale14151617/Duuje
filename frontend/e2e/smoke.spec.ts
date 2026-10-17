@@ -57,7 +57,7 @@ async function signIn(page: import("@playwright/test").Page) {
 const noSideways = (page: import("@playwright/test").Page) =>
   page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
 
-for (const width of [1440, 1280]) {
+for (const width of [1440, 1280, 1024, 980]) {
   test(`sidebar @${width}: expanded by default, collapses to icons, expands again`, async ({ page }) => {
     test.skip(!user || !password, "set E2E_USER and E2E_PASSWORD");
     await page.setViewportSize({ width, height: 800 });
@@ -73,7 +73,7 @@ for (const width of [1440, 1280]) {
   });
 }
 
-for (const width of [1024, 768]) {
+for (const width of [959, 768]) {
   test(`sidebar @${width}: icon rail only (no hamburger, no collapse button), no sideways scroll`, async ({ page }) => {
     test.skip(!user || !password, "set E2E_USER and E2E_PASSWORD");
     await page.setViewportSize({ width, height: 800 });
