@@ -48,6 +48,6 @@ The `seed_demo_data` command creates synthetic usernames documented in `docs/SET
 
 Render's free plan has no shell, so this is controlled by one environment variable on the `armyhq-demo` service:
 
-- **Add 150 test people:** Environment -> add `ARMYHQ_TEST_PERSONNEL` = `150` -> Save. Render redeploys and the start command tops up to 150 people (service numbers `TST-0001` to `TST-0150`, unique Somali names, varied ranks, spread over Bari, Karkaar, Nugaal and Mudug).
+- **Add 150 test people:** Environment -> add `ARMYHQ_TEST_PERSONNEL` = `150` -> Save. Render redeploys and the start command tops up to 150 people (service numbers `TST-0001` to `TST-0150`, unique Somali names, varied ranks, spread over Bari, Karkaar, Nugaal and Mudug), each with a filled identity profile (blood type, gender, date of birth, enlistment date, home district, emergency contact, a weapon ID for about 3 in 4, and a neutral placeholder portrait). People already created earlier get their profile filled on the next deploy without being recreated.
 - **Remove them all:** set `ARMYHQ_TEST_PERSONNEL` to `0` (or delete the variable) -> Save. On the redeploy every `TST-` person and their history is deleted. Real records are never touched.
 - With a shell you can also run `python manage.py seed_test_personnel --count 150` or `--delete`.
