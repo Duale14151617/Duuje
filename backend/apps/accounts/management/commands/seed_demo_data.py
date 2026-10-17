@@ -31,6 +31,18 @@ DEMO_USERS = {
     "readonly": ("Read-only", "read_only", "MUDUG", None),
 }
 
+# The other regions get the same regional set Bari has (chief, branch admin, unit admin, reporter, custodians, trainer).
+OTHER_REGIONS = ("Karkaar", "Nugaal", "Mudug")
+for _name in OTHER_REGIONS:
+    _r, _k = _name.upper(), _name.lower()
+    DEMO_USERS.setdefault(f"{_k}.chief", (f"{_name} Chief", "regional_chief", _r, None))
+    DEMO_USERS.setdefault(f"{_k}.armyadmin", (f"{_name} Army Admin", "branch_admin", _r, "ARMY"))
+    DEMO_USERS.setdefault(f"{_k}.unitadmin", (f"{_name} Unit Admin", "unit_admin", f"{_r}-ARMY-DEMO-A", None))
+    DEMO_USERS.setdefault(f"{_k}.reporter", (f"{_name} Reporting Officer", "reporting_officer", f"{_r}-ARMY", None))
+    DEMO_USERS.setdefault(f"{_k}.logistics", (f"{_name} Logistics Custodian", "logistics_custodian", _r, None))
+    DEMO_USERS.setdefault(f"{_k}.restricted", (f"{_name} Restricted Custodian", "restricted_custodian", f"{_r}-ARMY", None))
+    DEMO_USERS.setdefault(f"{_k}.trainer", (f"{_name} Training Administrator", "training_admin", _r, None))
+
 
 class Command(BaseCommand):
     help = "Create synthetic demo accounts. Password from ARMYHQ_DEMO_PASSWORD (min 12 chars)."
@@ -51,7 +63,15 @@ class Command(BaseCommand):
         OU.objects.filter(code="BARI-ARMY-DEMO-A").first() or OU.objects.create(
             code="BARI-ARMY-DEMO-A", name_en="Synthetic Unit A", name_so="Cutubka Tijaabada A",
             level=OU.Level.UNIT, parent=army_cmd)
+        for region in OTHER_REGIONS:  # one synthetic unit per region so each region's unit admin has a unit
+            region_army = OU.objects.filter(code=f"{region.upper()}-ARMY").first()
+            if region_army:
+                OU.objects.filter(code=f"{region.upper()}-ARMY-DEMO-A").first() or OU.objects.create(
+                    code=f"{region.upper()}-ARMY-DEMO-A", name_en="Synthetic Unit A", name_so="Cutubka Tijaabada A",
+                    level=OU.Level.UNIT, parent=region_army)
         for username, (full, role_code, unit_code, branch_code) in DEMO_USERS.items():
+            if not OU.objects.filter(code=unit_code).exists():
+                continue  # reference data for this region is missing; skip rather than fail the whole deploy
             legacy = User.objects.filter(username=f"demo.{username}").first()
             if legacy and not User.objects.filter(username=username).exists():
                 legacy.username = username  # keep role assignment, password and MFA enrolment
