@@ -88,8 +88,9 @@ main { max-width: 60rem; margin: 0 auto; padding: 1rem; }
 .topbar-start { display: flex; align-items: center; gap: .5rem; min-width: 0; }
 .menu-btn { flex: 0 0 auto; }
 
-/* sidebar: slide-in drawer below 768px, persistent sidebar (or icon rail when collapsed) from 768px up */
-.sidebar { position: fixed; top: 0; bottom: 0; left: 0; z-index: 20; width: min(18rem, 85vw); display: flex; flex-direction: column;
+/* sidebar: slide-in drawer below 768px; icon-only rail 768-1199px; full sidebar (user can collapse to the rail) from 1200px.
+   Control visibility uses two-class selectors so the generic .icon-btn { display } rule further down cannot re-show them. */
+.sidebar { position: fixed; top: 0; bottom: 0; left: 0; height: 100vh; height: 100dvh; z-index: 20; width: min(18rem, 85vw); display: flex; flex-direction: column;
   background: var(--chrome); border-right: 1px solid var(--chrome-line); padding-bottom: env(safe-area-inset-bottom, 0px);
   transform: translateX(-100%); visibility: hidden; transition: transform .18s ease, visibility 0s linear .18s; overscroll-behavior: contain; }
 .sidebar.open { transform: none; visibility: visible; transition: transform .18s ease; box-shadow: 4px 0 24px rgba(0,0,0,.35); }
@@ -99,7 +100,8 @@ button.sidebar-backdrop { position: fixed; inset: 0; z-index: 19; width: 100%; m
 .nav-head { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: .5rem; min-height: 3.5rem;
   padding: .5rem .75rem .5rem 1rem; padding-top: calc(.5rem + env(safe-area-inset-top, 0px)); border-bottom: 2px solid var(--gold); color: #fff; }
 .nav-brand { display: inline-flex; align-items: center; gap: .5rem; font-weight: 700; letter-spacing: .02em; font-size: 1.1rem; white-space: nowrap; }
-.nav-toggle { display: none; }
+.topbar .menu-btn, .sidebar .nav-close { display: inline-flex; }
+.sidebar .nav-toggle { display: none; }
 .sidebar .icon-btn { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.4); min-height: 2.5rem; }
 .sidebar .icon-btn:hover { background: rgba(255,255,255,.12); }
 .sidebar :focus-visible { outline-color: var(--gold-light); }
@@ -112,20 +114,12 @@ button.sidebar-backdrop { position: fixed; inset: 0; z-index: 19; width: 100%; m
 .nav-tip { position: fixed; left: 4.25rem; z-index: 30; transform: translateY(-50%); pointer-events: none; padding: .3rem .6rem; border-radius: 6px;
   background: var(--navy-deep); color: #fff; border: 1px solid var(--gold); font-size: .8125rem; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
 
-@media (max-width: 767px) {
-  .topbar { padding-left: .5rem; padding-right: .5rem; gap: .25rem; }
-  .topbar-start { gap: .25rem; }
-  .brand { font-size: 1rem; }
-  .topbar-actions { gap: .25rem; }
-  .topbar-actions > button { padding: 0 .5rem; }
-}
 @media (min-width: 768px) {
   .shell { --sb-w: 13rem; padding-left: var(--sb-w); }
   .shell.sb-collapsed { --sb-w: 4rem; }
-  .menu-btn, .nav-brand, .nav-close, .sidebar-backdrop { display: none; }
+  .topbar .menu-btn, .sidebar .nav-brand, .sidebar .nav-close, button.sidebar-backdrop { display: none; }
   .sidebar { width: var(--sb-w); transform: none; visibility: visible; box-shadow: none; transition: width .15s ease; }
   .nav-head { min-height: 4.5rem; border-bottom: 0; justify-content: flex-end; padding: 0 .75rem; }
-  .nav-toggle { display: inline-flex; }
   .topbar, .scope-strip, .demo-banner { margin-left: calc(-1 * var(--sb-w)); padding-left: calc(var(--sb-w) + 1rem); }
   .topbar { padding-right: 1.5rem; }
   .sb-collapsed .nav-head { justify-content: center; padding: 0; }
@@ -133,7 +127,8 @@ button.sidebar-backdrop { position: fixed; inset: 0; z-index: 19; width: 100%; m
   .sb-collapsed .nav-label { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
   .sb-collapsed .nav a[data-unread]::after { content: ""; position: absolute; top: .55rem; right: 1rem; width: .5rem; height: .5rem; border-radius: 50%; background: var(--gold); }
 }
-@media (min-width: 768px) and (max-width: 1023px) { .topbar-actions { gap: .25rem; } }
+/* the single collapse/expand control exists only where the full sidebar is the default */
+@media (min-width: 1200px) { .sidebar .nav-toggle { display: inline-flex; } }
 
 /* controls */
 button, .btn { --btn-bg: var(--brand); --btn-bd: var(--brand-border); --btn-fg: var(--brand-text); --btn-hover: var(--brand-hover);
@@ -218,8 +213,10 @@ body, .card, .item, .nav, .sidebar, .scope-strip { transition: background-color 
 .hero p { margin: 0; }
 .hero h1 { margin: 0; font-size: 1.75rem; letter-spacing: -.01em; }
 .section-title { margin: 1.25rem 0 .75rem; font-size: .8125rem; text-transform: uppercase; letter-spacing: .08em; color: var(--slate); }
-.kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: .75rem; margin-bottom: 1rem; }
-@media (min-width: 720px) { .kpis { grid-template-columns: repeat(4, 1fr); } }
+.kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; margin-bottom: 1rem; }
+@media (min-width: 720px) { .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.kpi { min-width: 0; }
+.kpi .num, .kpi .lbl { overflow-wrap: anywhere; }
 .kpi { background: var(--paper); border: 1px solid var(--line); border-top: 3px solid var(--gold); border-radius: 12px;
   padding: .85rem; display: flex; flex-direction: column; gap: .4rem; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
 .kpi.warn { border-top-color: var(--amber); }
@@ -256,3 +253,13 @@ body, .card, .item, .nav, .sidebar, .scope-strip { transition: background-color 
 .steps li.on { color: var(--accent-text); border-color: var(--gold-strong); font-weight: 700; }
 .steps li.done { background: var(--ok-bg); color: var(--ok); border-color: transparent; }
 @media print { .topbar, .sidebar, .sidebar-backdrop, .nav, .scope-strip, .demo-banner, .row button, .btn { display: none !important; } .shell { padding: 0 !important; } }
+
+/* narrow header: hamburger + crest + theme + language + sign-out must fit without wrapping or overflow */
+@media (max-width: 767px) {
+  .topbar { padding-left: .5rem; padding-right: .5rem; gap: .25rem; }
+  .topbar-start { gap: .25rem; flex: 1 1 auto; }
+  .topbar-actions { gap: .25rem; flex: 0 0 auto; }
+  .topbar-actions > button { padding: 0 .5rem; }
+  .brand { font-size: 1rem; }
+}
+@media (max-width: 479px) { .brand-text { display: none; } } /* crest stays; its alt text names the app */
