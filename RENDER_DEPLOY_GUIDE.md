@@ -43,3 +43,11 @@ The `seed_demo_data` command creates synthetic usernames documented in `docs/SET
 - `SECURE_SSL_REDIRECT=0` is set because Render terminates HTTPS at its proxy. The app trusts forwarded HTTPS only with `TRUST_PROXY_HEADERS=1`; review this before production use.
 - This is a deployment starter, not proof of a successful live deploy. The image must build and the database migrations must complete on Render. Test sign-in, MFA enrolment, CSRF-protected writes, logout, SPA refreshes, and logs before sharing.
 - This package is not approved or configured for real-world Army, Navy, or Police operations. For production, use a paid, institutionally approved deployment with backups, retention, monitoring, incident response, and a reviewed threat model.
+
+## Test personnel for presentations (add and remove in one go)
+
+Render's free plan has no shell, so this is controlled by one environment variable on the `armyhq-demo` service:
+
+- **Add 150 test people:** Environment -> add `ARMYHQ_TEST_PERSONNEL` = `150` -> Save. Render redeploys and the start command tops up to 150 people (service numbers `TST-0001` to `TST-0150`, unique Somali names, varied ranks, spread over Bari, Karkaar, Nugaal and Mudug).
+- **Remove them all:** set `ARMYHQ_TEST_PERSONNEL` to `0` (or delete the variable) -> Save. On the redeploy every `TST-` person and their history is deleted. Real records are never touched.
+- With a shell you can also run `python manage.py seed_test_personnel --count 150` or `--delete`.
