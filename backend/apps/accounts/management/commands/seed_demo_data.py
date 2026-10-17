@@ -13,21 +13,22 @@ from apps.personnel.models import Personnel
 from apps.ranks.models import Rank
 
 # username: (full name, role, org unit code, branch code or None)
+# Usernames have no "demo." prefix. Older deployments that already have "demo.<name>" accounts are renamed in place below.
 DEMO_USERS = {
-    "demo.hqadmin": ("Demo HQ Administrator", "hq_admin", "HQ", None),
-    "demo.superadmin": ("Demo Super Administrator", "super_admin", "HQ", None),
-    "demo.hqreports": ("Demo HQ Reporting", "hq_reporting", "HQ", None),
-    "demo.auditor": ("Demo Auditor", "auditor", "HQ", None),
-    "demo.bari.chief": ("Demo Bari Chief", "regional_chief", "BARI", None),
-    "demo.nugaal.chief": ("Demo Nugaal Chief", "regional_chief", "NUGAAL", None),
-    "demo.bari.armyadmin": ("Demo Bari Army Admin", "branch_admin", "BARI", "ARMY"),
-    "demo.bari.unitadmin": ("Demo Bari Unit Admin", "unit_admin", "BARI-ARMY-DEMO-A", None),
-    "demo.bari.reporter": ("Demo Bari Reporting Officer", "reporting_officer", "BARI-ARMY", None),
-    "demo.logistics": ("Demo Logistics Custodian", "logistics_custodian", "BARI", None),
-    "demo.restricted": ("Demo Restricted Custodian", "restricted_custodian", "BARI-ARMY", None),
-    "demo.reviewer": ("Demo Logistics Reviewer", "logistics_reviewer", "HQ", None),
-    "demo.trainer": ("Demo Training Administrator", "training_admin", "BARI", None),
-    "demo.readonly": ("Demo Read-only", "read_only", "MUDUG", None),
+    "hqadmin": ("HQ Administrator", "hq_admin", "HQ", None),
+    "superadmin": ("Super Administrator", "super_admin", "HQ", None),
+    "hqreports": ("HQ Reporting", "hq_reporting", "HQ", None),
+    "auditor": ("Auditor", "auditor", "HQ", None),
+    "bari.chief": ("Bari Chief", "regional_chief", "BARI", None),
+    "nugaal.chief": ("Nugaal Chief", "regional_chief", "NUGAAL", None),
+    "bari.armyadmin": ("Bari Army Admin", "branch_admin", "BARI", "ARMY"),
+    "bari.unitadmin": ("Bari Unit Admin", "unit_admin", "BARI-ARMY-DEMO-A", None),
+    "bari.reporter": ("Bari Reporting Officer", "reporting_officer", "BARI-ARMY", None),
+    "logistics": ("Logistics Custodian", "logistics_custodian", "BARI", None),
+    "restricted": ("Restricted Custodian", "restricted_custodian", "BARI-ARMY", None),
+    "reviewer": ("Logistics Reviewer", "logistics_reviewer", "HQ", None),
+    "trainer": ("Training Administrator", "training_admin", "BARI", None),
+    "readonly": ("Read-only", "read_only", "MUDUG", None),
 }
 
 
@@ -51,6 +52,11 @@ class Command(BaseCommand):
             code="BARI-ARMY-DEMO-A", name_en="Synthetic Unit A", name_so="Cutubka Tijaabada A",
             level=OU.Level.UNIT, parent=army_cmd)
         for username, (full, role_code, unit_code, branch_code) in DEMO_USERS.items():
+            legacy = User.objects.filter(username=f"demo.{username}").first()
+            if legacy and not User.objects.filter(username=username).exists():
+                legacy.username = username  # keep role assignment, password and MFA enrolment
+                legacy.full_name = full
+                legacy.save(update_fields=["username", "full_name", "updated_at"])
             user = User.objects.filter(username=username).first()
             if user:
                 if os.environ.get("ARMYHQ_DEMO_RESET", "0") == "1":
