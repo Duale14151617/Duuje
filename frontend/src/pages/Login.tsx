@@ -37,9 +37,8 @@ export function Login() {
         <button className="secondary" onClick={() => setLang(lang === "en" ? "so" : "en")}>{t("lang.other")}</button>
       </div>
       <div style={{ textAlign: "center", marginTop: "1.5rem" }}>
-        <img src="/defence-force.jpg" alt="Puntland Defence Force emblem" width={112} height={112} style={{ borderRadius: 8 }} />
-        <div style={{ marginTop: ".6rem", fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase" }}>Puntland Defence Force</div>
-        <div className="muted">Headquarters Administration</div>
+        <img src="/puntland-flag-hero.png" alt="Puntland flag" width={192} height={128} style={{ borderRadius: 8, maxWidth: "60%", height: "auto", boxShadow: "0 6px 20px rgba(13,21,34,.35)" }} />
+        <div className="muted" style={{ marginTop: ".75rem" }}>Headquarters Administration</div>
       </div>
       <h1 style={{ marginTop: "1.5rem" }}>{t("login.title")}</h1>
       <p className="muted">{t("app.tagline")}</p>
@@ -69,7 +68,7 @@ export function Login() {
         <img src="/ministry.jpg" alt="Ministry of Security Puntland emblem" width={48} height={48} style={{ borderRadius: 4 }} />
         <small>Ministry of Security Puntland</small>
       </div>
-      <p className="muted small" style={{ textAlign: "center", marginTop: "1rem" }}>ARMY HQ · Pilot build</p>
+      <p className="muted small" style={{ textAlign: "center", marginTop: "1rem" }}>{t("app.name")} · Pilot build</p>
     </div>
   );
 }

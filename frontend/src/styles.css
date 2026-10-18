@@ -263,3 +263,8 @@ body, .card, .item, .nav, .sidebar, .scope-strip { transition: background-color 
   .brand { font-size: 1rem; }
 }
 @media (max-width: 479px) { .brand-text { display: none; } } /* crest stays; its alt text names the app */
+
+/* long brand name: let it wrap instead of overflowing the top bar / sidebar */
+.topbar .brand { white-space: normal; min-width: 0; }
+.topbar .brand-text, .nav-brand { white-space: normal; line-height: 1.15; font-size: .95rem; min-width: 0; }
+@media (min-width: 48rem) { .topbar .brand-text { font-size: 1.1rem; } }

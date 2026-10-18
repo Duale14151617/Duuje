@@ -108,7 +108,7 @@ export function Layout() {
             <Icon name="menu" size={20} />
           </button>
           <span className="brand" style={{ display: "inline-flex", alignItems: "center", gap: ".5rem" }}>
-            <img src="/defence-force.jpg" alt="Puntland Defence Force emblem" width={32} height={32} style={{ borderRadius: 4 }} />
+            <img src="/puntland-flag.svg" alt="Puntland flag" width={36} height={24} style={{ borderRadius: 3, boxShadow: "0 0 0 1px rgba(198,161,91,.7)" }} />
             <span className="brand-text">{t("app.name")}</span>
           </span>
         </div>
@@ -142,7 +142,7 @@ export function Layout() {
            role={drawerOpen ? "dialog" : undefined} aria-modal={drawerOpen ? true : undefined} aria-label={drawerOpen ? t("nav.label") : undefined}>
         <div className="nav-head">
           <span className="nav-brand">
-            <img src="/defence-force.jpg" alt="" width={32} height={32} style={{ borderRadius: 4 }} />
+            <img src="/puntland-flag.svg" alt="" width={36} height={24} style={{ borderRadius: 3, boxShadow: "0 0 0 1px rgba(198,161,91,.7)" }} />
             {t("app.name")}
           </span>
           <button ref={closeBtn} type="button" className="icon-btn nav-close" onClick={() => closeDrawer(true)} aria-label={t("nav.close")}>
@@ -174,7 +174,7 @@ export function Layout() {
       <main>
         <Outlet />
       </main>
-      <footer className="muted small" style={{ textAlign: "center", padding: "1rem" }}>ARMY HQ · Pilot build</footer>
+      <footer className="muted small" style={{ textAlign: "center", padding: "1rem" }}>{t("app.name")} · Pilot build</footer>
     </div>
   );
 }

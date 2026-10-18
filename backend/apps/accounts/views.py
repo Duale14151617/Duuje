@@ -198,7 +198,7 @@ class MfaSetupView(APIView):
         if not secret:
             secret = pyotp.random_base32()
             User.objects.filter(pk=user.pk).update(mfa_secret_enc=crypto.encrypt(secret))
-        uri = pyotp.TOTP(secret).provisioning_uri(name=user.username, issuer_name="ARMY HQ")
+        uri = pyotp.TOTP(secret).provisioning_uri(name=user.username, issuer_name="Puntland Defence Forces HQ")
         return Response({"secret": secret, "otpauth_uri": uri})
 
 

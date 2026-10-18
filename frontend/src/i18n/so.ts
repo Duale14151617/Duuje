@@ -3,7 +3,7 @@ import type { en } from "./en";
 // Draft Somali interface text. Needs review by a qualified Somali translator and
 // institutional terminology owners before any real rollout.
 export const so: Record<keyof typeof en, string> = {
-  "app.name": "ARMY HQ",
+  "app.name": "Puntland Defence Forces HQ",
   "app.tagline": "Madal maamul",
   "lang.other": "English",
   "theme.label": "Muuqaalka",
@@ -583,8 +583,8 @@ export const so: Record<keyof typeof en, string> = {
   "nav.integrations": "Isku-xidhka nidaamyada",
   "nav.tree": "Geedka cutubyada",
   "nav.institutions": "Hay'adaha",
-  "inst.intro": "Hay'adaha ARMY HQ tixraacayo. Mid walba waxay haysataa aqoonsigeeda gaarka ah.",
-  "inst.defence": "Hay'adda ugu weyn ee ARMY HQ u adeegto.",
+  "inst.intro": "Hay'adaha Puntland Defence Forces HQ tixraacayo. Mid walba waxay haysataa aqoonsigeeda gaarka ah.",
+  "inst.defence": "Hay'adda ugu weyn ee Puntland Defence Forces HQ u adeegto.",
   "inst.ministry": "Kormeerka heerka wasaaradda.",
   "inst.police": "Hay'ad fulinta sharciga oo gaar ah. Waxaa loogu tusay tixraac dhex-hay'adeed oo keliya.",
   "inst.pmpf": "Hay'ad booliska badda oo gaar ah. Waxaa loogu tusay xiriir-tixraac oo keliya.",

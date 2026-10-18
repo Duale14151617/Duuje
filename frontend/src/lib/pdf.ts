@@ -181,7 +181,7 @@ export function buildPdf(doc: PdfDoc): Uint8Array {
   objs[1] = "<< /Type /Catalog /Pages 2 0 R >>";
   objs[3] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>";
   objs[4] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>";
-  objs[5] = `<< /Title (${esc(encode(doc.title))}) /Producer (ARMY HQ) >>`;
+  objs[5] = `<< /Title (${esc(encode(doc.title))}) /Producer (Puntland Defence Forces HQ) >>`;
   let next = 6;
   for (const p of pages) {
     const content = p.ops.join("\n");

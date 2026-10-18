@@ -1,5 +1,5 @@
 export const en = {
-  "app.name": "ARMY HQ",
+  "app.name": "Puntland Defence Forces HQ",
   "app.tagline": "Administrative platform",
   "lang.other": "Soomaali",
   "theme.label": "Theme",
@@ -579,8 +579,8 @@ export const en = {
   "nav.integrations": "Integrations",
   "nav.tree": "Unit tree",
   "nav.institutions": "Institutions",
-  "inst.intro": "Institutions referenced by ARMY HQ. Each keeps its own identity.",
-  "inst.defence": "Primary institution served by ARMY HQ.",
+  "inst.intro": "Institutions referenced by Puntland Defence Forces HQ. Each keeps its own identity.",
+  "inst.defence": "Primary institution served by Puntland Defence Forces HQ.",
   "inst.ministry": "Ministry-level oversight.",
   "inst.police": "Separate law-enforcement institution. Shown for inter-agency reference only.",
   "inst.pmpf": "Separate maritime police institution. Shown for liaison reference only.",
