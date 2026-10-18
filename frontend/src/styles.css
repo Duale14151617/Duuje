@@ -304,7 +304,7 @@ body, .card, .item, .nav, .sidebar, .scope-strip { transition: background-color 
   -webkit-mask-image: linear-gradient(270deg, #000 88%, transparent 100%); mask-image: linear-gradient(270deg, #000 88%, transparent 100%); }
 
 .lp-center { position: relative; z-index: 1; width: 100%; max-width: 68rem; display: flex; flex-direction: column; align-items: center; text-align: center; }
-.lp-crest { width: 144px; height: 144px; border-radius: 50%; object-fit: cover; margin-top: 0;
+.lp-crest { width: 136px; height: 136px; border-radius: 50%; object-fit: cover; margin-top: 0;
   box-shadow: 0 0 0 3px var(--lp-gold), 0 0 34px rgba(227,184,79,.5), 0 10px 30px rgba(0,0,0,.5); }
 .lp-title { margin: .6rem 0 0; font-size: clamp(1.2rem, 5.4vw, 3.1rem); font-weight: 800; letter-spacing: .02em; line-height: 1.1; color: #fff;
   text-transform: uppercase; text-shadow: 0 2px 14px rgba(0,0,0,.65); text-wrap: balance; }
@@ -320,6 +320,7 @@ body, .card, .item, .nav, .sidebar, .scope-strip { transition: background-color 
   -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 .lp-welcome { margin: 0; text-align: center; font-size: 1.75rem; font-weight: 700; color: #fff; line-height: 1.15; }
 .lp-welcome-sub { max-width: none; margin: .2rem 0 .7rem; text-align: center; color: #E6EDF8; font-size: 1rem; }
+.lp-avatar { display: block; margin: 0 auto .7rem; width: 80px; height: 80px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(227,184,79,.5), 0 4px 14px rgba(0,0,0,.45); }
 .lp-flag { display: block; margin: 0 auto .9rem; width: 96px; max-width: 40%; height: auto; border-radius: 3px; box-shadow: 0 0 0 1px rgba(255,255,255,.28), 0 4px 14px rgba(0,0,0,.45); }
 .lp-field { margin-bottom: .8rem; }
 .lp-field label { display: block; margin-bottom: .3rem; font-weight: 600; color: #fff; }

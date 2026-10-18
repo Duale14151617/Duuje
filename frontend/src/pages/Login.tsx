@@ -74,7 +74,7 @@ export function Login() {
           <div className="lp-card">
             <h2 className="lp-welcome">{t("login.welcome")}</h2>
             <p className="lp-welcome-sub">{t("login.welcomeSub")}</p>
-            <img className="lp-flag" src="/puntland-flag.svg" alt="Puntland flag" width={112} height={75} />
+            <img className="lp-avatar" src="/avatar-default.png" alt="" aria-hidden="true" width={80} height={80} />
 
             {offline && !error && <Notice kind="error">{t("err.network")}</Notice>}
             <ErrorNotice error={error} />

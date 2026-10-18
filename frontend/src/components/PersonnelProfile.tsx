@@ -123,7 +123,8 @@ export function PersonnelProfile({ personId, canManage }: { personId: string; ca
                    style={{ objectFit: "cover", display: "block", width: 120, height: 150 }} onError={() => setBroken(true)} />
             ) : (
               <>
-                <span style={{ fontSize: "2rem", lineHeight: 1 }} aria-hidden="true">{canManage ? "\uD83D\uDCF7" : "\uD83D\uDC64"}</span>
+                <img src="/avatar-default.png" alt="" aria-hidden="true" width={92} height={92}
+                     style={{ display: "block", width: 92, height: 92, borderRadius: "50%" }} />
                 <span>{canManage ? (busy ? s.uploading : s.tapAdd) : s.noPhoto}</span>
               </>
             );
