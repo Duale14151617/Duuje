@@ -255,11 +255,15 @@ def delete_test_personnel():
         pg = connection.vendor == "postgresql"
         if pg:
             with connection.cursor() as cur:
+                # ALTER TABLE is refused while deferred constraint checks are pending, so run them first.
+                cur.execute("SET CONSTRAINTS ALL IMMEDIATE")
                 cur.execute("ALTER TABLE personnel_history DISABLE TRIGGER personnel_history_no_change")
         PersonnelHistory._base_manager.filter(personnel_id__in=ids).delete()
         if pg:
             with connection.cursor() as cur:
+                cur.execute("SET CONSTRAINTS ALL IMMEDIATE")
                 cur.execute("ALTER TABLE personnel_history ENABLE TRIGGER personnel_history_no_change")
+                cur.execute("SET CONSTRAINTS ALL DEFERRED")
         Personnel.objects.filter(pk__in=ids).delete()  # profile rows cascade
     return len(ids)
 
