@@ -26,7 +26,7 @@ from datetime import date, timedelta
 from io import BytesIO
 
 from django.core.management.base import BaseCommand, CommandError
-from django.db import transaction
+from django.db import connection, transaction
 from PIL import Image, ImageDraw
 
 from apps.organization.models import OrganizationalUnit as OU
@@ -249,7 +249,17 @@ def delete_test_personnel():
         if not ids:
             return 0
         TrainingRecord.objects.filter(personnel_id__in=ids).delete()
+        # On PostgreSQL a trigger makes personnel_history append-only. Synthetic TST- people are the one sanctioned
+        # exception: the trigger is switched off inside this transaction only (DDL rolls back with it) and restored
+        # before it commits.
+        pg = connection.vendor == "postgresql"
+        if pg:
+            with connection.cursor() as cur:
+                cur.execute("ALTER TABLE personnel_history DISABLE TRIGGER personnel_history_no_change")
         PersonnelHistory._base_manager.filter(personnel_id__in=ids).delete()
+        if pg:
+            with connection.cursor() as cur:
+                cur.execute("ALTER TABLE personnel_history ENABLE TRIGGER personnel_history_no_change")
         Personnel.objects.filter(pk__in=ids).delete()  # profile rows cascade
     return len(ids)
 

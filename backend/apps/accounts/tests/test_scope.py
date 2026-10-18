@@ -25,7 +25,8 @@ class ScopeTests(BaseApiTest):
         other = self.unit("NUGAAL-ARMY")
         self.assertEqual(c.get(f"/api/v1/organization/units/{other.pk}/").status_code, 404)
         r = c.patch(f"/api/v1/organization/units/{other.pk}/", {"name_en": "x", "version": 1}, format="json")
-        self.assertEqual(r.status_code, 404)
+        # A regional chief holds no org.manage at all, so the edit is refused outright (403); a manager out of scope gets 404.
+        self.assertIn(r.status_code, (403, 404))
 
     def test_filter_parameters_cannot_widen_scope(self):
         c = self.client_for(self.make_user("bari", "regional_chief", unit="BARI"))

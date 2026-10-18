@@ -7,6 +7,7 @@ from unittest import mock
 import pyotp
 from django.conf import settings
 from django.contrib.sessions.models import Session
+from django.core.cache import cache
 from django.core.management import call_command
 from django.db import DatabaseError, connection, transaction
 from django.test import SimpleTestCase, override_settings
@@ -224,11 +225,13 @@ class MfaReplayTests(BaseApiTest):
             unit = unit_for[role.allowed_scope_levels[0]] if role.allowed_scope_levels else "BARI-ARMY"
             self.make_user(f"u-{code}", code, unit=unit, branch="ARMY" if role.requires_branch else None, mfa=False)
             c = APIClient()
+            cache.clear()  # one login per role in a loop would otherwise hit the login throttle
             r = self.login(c, f"u-{code}")
             self.assertIn("mfa_enrollment", r.data["restrictions"], code)
             blocked = c.get("/api/v1/organization/units/")
             self.assertEqual((blocked.status_code, blocked.json()["code"]), (403, "restricted"), code)
         self.make_user("plain", "read_only", unit="BARI", mfa=False)
+        cache.clear()
         self.assertEqual(self.login(APIClient(), "plain").data["restrictions"], [])
 
 
@@ -298,6 +301,7 @@ class PasswordResetTests(BaseApiTest):
         code = self.issue()
         self.admin.post(f"/api/v1/users/{self.target.pk}/disable/")
         self.assertEqual(self.redeem(code).status_code, 400)
+        cache.clear()  # the redeem above already counted against the limit
         with mock.patch.dict(ScopedRateThrottle.THROTTLE_RATES, {"reset": "2/min"}):
             codes = [self.redeem("GUESS00000").status_code for _ in range(3)]
         self.assertEqual(codes, [400, 400, 429])

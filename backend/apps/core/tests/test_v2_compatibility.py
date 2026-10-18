@@ -133,7 +133,11 @@ class RouteCompatibilityTests(BaseApiTest):
         self.assertFalse(settings.INTEGRATIONS_ENABLED)
 
 
-V2_ADDED_MIGRATIONS = {"organization": ["0004_structure_change"]}  # the only migration added to an existing app
+V2_ADDED_MIGRATIONS = {  # migrations added to existing apps after v1.4 (2.0 structure changes, then the Police module)
+    "organization": ["0004_structure_change", "0005_unit_restricted", "0006_station_level"],
+    "ranks": ["0004_add_command_ranks", "0005_police_rank_categories"],
+    "personnel": ["0003_personnelprofile", "0004_disciplinary_and_documents"],
+}
 
 
 class MigrationCompatibilityTests(BaseApiTest):

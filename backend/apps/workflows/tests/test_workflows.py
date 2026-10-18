@@ -30,7 +30,7 @@ class WorkflowBase(BaseApiTest):
     def officer(self, name="officer", unit="BARI-ARMY-A"):
         return self.who(name, "reporting_officer", unit)
 
-    def reviewer(self, name="rev-BARI", region="BARI"):
+    def reviewer(self, name="rev-bari", region="BARI"):
         return self.who(name, "regional_chief", region)
 
     def hqr(self):
@@ -67,13 +67,13 @@ class LifecycleTests(WorkflowBase):
         self.assertEqual((s["status"], s["submitter_username"], s["version"]), ("draft", "officer", 1))
         s = self.act(o, s, "submit").data
         self.assertEqual((s["status"], s["current_revision"]), ("submitted", 1))
-        self.assertTrue(Notification.objects.filter(recipient__username="rev-BARI", kind="submitted").exists())
+        self.assertTrue(Notification.objects.filter(recipient__username="rev-bari", kind="submitted").exists())
         s = self.act(r, s, "start-review").data
         self.assertEqual(s["status"], "under_review")
         s = self.act(r, s, "approve").data
         self.assertEqual((s["status"], s["approved_revision_no"]), ("approved", 1))
         self.assertEqual([a["action"] for a in s["actions"]], ["create", "submit", "start_review", "approve"])
-        self.assertEqual(s["actions"][-1]["actor_username"], "rev-BARI")
+        self.assertEqual(s["actions"][-1]["actor_username"], "rev-bari")
         self.assertTrue(Notification.objects.filter(recipient__username="officer", kind="approved").exists())
         for action in ("report.create", "report.submit", "report.start_review", "report.approve"):
             self.assertTrue(AuditEvent.objects.filter(action=action, outcome="success").exists(), action)
@@ -108,7 +108,7 @@ class LifecycleTests(WorkflowBase):
         s = self.act(o, s, "submit").data
         self.assertEqual(s["current_revision"], 2)
         self.assertEqual(s["actions"][-1]["action"], "resubmit")
-        self.assertTrue(Notification.objects.filter(recipient__username="rev-BARI", kind="resubmitted").exists())
+        self.assertTrue(Notification.objects.filter(recipient__username="rev-bari", kind="resubmitted").exists())
         s = self.act(r, s, "start-review").data
         s = self.act(r, s, "approve").data
         self.assertEqual(s["approved_revision_no"], 2)
@@ -324,7 +324,7 @@ class NotificationTests(WorkflowBase):
     def test_notification_content_is_reauthorised_after_scope_is_lost(self):
         o, r = self.officer(), self.reviewer()
         s = self.act(o, self.new(o).data, "submit").data
-        RoleAssignment.objects.filter(user__username="rev-BARI").update(revoked_at=timezone.now())
+        RoleAssignment.objects.filter(user__username="rev-bari").update(revoked_at=timezone.now())
         n = r.get("/api/v1/notifications/")
         self.assertEqual(n.status_code, 200)
         self.assertIsNone(n.data["results"][0]["submission"])  # no title/status leaks once scope is gone

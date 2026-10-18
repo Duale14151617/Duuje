@@ -15,7 +15,7 @@ from apps.organization.models import OrganizationalUnit as OU
 @unittest.skipUnless(connection.vendor == "postgresql", "needs PostgreSQL row locks")
 class StockConcurrencyTests(APITransactionTestCase):
     # Everything except the (trigger-protected) audit table is flushed after the test.
-    available_apps = ["django.contrib.auth", "django.contrib.contenttypes", "django.contrib.sessions", "apps.organization",
+    available_apps = ["django.contrib.auth", "django.contrib.contenttypes", "django.contrib.sessions", "apps.core", "apps.organization",
                       "apps.accounts", "apps.ranks", "apps.personnel", "apps.workflows", "apps.logistics", "apps.training"]
 
     def client_for(self, user):

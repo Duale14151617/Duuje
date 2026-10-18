@@ -1,4 +1,3 @@
-import hashlib
 from datetime import timedelta
 
 from django.db.models import F
@@ -17,17 +16,6 @@ from apps.personnel.models import Personnel
 from apps.training.models import TrainingRecord
 from apps.ranks.models import Rank
 from apps.workflows.models import Submission
-
-
-def _demo_numbers(seed_text):
-    """Deterministic fake figures so every role sees stable, clearly synthetic demo data."""
-    digest = hashlib.sha256(seed_text.encode()).digest()
-    return {
-        "personnel_records": 120 + digest[0] % 80,
-        "pending_requests": digest[1] % 12,
-        "reports_awaiting_review": digest[2] % 7,
-        "training_completions_30d": 20 + digest[3] % 40,
-    }
 
 
 class DashboardView(APIView):
@@ -95,6 +83,4 @@ class DashboardView(APIView):
             recs = TrainingRecord.objects.filter(tq) if tq is not None else TrainingRecord.objects.none()
             data["training"] = {"in_progress": recs.filter(status="in_progress").count(),
                                 "enrolled": recs.filter(status="enrolled").count()}
-        seed = ",".join(sorted(str(pk) for pk in units.values_list("pk", flat=True)[:200])) or str(user.pk)
-        data["demo"] = {"synthetic": True, **_demo_numbers(seed)}
         return Response(data)
