@@ -191,3 +191,19 @@ export interface StructureChange {
   proposed_by_username: string; decided_by_username: string; decision_note: string; submitted_at: string | null;
   decided_at: string | null; version: number; created_at: string;
 }
+
+export interface DisciplinaryEntry {
+  id: string; category: string; incident_date: string | null; summary: string; outcome: string; voided: boolean;
+  corrects: string | null; superseded: boolean; recorded_at: string; recorded_by_username: string;
+}
+export interface PersonnelDocument {
+  id: string; title: string; note: string; category: string; content_type: string; size_bytes: number;
+  uploaded_at: string; uploaded_by_username: string;
+}
+export interface CombinedReport {
+  generated_at: string; police_module_enabled: boolean; excludes_restricted_units: boolean;
+  totals: { total: number; serving: number };
+  branches: (Named & { id: string; code: string; total: number; serving: number; units: number;
+    by_status: Record<string, number>; by_rank_category: Record<string, number> })[];
+  regions: { region: Named & { id: string; code: string }; serving_by_branch: Record<string, number>; serving: number }[];
+}

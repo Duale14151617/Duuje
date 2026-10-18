@@ -185,3 +185,44 @@ export async function fetchAll<T>(path: string, query: Record<string, string | n
   }
   return out;
 }
+
+/** Multipart POST with several fields (service documents). Same CSRF retry and error handling as upload(). */
+export async function uploadForm<T>(path: string, form: FormData): Promise<T> {
+  if (import.meta.env.VITE_DEMO === "1") throw new ApiError(0, { code: "network", detail: "Not available in the demo build" });
+  const send = () => fetch(`/api/v1${path}`, { method: "POST", credentials: "same-origin", headers: { "X-CSRFToken": csrfToken }, body: form });
+  let res: Response;
+  try {
+    res = await send();
+    if (res.status === 403) {
+      const peek = (await res.clone().json().catch(() => null)) as ErrorBody | null;
+      if (peek?.detail && /CSRF/i.test(peek.detail)) { await refreshCsrf(); res = await send(); }
+    }
+  } catch {
+    throw unreachable();
+  }
+  if (!isJsonResponse(res)) throw unreachable();
+  const data = (await res.json().catch(() => null)) as unknown;
+  if (!res.ok) throw new ApiError(res.status, data as ErrorBody | null);
+  return data as T;
+}
+
+/** Download a protected file (service document) through the session; the server logs every download. */
+export async function downloadFile(path: string, filename: string): Promise<void> {
+  if (import.meta.env.VITE_DEMO === "1") throw new ApiError(0, { code: "network", detail: "Not available in the demo build" });
+  let res: Response;
+  try {
+    res = await fetch(`/api/v1${path}`, { credentials: "same-origin" });
+  } catch {
+    throw unreachable();
+  }
+  if (!res.ok) {
+    if (!isJsonResponse(res)) throw new ApiError(res.status, { code: res.status === 404 ? "not_found" : "error" });
+    throw new ApiError(res.status, (await res.json().catch(() => null)) as ErrorBody | null);
+  }
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}

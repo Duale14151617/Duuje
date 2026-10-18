@@ -7,6 +7,7 @@ from unittest import mock
 import pyotp
 from django.conf import settings
 from django.contrib.sessions.models import Session
+from django.core.cache import cache
 from django.core.management import call_command
 from django.db import DatabaseError, connection, transaction
 from django.test import SimpleTestCase, override_settings
@@ -216,18 +217,21 @@ class MfaReplayTests(BaseApiTest):
 
     def test_every_privileged_role_is_confined_until_mfa_is_enrolled(self):
         privileged = set(Role.objects.filter(is_privileged=True).values_list("code", flat=True))
-        self.assertEqual(privileged, {"hq_admin", "regional_chief", "branch_admin", "auditor", "restricted_custodian", "logistics_reviewer"})
+        self.assertEqual(privileged, {"hq_admin", "regional_chief", "branch_admin", "auditor", "restricted_custodian", "logistics_reviewer",
+                                      "structure_approver", "cid_officer", "command_authority", "super_admin"})
         unit_for = {"headquarters": "HQ", "region": "BARI", "branch_command": "BARI-ARMY", "unit": "BARI-ARMY"}
         for code in sorted(privileged):
             role = Role.objects.get(code=code)
             unit = unit_for[role.allowed_scope_levels[0]] if role.allowed_scope_levels else "BARI-ARMY"
             self.make_user(f"u-{code}", code, unit=unit, branch="ARMY" if role.requires_branch else None, mfa=False)
             c = APIClient()
+            cache.clear()  # one login per role in a loop would otherwise hit the login throttle
             r = self.login(c, f"u-{code}")
             self.assertIn("mfa_enrollment", r.data["restrictions"], code)
             blocked = c.get("/api/v1/organization/units/")
             self.assertEqual((blocked.status_code, blocked.json()["code"]), (403, "restricted"), code)
         self.make_user("plain", "read_only", unit="BARI", mfa=False)
+        cache.clear()
         self.assertEqual(self.login(APIClient(), "plain").data["restrictions"], [])
 
 
@@ -297,6 +301,7 @@ class PasswordResetTests(BaseApiTest):
         code = self.issue()
         self.admin.post(f"/api/v1/users/{self.target.pk}/disable/")
         self.assertEqual(self.redeem(code).status_code, 400)
+        cache.clear()  # the redeem above already counted against the limit
         with mock.patch.dict(ScopedRateThrottle.THROTTLE_RATES, {"reset": "2/min"}):
             codes = [self.redeem("GUESS00000").status_code for _ in range(3)]
         self.assertEqual(codes, [400, 400, 429])

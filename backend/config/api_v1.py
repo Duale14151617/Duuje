@@ -7,6 +7,7 @@ from apps.accounts import views as acc
 from apps.core.views import LiveView, ReadyView
 from apps.audit.views import AuditEventViewSet
 from apps.dashboard.views import DashboardView
+from apps.personnel.combined import CombinedReportViewSet
 from apps.personnel.views import PersonnelViewSet
 from apps.logistics.views import (AssetViewSet, CategoryViewSet, LogisticsSummaryViewSet, ReconciliationViewSet,
                                   StockViewSet)
@@ -34,6 +35,7 @@ router.register("personnel", PersonnelViewSet, basename="personnel")
 router.register("reports/types", ReportTypeViewSet, basename="report-type")
 router.register("reports/submissions", SubmissionViewSet, basename="submission")
 router.register("reports/summary", SummaryViewSet, basename="report-summary")
+router.register("reports/combined", CombinedReportViewSet, basename="report-combined")
 router.register("notifications", NotificationViewSet, basename="notification")
 router.register("logistics/categories", CategoryViewSet, basename="inv-category")
 router.register("logistics/stock", StockViewSet, basename="stock")

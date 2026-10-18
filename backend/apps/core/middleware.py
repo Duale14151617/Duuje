@@ -57,7 +57,12 @@ class RequestSizeLimitMiddleware:
         length = request.META.get("CONTENT_LENGTH") or "0"
         try:
             # Phone photos are routinely 2-5 MB; the photo endpoint validates the file itself (5 MB cap).
-            limit = max(settings.MAX_REQUEST_BYTES, 6_000_000) if request.path.endswith("/photo/upload/") else settings.MAX_REQUEST_BYTES
+            if request.path.endswith("/photo/upload/"):
+                limit = max(settings.MAX_REQUEST_BYTES, 6_000_000)
+            elif request.path.endswith("/documents/upload/"):  # service documents: the endpoint enforces its own 8 MB file cap
+                limit = max(settings.MAX_REQUEST_BYTES, 9_000_000)
+            else:
+                limit = settings.MAX_REQUEST_BYTES
             too_big = int(length) > limit
         except ValueError:
             too_big = True

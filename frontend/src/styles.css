@@ -88,7 +88,7 @@ main { max-width: 60rem; margin: 0 auto; padding: 1rem; }
 .topbar-start { display: flex; align-items: center; gap: .5rem; min-width: 0; }
 .menu-btn { flex: 0 0 auto; }
 
-/* sidebar: slide-in drawer below 768px; icon-only rail 768-1199px; full sidebar (user can collapse to the rail) from 1200px.
+/* sidebar: slide-in drawer below 768px; icon-only rail 768-959px; full sidebar (user can collapse to the rail) from 960px (phones in "desktop site" mode report ~980px).
    Control visibility uses two-class selectors so the generic .icon-btn { display } rule further down cannot re-show them. */
 .sidebar { position: fixed; top: 0; bottom: 0; left: 0; height: 100vh; height: 100dvh; z-index: 20; width: min(18rem, 85vw); display: flex; flex-direction: column;
   background: var(--chrome); border-right: 1px solid var(--chrome-line); padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -128,7 +128,7 @@ button.sidebar-backdrop { position: fixed; inset: 0; z-index: 19; width: 100%; m
   .sb-collapsed .nav a[data-unread]::after { content: ""; position: absolute; top: .55rem; right: 1rem; width: .5rem; height: .5rem; border-radius: 50%; background: var(--gold); }
 }
 /* the single collapse/expand control exists only where the full sidebar is the default */
-@media (min-width: 1200px) { .sidebar .nav-toggle { display: inline-flex; } }
+@media (min-width: 960px) { .sidebar .nav-toggle { display: inline-flex; } }
 
 /* controls */
 button, .btn { --btn-bg: var(--brand); --btn-bd: var(--brand-border); --btn-fg: var(--brand-text); --btn-hover: var(--brand-hover);

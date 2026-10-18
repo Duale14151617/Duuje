@@ -79,10 +79,17 @@ class PersonnelCreateSerializer(_Basics):
             raise fail("effective_date", "future_date")
         if svc.service_number_taken(attrs.get("service_number")):
             raise fail("service_number", "service_number_taken")
-        if not attrs.get("confirm_duplicate") and svc.possible_duplicate(
-                svc.normalize_name(attrs["full_name"]), svc.normalize_phone(attrs.get("phone")), unit.pk):
-            raise fail("full_name", "possible_duplicate")
+        found = svc.duplicate_check(svc.normalize_name(attrs["full_name"]), svc.normalize_phone(attrs.get("phone")), unit)
+        self._enforce_duplicate(found, attrs)
         return attrs
+
+    def _enforce_duplicate(self, found, attrs):
+        """A serving person in another service is blocked outright (confirm_duplicate cannot override); other matches are flags."""
+        if found == "duplicate_identity":
+            svc.audit_denied_duplicate(self.context["request"], "cross_service")
+            raise fail("full_name", "duplicate_identity")
+        if found and not attrs.get("confirm_duplicate"):
+            raise fail("full_name", found)
 
 
 class PersonnelUpdateSerializer(_Basics):
@@ -96,9 +103,13 @@ class PersonnelUpdateSerializer(_Basics):
         name = attrs.get("full_name", p.full_name)
         phone = attrs.get("phone", p.phone)
         changed = "full_name" in attrs or "phone" in attrs
-        if changed and not attrs.get("confirm_duplicate") and svc.possible_duplicate(
-                svc.normalize_name(name), svc.normalize_phone(phone), p.org_unit_id, exclude_pk=p.pk):
-            raise fail("full_name", "possible_duplicate")
+        if changed:
+            found = svc.duplicate_check(svc.normalize_name(name), svc.normalize_phone(phone), p.org_unit, exclude_pk=p.pk)
+            if found == "duplicate_identity":
+                svc.audit_denied_duplicate(self.context["request"], "cross_service")
+                raise fail("full_name", "duplicate_identity")
+            if found and not attrs.get("confirm_duplicate"):
+                raise fail("full_name", found)
         return attrs
 
     def update(self, instance, validated_data):

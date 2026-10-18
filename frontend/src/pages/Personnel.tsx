@@ -7,6 +7,7 @@ import { useAuth } from "../auth/AuthContext";
 import { Chip, ErrorNotice, Field, formatDate, Loading, Notice, Pager, useErrorText } from "../components/ui";
 import { ExportPdfButton } from "../components/ExportPdfButton";
 import { PersonnelProfile } from "../components/PersonnelProfile";
+import { DisciplinaryPanel, DocumentsPanel } from "../components/PersonnelRecords";
 import { UnitPicker } from "../components/UnitPicker";
 import { useUnitTypes } from "../api/useUnitTypes";
 import { useI18n, type Key } from "../i18n";
@@ -279,6 +280,8 @@ export function PersonnelDetail() {
       )}
       {p && mode && <ChangeForm person={p} mode={mode} onDone={done} />}
       {p && <PersonnelProfile personId={p.id} canManage={can("personnel.manage")} />}
+      {p && can("disciplinary.view") && <DisciplinaryPanel personId={p.id} canManage={can("disciplinary.manage")} />}
+      {p && can("documents.view") && <DocumentsPanel personId={p.id} canManage={can("documents.manage")} />}
       <h2>{t("pers.history")}</h2>
       <ErrorNotice error={history.error} />
       <ul className="list">

@@ -1,4 +1,13 @@
 # Changelog
+
+## Unreleased: Police module completion, batch 1
+- Disciplinary history and service documents on personnel files (encrypted, audited, append-only / never deleted).
+- Cross-service duplicate-identity check (block / flag) and `report_duplicate_identities` command.
+- Combined Army + Police report (`reports.combined`).
+- Police stations (`station` level) under regional Police commands.
+- Police sample data in `seed_test_personnel`.
+- Migrations: personnel 0004, organization 0006. Backend tests unrun at time of writing: run the suite before deploying.
+
 ## 2.1.2 - Midnight Navy + Gold theme (frontend, colours only)
 Replaced the olive/gold palette with Midnight Navy + Muted Gold in the existing token system (`frontend/src/styles.css`), for both light and dark
 themes. Colours only: no markup, layout, routing, API, permission, translation or business-logic change; the theme toggle is unchanged. Adds a

@@ -14,7 +14,7 @@ server {
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_prefer_server_ciphers off;
 
-    client_max_body_size 2m;                       # matches MAX_REQUEST_BYTES
+    client_max_body_size 10m;                    # document uploads (8 MB cap, enforced by the app); other requests are capped by MAX_REQUEST_BYTES
     server_tokens off;
 
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;

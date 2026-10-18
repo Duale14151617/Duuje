@@ -109,13 +109,14 @@ class PlacementError(ValueError):
 
 
 class OrganizationalUnit(models.Model):
-    """Configurable hierarchy: HQ -> region -> branch command -> unit (units may nest)."""
+    """Configurable hierarchy: HQ -> region -> branch command -> unit (units may nest); Police commands may also hold stations."""
 
     class Level(models.TextChoices):
         HQ = "headquarters"
         REGION = "region"
         BRANCH = "branch_command"
         UNIT = "unit"
+        STATION = "station"  # Police station: sits directly under a regional Police command and holds personnel
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     code = models.CharField(max_length=64, unique=True)
@@ -135,6 +136,9 @@ class OrganizationalUnit(models.Model):
     strength_exception_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
                                               on_delete=models.SET_NULL, related_name="+")
     strength_exception_at = models.DateTimeField(null=True, blank=True)
+    # Confidential unit (e.g. CID). Records in it (and in units below it) are visible only to roles holding `cid.access`,
+    # whatever the rest of their scope is. Enforced server-side in apps/accounts/scope.py.
+    restricted = models.BooleanField(default=False)
     active = models.BooleanField(default=True)
     version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -195,6 +199,11 @@ def check_placement(level, parent, branch):
         if parent.level not in (L.BRANCH, L.UNIT):
             raise PlacementError("unit_parent_invalid")
         return parent.branch  # units inherit the service branch of their parent
+    if level == L.STATION:
+        # Stations exist only under a regional Police command (never under Army/Navy, never under another unit).
+        if parent.level != L.BRANCH or parent.branch is None or parent.branch.code != "POLICE":
+            raise PlacementError("station_parent_must_be_police_command")
+        return parent.branch
     raise PlacementError("invalid_level")
 
 

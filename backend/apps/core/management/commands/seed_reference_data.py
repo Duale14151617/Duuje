@@ -3,6 +3,7 @@
 Safe to re-run. Roles/permissions are system-defined and are re-synced; organization units
 and ranks are only created if missing, so administrator edits and rank approvals are kept.
 """
+from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
@@ -14,6 +15,8 @@ from apps.organization.models import OrganizationalUnit as OU
 from apps.organization.reference import ensure_reference, tag_regional_army_commands
 from apps.personnel.models import Personnel
 from apps.ranks.catalogue import apply_official_ranks
+from apps.ranks.police_catalogue import apply_police_ranks
+from apps.organization.police import ensure_police_module
 from apps.organization.models import ServiceBranch
 from apps.ranks.models import Rank
 from apps.logistics.models import InventoryCategory
@@ -59,12 +62,20 @@ PERMISSIONS = {
     "integrations.manage": "Create, change, rotate and revoke integration clients (headquarters)",
     "org.structure_propose": "Propose and submit changes to organizational levels and strength standards (headquarters)",
     "org.structure_approve": "Approve or reject proposed structure changes (headquarters); cannot approve one's own proposal",
+    "police.cross_access": "Reach Police records from a branch-unrestricted assignment (command authority only; CID still needs cid.access)",
+    "search.cross_service": "Search personnel across all services (Army and Police) within the records the user is otherwise allowed to see",
+    "disciplinary.view": "View a person's disciplinary history in scope (encrypted, every view is audited)",
+    "disciplinary.manage": "Add disciplinary entries and corrections in scope (entries are append-only)",
+    "documents.view": "List and download service documents on personnel files in scope (every access is audited)",
+    "documents.manage": "Upload and withdraw service documents on personnel files in scope",
+    "reports.combined": "See combined Army + Police summaries (headquarters-wide; command authority). Aggregates only",
+    "cid.access": "Reach personnel records inside restricted units such as CID (Police). Never implied by any other permission",
 }
 # Never granted to administrators by default (reports.configure is not sensitive, so hq_admin keeps it).
 SENSITIVE_PREFIXES = ("personnel.", "reports.view", "reports.submit", "reports.review", "reports.summary", "reports.export",
                       "logistics.view", "logistics.manage", "logistics.restricted", "logistics.reconcile",
                       "logistics.report", "logistics.approve", "training.view", "training.manage", "training.report", "analytics.",
-                      "org.structure_approve")
+                      "org.structure_approve", "cid.", "police.", "search.", "disciplinary.", "documents.", "reports.combined")
 REPORT_TYPES = [  # code, kind, name_en, name_so, figure keys
     ("monthly_admin_report", "report", "Monthly administrative report", "Warbixinta maamul ee bishii",
      ["personnel_strength", "personnel_on_leave", "personnel_in_training"]),
@@ -84,7 +95,7 @@ ROLES = {
     "branch_admin": ("Branch administrator", "Maamulaha laanta", True, True, ["region", "branch_command"],
                      BASIC + ["org.manage", "personnel.view", "personnel.manage", "personnel.import", "reports.view",
                       "reports.submit", "reports.review", "reports.summary"]),
-    "unit_admin": ("Unit administrator", "Maamulaha cutubka", False, False, ["unit", "branch_command"],
+    "unit_admin": ("Unit administrator", "Maamulaha cutubka", False, False, ["unit", "branch_command", "station"],
                    BASIC + ["org.manage", "personnel.view", "personnel.manage", "reports.view", "reports.submit"]),
     "reporting_officer": ("Reporting officer", "Sarkaalka warbixinta", False, False, [],
                           BASIC + ["personnel.view", "reports.view", "reports.submit"]),
@@ -100,6 +111,15 @@ ROLES = {
                                               "logistics.restricted_approve"]),
     "structure_approver": ("Structure approver", "Ansixiyaha qaab-dhismeedka", True, False, ["headquarters"],
                            ["dashboard.view", "org.view", "org.structure_approve"]),
+    # Police CID: must be assigned at a CID unit (or above) AND limited to the POLICE branch; carries cid.access.
+    "cid_officer": ("CID officer", "Sarkaalka CID", True, True, ["region", "branch_command", "unit"],
+                    BASIC + ["personnel.view", "personnel.manage", "reports.view", "reports.submit", "cid.access"]),
+    # The two highest command appointments (President / Commander-in-Chief; Commander of the Puntland Defense Forces) are
+    # ranks in the Army catalogue; ACCESS is by role, so assign this role to those two people. Read-only oversight, HQ-wide,
+    # across Army and Police. Deliberately has no cid.access.
+    "command_authority": ("Command authority", "Awoodda taliska", True, False, ["headquarters"],
+                          BASIC + ["personnel.view", "reports.view", "reports.summary", "analytics.view", "police.cross_access",
+                          "search.cross_service"]),
     "auditor": ("Auditor", "Hubiyaha", True, False, ["headquarters"], ["dashboard.view", "org.view", "audit.view"]),
     # Owner-level role: every permission, HQ-wide, MFA required. Separation-of-duties rules in the code still apply
     # (nobody can approve their own submission), so keep a second approver account for those flows.
@@ -119,7 +139,13 @@ EXTRA = {
     "hq_admin": ["logistics.configure", "training.configure"],
     "hq_reporting": ["logistics.report", "training.report", "analytics.view"],
     "regional_chief": ["logistics.view", "logistics.report", "training.view", "training.report", "analytics.view"],
-    "branch_admin": ["logistics.view", "logistics.report", "training.view", "training.report", "analytics.view"],
+    # Disciplinary history and service documents are sensitive: only these privileged (MFA) roles hold them by default
+    # (branch_admin, cid_officer), plus super_admin. Adjust here if the institution decides otherwise; the next seed run
+    # re-syncs roles. Combined Army + Police summaries go to command_authority only (and super_admin).
+    "branch_admin": ["logistics.view", "logistics.report", "training.view", "training.report", "analytics.view",
+                     "disciplinary.view", "disciplinary.manage", "documents.view", "documents.manage"],
+    "cid_officer": ["disciplinary.view", "disciplinary.manage", "documents.view", "documents.manage"],
+    "command_authority": ["reports.combined"],
     "unit_admin": ["logistics.view", "training.view"],
     "logistics_custodian": ["logistics.view", "logistics.manage", "logistics.reconcile", "logistics.report"],
     "training_admin": ["training.view", "training.manage", "training.report", "training.configure"],
@@ -169,6 +195,10 @@ class Command(BaseCommand):
         # Organizational template (Taliska Guud ... Unug), specialist designations and the expected relationships.
         types = ensure_reference(UnitType, SpecialistDesignation, DesignationRule)
         tag_regional_army_commands(OU, ServiceBranch, types)
+        police_created = depts_created = 0
+        if settings.POLICE_MODULE_ENABLED:  # pilot switch: nothing Police-specific is created while it is off
+            police_created = apply_police_ranks(Rank, branches["POLICE"], timezone.now())
+            depts_created = ensure_police_module(OU, [r.upper() for r in REGIONS])
         for code, kind, en, so, keys in REPORT_TYPES:  # created once; admin edits are never overwritten
             ReportType.objects.get_or_create(code=code, defaults={
                 "kind": kind, "name_en": en, "name_so": so, "figure_keys": keys})
@@ -178,4 +208,4 @@ class Command(BaseCommand):
         for code, en, so, days in COURSES:
             Course.objects.get_or_create(code=code, defaults={"name_en": en, "name_so": so, "duration_days": days})
         self.stdout.write(self.style.SUCCESS(
-            f"Reference data ready. Official Army ranks created this run: {created}; provisional ranks removed: {removed}, retired: {deactivated}."))
+            f"Reference data ready. Official Army ranks created this run: {created}; provisional ranks removed: {removed}, retired: {deactivated}. Police module: {'ON' if settings.POLICE_MODULE_ENABLED else 'off'} (draft ranks created {police_created}, departments created {depts_created})."))

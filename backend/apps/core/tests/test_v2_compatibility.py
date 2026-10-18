@@ -62,7 +62,9 @@ V14_MIGRATIONS = {
 }
 NEW_PERMISSIONS = {"analytics.view", "integrations.view", "integrations.manage", "org.structure_propose", "org.structure_approve"}
 ROLES_GAINING_ANALYTICS = {"hq_reporting", "regional_chief", "branch_admin"}
-NEW_ROLES = {"structure_approver", "super_admin"}
+NEW_ROLES = {"structure_approver", "super_admin", "cid_officer", "command_authority"}  # the last two: Police module
+# Police module: branch_admin holds the sensitive personnel-file records (disciplinary history, service documents).
+BRANCH_ADMIN_RECORDS = {"disciplinary.view", "disciplinary.manage", "documents.view", "documents.manage"}
 # hq_admin receives every non-sensitive permission automatically, so it gains the integration and structure-proposal ones.
 HQ_ADMIN_GAINS = {"integrations.view", "integrations.manage", "org.structure_propose"}
 
@@ -78,6 +80,7 @@ class RoleCompatibilityTests(BaseApiTest):
             have = set(Role.objects.get(code=role).permissions.values_list("code", flat=True))
             gained = have - set(codes)
             allowed = ({"analytics.view"} if role in ROLES_GAINING_ANALYTICS else set()) | (HQ_ADMIN_GAINS if role == "hq_admin" else set())
+            allowed |= BRANCH_ADMIN_RECORDS if role == "branch_admin" else set()
             self.assertEqual(gained, allowed, role)
 
     def test_only_the_documented_role_was_added_and_none_removed(self):
@@ -90,7 +93,8 @@ class RoleCompatibilityTests(BaseApiTest):
     def test_administrators_still_hold_no_data_permissions(self):
         have = set(Role.objects.get(code="hq_admin").permissions.values_list("code", flat=True))
         sensitive = ("personnel.", "reports.view", "reports.submit", "reports.review", "reports.summary", "logistics.view",
-                     "logistics.manage", "logistics.restricted", "training.view", "training.manage", "analytics.", "org.structure_approve")
+                     "logistics.manage", "logistics.restricted", "training.view", "training.manage", "analytics.", "org.structure_approve",
+                     "disciplinary.", "documents.", "reports.combined", "police.", "search.", "cid.")
         self.assertFalse([c for c in have if c.startswith(sensitive)])
         self.assertTrue({"integrations.view", "integrations.manage", "org.structure_propose"} <= have)
         self.assertNotIn("org.structure_approve", have)  # approving a structure change is a separate duty
@@ -106,7 +110,8 @@ class RouteCompatibilityTests(BaseApiTest):
         now = {(prefix, basename) for prefix, _, basename in router.registry}
         added = now - {tuple(r) for r in V14_ROUTES}
         self.assertEqual(added, {("analytics", "analytics"), ("integrations/clients", "integration-client"),
-                                 ("organization/structure-changes", "structure-change")})
+                                 ("organization/structure-changes", "structure-change"),
+                                 ("reports/combined", "report-combined")})  # Police module: combined Army + Police report
 
     def test_version_1_prefix_is_unchanged(self):
         self.assertEqual(self.client_for(self.make_user("hqr", "hq_reporting")).get("/api/v1/auth/me/").status_code, 200)
@@ -128,7 +133,11 @@ class RouteCompatibilityTests(BaseApiTest):
         self.assertFalse(settings.INTEGRATIONS_ENABLED)
 
 
-V2_ADDED_MIGRATIONS = {"organization": ["0004_structure_change"]}  # the only migration added to an existing app
+V2_ADDED_MIGRATIONS = {  # migrations added to existing apps after v1.4 (2.0 structure changes, then the Police module)
+    "organization": ["0004_structure_change", "0005_unit_restricted", "0006_station_level"],
+    "ranks": ["0004_add_command_ranks", "0005_police_rank_categories"],
+    "personnel": ["0003_personnelprofile", "0004_disciplinary_and_documents"],
+}
 
 
 class MigrationCompatibilityTests(BaseApiTest):
