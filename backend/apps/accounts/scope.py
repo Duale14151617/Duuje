@@ -4,9 +4,10 @@ A RoleAssignment grants a role's permissions over the subtree rooted at
 `org_unit`, optionally limited to units of one service branch. An assignment at
 the HQ node with no branch is "global". Nothing is granted by default.
 """
+from django.conf import settings
 from django.db.models import Q
 
-from apps.organization.models import OrganizationalUnit
+from apps.organization.models import OrganizationalUnit, ServiceBranch
 
 from .models import RoleAssignment
 
@@ -50,6 +51,36 @@ def covers(a, unit):
     return a.branch_id is None or unit.branch_id == a.branch_id
 
 
+# Permission families that touch personnel data. Two extra server-side rules apply to them (see _blocked / unit_scope_q):
+#  1. Police units are invisible while POLICE_MODULE_ENABLED is off (the pilot can be switched off without a deploy of code).
+#  2. Police units are reachable only from an assignment limited to the POLICE branch, or from a role holding
+#     `police.cross_access` (command authority: President / Commander of the Puntland Defense Forces, and super_admin).
+#     Army roles and any branch-less regional/HQ role therefore never reach Police records by default.
+#  3. Restricted units (CID) need `cid.access` in the same assignment - belonging to the Police branch is not enough.
+GATED_PREFIXES = ("personnel.", "reports.", "training.", "logistics.", "analytics.", "cid.", "disciplinary.", "documents.")
+
+
+def _gates(user):
+    g = getattr(user, "_module_gates", None)
+    if g is None:
+        g = {"police": ServiceBranch.objects.filter(code="POLICE").values_list("pk", flat=True).first(),
+             "restricted": list(OrganizationalUnit.objects.filter(restricted=True).values_list("path", flat=True))}
+        user._module_gates = g
+    return g
+
+
+def _blocked(user, a, code, unit):
+    if not code.startswith(GATED_PREFIXES):
+        return False
+    g = _gates(user)
+    if g["police"] is not None and unit.branch_id == g["police"]:
+        if not settings.POLICE_MODULE_ENABLED:
+            return True
+        if a.branch_id != g["police"] and "police.cross_access" not in a.perm_codes:
+            return True
+    return "cid.access" not in a.perm_codes and any(unit.path.startswith(p) for p in g["restricted"])
+
+
 def can(user, code, unit=None):
     """True if `user` holds `code`. With no unit, requires a global (HQ, any-branch) grant."""
     for a in assignments(user):
@@ -58,7 +89,7 @@ def can(user, code, unit=None):
         if unit is None:
             if is_global(a):
                 return True
-        elif covers(a, unit):
+        elif covers(a, unit) and not _blocked(user, a, code, unit):
             return True
     return False
 
@@ -80,6 +111,15 @@ def unit_scope_q(user, code, prefix=""):
         part = Q(**{f"{prefix}path__startswith": a.org_unit.path})
         if a.branch_id is not None:
             part &= Q(**{f"{prefix}branch_id": a.branch_id})
+        if code.startswith(GATED_PREFIXES):
+            g = _gates(user)
+            if g["police"] is not None and (
+                    not settings.POLICE_MODULE_ENABLED
+                    or (a.branch_id != g["police"] and "police.cross_access" not in a.perm_codes)):
+                part &= ~Q(**{f"{prefix}branch_id": g["police"]})
+            if "cid.access" not in a.perm_codes:
+                for path in g["restricted"]:
+                    part &= ~Q(**{f"{prefix}path__startswith": path})
         q |= part
     return q if granted else None
 

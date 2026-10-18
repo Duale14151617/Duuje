@@ -35,15 +35,17 @@ def normalize_phone(value):
     return re.sub(r"\D", "", value or "")
 
 
-def check_assignment(unit, rank):
-    """Business rules tying a person's unit and rank together."""
-    if unit.level not in (OrganizationalUnit.Level.BRANCH, OrganizationalUnit.Level.UNIT):
+def check_assignment(unit, rank, allow_draft_rank=False):
+    """Business rules tying a person's unit and rank together.
+
+    `allow_draft_rank` exists ONLY for clearly tagged synthetic demo people (seed_test_personnel, opt-in); no API path sets it."""
+    if unit.level not in (OrganizationalUnit.Level.BRANCH, OrganizationalUnit.Level.UNIT, OrganizationalUnit.Level.STATION):
         raise RuleError("unit_level_invalid", "org_unit")
     if not unit.active:
         raise RuleError("unit_inactive", "org_unit")
     if rank.branch_id != unit.branch_id:
         raise RuleError("rank_branch_mismatch", "rank")
-    if rank.approval_status != Rank.Approval.APPROVED:
+    if rank.approval_status != Rank.Approval.APPROVED and not allow_draft_rank:
         raise RuleError("rank_not_approved", "rank")
     if not rank.active:
         raise RuleError("rank_inactive", "rank")
@@ -56,11 +58,41 @@ def service_number_taken(number, exclude_pk=None):
     return (qs.exclude(pk=exclude_pk) if exclude_pk else qs).exists()
 
 
-def possible_duplicate(name_key, phone_key, unit_id, exclude_pk=None):
-    """Same normalised name and (same phone, or - when no phone - same unit).
+NOT_SERVING = (Personnel.Status.RETIRED, Personnel.Status.DISCHARGED)
 
-    Checked across all records, but callers only ever report a yes/no, never the other record.
+
+def duplicate_check(name_key, phone_key, unit, exclude_pk=None):
+    """Identity check across ALL services (Army, Navy, Police). Returns a rule code or None:
+
+      "duplicate_identity"  BLOCK, no override: same name AND same phone as someone still serving in a different service.
+                            One person cannot be on two services' active rolls.
+      "possible_duplicate"  FLAG, can be confirmed (confirm_duplicate): same name+phone anywhere (for example a retired
+                            record in another service), same name in the same unit when there is no phone, or the same
+                            name in another service when one side has no phone to tell the two people apart.
+
+    Service numbers are checked separately and are unique across every service already (service_number_taken).
+    Callers report only the code, never the other record, so the check cannot be used to browse other services' people.
     """
+    base = Personnel.objects.filter(name_key=name_key)
+    if exclude_pk:
+        base = base.exclude(pk=exclude_pk)
+    other_service = base.exclude(branch_id=unit.branch_id)
+    if phone_key:
+        same_phone = base.filter(phone_key=phone_key)
+        if same_phone.exclude(branch_id=unit.branch_id).exclude(status__in=NOT_SERVING).exists():
+            return "duplicate_identity"
+        if same_phone.exists():
+            return "possible_duplicate"
+        if other_service.filter(phone_key="").exists():  # no phone on the other record: cannot rule it out
+            return "possible_duplicate"
+        return None
+    if base.filter(org_unit_id=unit.pk).exists() or other_service.exists():
+        return "possible_duplicate"
+    return None
+
+
+def possible_duplicate(name_key, phone_key, unit_id, exclude_pk=None):
+    """Kept for callers that only need a yes/no (same-unit rule). New code should use duplicate_check()."""
     qs = Personnel.objects.filter(name_key=name_key)
     qs = qs.filter(phone_key=phone_key) if phone_key else qs.filter(org_unit_id=unit_id)
     return (qs.exclude(pk=exclude_pk) if exclude_pk else qs).exists()
@@ -77,8 +109,9 @@ def add_history(person, field, old_ref, new_ref, old_label, new_label, effective
         recorded_by_id=getattr(actor, "pk", None), recorded_by_username=getattr(actor, "username", ""))
 
 
-def create_personnel(actor, *, full_name, phone, service_number, org_unit, rank, status, effective_date, reason="Record created"):
-    check_assignment(org_unit, rank)
+def create_personnel(actor, *, full_name, phone, service_number, org_unit, rank, status, effective_date,
+                     reason="Record created", allow_draft_rank=False):
+    check_assignment(org_unit, rank, allow_draft_rank=allow_draft_rank)
     person = Personnel.objects.create(
         service_number=service_number or None, full_name=full_name, phone=phone or "",
         name_key=normalize_name(full_name), phone_key=normalize_phone(phone),
@@ -159,7 +192,10 @@ def validate_import_rows(user, rows):
         if r["full_name"] and unit is not None:
             nk, pk_ = normalize_name(r["full_name"]), normalize_phone(r["phone"])
             sig = (nk, pk_ or str(unit.pk))
-            if sig in seen_people or possible_duplicate(nk, pk_, unit.pk):
+            found = duplicate_check(nk, pk_, unit)
+            if found:
+                errors.append(found)
+            elif sig in seen_people:
                 errors.append("possible_duplicate")
             seen_people.add(sig)
         results.append({"row": i, "errors": errors, "unit": unit, "rank": rank, "status": status})

@@ -4,7 +4,7 @@ from django.conf import settings
 from django.db import models
 from django.db.models import Q
 
-from apps.core.appendonly import AppendOnlyModel
+from apps.core.appendonly import AppendOnlyError, AppendOnlyModel
 
 
 class Personnel(models.Model):
@@ -84,6 +84,66 @@ class PersonnelHistory(AppendOnlyModel):
         db_table = "personnel_history"
         ordering = ["-effective_date", "-recorded_at"]
         indexes = [models.Index(fields=["personnel", "field"], name="phist_person_field_idx")]
+
+
+class DisciplinaryRecord(AppendOnlyModel):
+    """One entry in a person's disciplinary history. APPEND-ONLY: an entry is never edited or deleted.
+
+    A correction is a new entry whose `corrects` points at the entry it replaces (the original stays visible, marked
+    superseded). Everything descriptive (category, incident date, summary, outcome, whether the entry withdraws the one
+    it corrects) lives in `data_enc`, encrypted with FIELD_ENCRYPTION_KEY. The row itself holds only ids and who/when.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    personnel = models.ForeignKey(Personnel, on_delete=models.PROTECT, related_name="disciplinary_records")
+    corrects = models.ForeignKey("self", null=True, blank=True, on_delete=models.PROTECT, related_name="corrections")
+    data_enc = models.TextField()
+    recorded_at = models.DateTimeField(auto_now_add=True)
+    recorded_by_id = models.UUIDField(null=True, blank=True)
+    recorded_by_username = models.CharField(max_length=150, blank=True)
+
+    class Meta:
+        db_table = "personnel_disciplinary"
+        ordering = ["-recorded_at", "-id"]
+        indexes = [models.Index(fields=["personnel", "-recorded_at"], name="pdisc_person_idx")]
+
+
+class PersonnelDocument(models.Model):
+    """A service document (scan or PDF) on a personnel file. The bytes and the descriptive text (title, original file
+    name, note) are encrypted at rest. Documents are never deleted: a mistaken upload is *withdrawn* (hidden from the
+    list and from download, kept for the audit trail). The database also refuses DELETE on this table."""
+
+    class Category(models.TextChoices):
+        SERVICE_RECORD = "service_record"
+        APPOINTMENT = "appointment"
+        TRAINING_CERTIFICATE = "training_certificate"
+        COMMENDATION = "commendation"
+        IDENTITY = "identity"
+        OTHER = "other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    personnel = models.ForeignKey(Personnel, on_delete=models.PROTECT, related_name="documents")
+    category = models.CharField(max_length=24, choices=Category.choices)
+    meta_enc = models.TextField()
+    content_enc = models.BinaryField()
+    content_type = models.CharField(max_length=40)
+    size_bytes = models.PositiveIntegerField()
+    sha256 = models.CharField(max_length=64)  # of the plaintext file, so an integrity check is possible after restore
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    uploaded_by_id = models.UUIDField(null=True, blank=True)
+    uploaded_by_username = models.CharField(max_length=150, blank=True)
+    withdrawn_at = models.DateTimeField(null=True, blank=True)
+    withdrawn_by_id = models.UUIDField(null=True, blank=True)
+    withdrawn_by_username = models.CharField(max_length=150, blank=True)
+    withdrawn_reason_enc = models.TextField(blank=True, default="")
+
+    class Meta:
+        db_table = "personnel_documents"
+        ordering = ["-uploaded_at", "-id"]
+        indexes = [models.Index(fields=["personnel", "-uploaded_at"], name="pdoc_person_idx")]
+
+    def delete(self, *args, **kwargs):
+        raise AppendOnlyError("Service documents cannot be deleted; withdraw them instead.")
 
 
 class ImportBatch(models.Model):

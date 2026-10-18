@@ -56,6 +56,11 @@ services:
         value: "0"
       - key: ENABLE_API_DOCS
         value: "0"
+      # Police pilot and demo people: owned by the Render dashboard (sync: false), left unset = off.
+      - key: POLICE_MODULE_ENABLED
+        sync: false
+      - key: ARMYHQ_TEST_PERSONNEL
+        sync: false
       - key: LOG_LEVEL
         value: INFO
 

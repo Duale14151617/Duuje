@@ -12,6 +12,13 @@ class Rank(models.Model):
         WARRANT = "warrant"
         OFFICER = "officer"
         UNSPECIFIED = "unspecified"  # the official Puntland Army list is not split into these classes
+        # Police classes from Article 23 (Order of Precedence), Law No. 2 of 23 Dec 1972 - historical baseline only.
+        GENERAL_OFFICER = "general_officer"
+        SENIOR_OFFICER = "senior_officer"
+        JUNIOR_OFFICER = "junior_officer"
+        INSPECTOR = "inspector"
+        NCO = "nco"
+        ASKARI = "askari"
 
     class Approval(models.TextChoices):
         DRAFT = "draft"
@@ -19,7 +26,7 @@ class Rank(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     branch = models.ForeignKey("organization.ServiceBranch", on_delete=models.PROTECT, related_name="ranks")
-    category = models.CharField(max_length=11, choices=Category.choices)
+    category = models.CharField(max_length=16, choices=Category.choices)
     code = models.CharField(max_length=16)
     name_en = models.CharField(max_length=100)
     name_so = models.CharField(max_length=100, blank=True)

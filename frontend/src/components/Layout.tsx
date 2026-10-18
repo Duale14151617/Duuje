@@ -25,6 +25,8 @@ export function Layout() {
     { to: "/tree", icon: "tree", label: "nav.tree", show: can("org.view") },
     { to: "/structure-changes", icon: "swap", label: "nav.structureChanges", show: can("org.structure_propose") || can("org.structure_approve") },
     { to: "/personnel", icon: "users", label: "nav.personnel", show: can("personnel.view") },
+    { to: "/search", icon: "search", label: "nav.search", show: can("search.cross_service") },
+    { to: "/combined", icon: "list", label: "nav.combined", show: can("reports.combined") },
     { to: "/reports", icon: "file", label: "nav.reports", show: can("reports.view") },
     { to: "/summary", icon: "list", label: "nav.summary", show: can("reports.summary") },
     { to: "/logistics", icon: "box", label: "nav.logistics", show: ["logistics.view", "logistics.restricted", "logistics.configure", "logistics.approve", "logistics.restricted_approve", "logistics.report"].some(can) },

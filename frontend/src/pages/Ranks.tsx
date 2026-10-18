@@ -71,7 +71,7 @@ export function Ranks() {
         <Field label={t("ranks.category")}>
           <select value={category} onChange={(e) => setCategory(e.target.value)}>
             <option value="">{t("common.all")}</option>
-            {["enlisted", "warrant", "officer", "unspecified"].map((c) => <option key={c} value={c}>{t(`cat.${c}` as Key)}</option>)}
+            {["enlisted", "warrant", "officer", "unspecified", "general_officer", "senior_officer", "junior_officer", "inspector", "nco", "askari"].map((c) => <option key={c} value={c}>{t(`cat.${c}` as Key)}</option>)}
           </select>
         </Field>
         <Field label={t("ranks.status")}>

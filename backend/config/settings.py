@@ -179,6 +179,10 @@ ENABLE_API_DOCS = env_bool("ENABLE_API_DOCS", DEBUG)
 # Personnel exports stay off until the institution approves them (see docs/LIMITATIONS.md).
 PERSONNEL_EXPORT_ENABLED = env_bool("PERSONNEL_EXPORT_ENABLED", False)
 
+# Puntland Police module. OFF until the institution approves the pilot. When off: no Police ranks/departments are seeded and
+# every personnel/report/training/logistics/analytics scope excludes Police units (enforced in apps/accounts/scope.py).
+POLICE_MODULE_ENABLED = env_bool("POLICE_MODULE_ENABLED", False)
+
 # Summary exports stay off until approved, like personnel exports.
 REPORT_EXPORT_ENABLED = env_bool("REPORT_EXPORT_ENABLED", False)
 

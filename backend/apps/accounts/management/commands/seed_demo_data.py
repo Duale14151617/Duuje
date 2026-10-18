@@ -3,6 +3,7 @@ import os
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
+from django.conf import settings
 from django.db import transaction
 
 from apps.accounts.models import Role, RoleAssignment, User
@@ -30,6 +31,13 @@ DEMO_USERS = {
     "trainer": ("Training Administrator", "training_admin", "BARI", None),
     "readonly": ("Read-only", "read_only", "MUDUG", None),
 }
+
+DEMO_USERS.setdefault("president", ("President / Commander-in-Chief", "command_authority", "HQ", None))
+DEMO_USERS.setdefault("commander", ("Commander of the Puntland Defense Forces", "command_authority", "HQ", None))
+if settings.POLICE_MODULE_ENABLED:  # Police pilot demo accounts; each is limited to the POLICE branch
+    DEMO_USERS.setdefault("bari.policeadmin", ("Bari Police Admin", "branch_admin", "BARI", "POLICE"))
+    DEMO_USERS.setdefault("bari.policepers", ("Bari Police Personnel Admin", "unit_admin", "BARI-POLICE-PERS", "POLICE"))
+    DEMO_USERS.setdefault("bari.cid", ("Bari CID Officer", "cid_officer", "BARI-POLICE-CID", "POLICE"))
 
 # The other regions get the same regional set Bari has (chief, branch admin, unit admin, reporter, custodians, trainer).
 OTHER_REGIONS = ("Karkaar", "Nugaal", "Mudug")

@@ -1,4 +1,43 @@
-# ARMY HQ — Version 2.0 (… + Institutional expansion)
+# ARMY HQ: administrative platform for Puntland's Army, Navy and Police
+
+**Stack:** Django 5 + Django REST Framework, PostgreSQL, React + TypeScript (Vite), deployed on Render (Docker).
+Synthetic data only; not production-ready (see `docs/LIMITATIONS.md`). There is no XAMPP/WAMP/PHP in this project.
+
+## Run it locally
+Needs Python 3.12, Node 20+, PostgreSQL 16 (or Docker: `docker compose -f docker-compose.local.yml up`, see `docs/DOCKER_WINDOWS11.md`).
+
+```bash
+cp .env.example backend/.env          # fill DJANGO_SECRET_KEY and FIELD_ENCRYPTION_KEY (commands are in the file)
+cd backend && pip install -r requirements-dev.txt
+python manage.py migrate && python manage.py createcachetable
+python manage.py seed_reference_data   # permissions, roles, branches, regions, ranks
+python manage.py create_hq_admin --username admin --full-name "Admin" --role super_admin
+python manage.py runserver
+cd ../frontend && npm ci && npm run dev   # http://localhost:5173
+python manage.py test                       # backend tests (from backend/)
+cd frontend && npm test && npm run typecheck && npm run lint
+```
+
+## Deploy on Render
+`render.yaml` is a Blueprint: one Docker web service plus a Postgres database. The container runs, in order: `migrate`,
+`createcachetable`, `seed_reference_data`, `seed_demo_data` (only when `ARMYHQ_DEMO_MODE=1`), `seed_test_personnel --from-env`, then gunicorn.
+Set in the Render dashboard: `FIELD_ENCRYPTION_KEY` (keep it safe: losing it makes encrypted records unreadable), `ARMYHQ_DEMO_PASSWORD`,
+and the switches below. See `RENDER_DEPLOY_GUIDE.md` and `docs/DEPLOY_ROLLBACK.md`.
+
+| Variable | Effect |
+|---|---|
+| `POLICE_MODULE_ENABLED=1` | Turns the Police pilot on (seeds draft Police ranks and departments; Police data becomes reachable). Unset/0 hides all Police data server-side. |
+| `ARMYHQ_TEST_PERSONNEL=150` | Keeps 150 synthetic Army people (and, with the Police module on, 2/5 as many Police people). Unset/0 deletes them all. |
+| `ARMYHQ_TEST_POLICE_PERSONNEL=N` | Optional: set the Police sample size explicitly. |
+| `ARMYHQ_TEST_POLICE_DRAFT_RANKS=1` | Demo only: let Police test people use draft ranks until the real ranks are approved. |
+| `PERSONNEL_EXPORT_ENABLED`, `REPORT_EXPORT_ENABLED`, `INTEGRATIONS_ENABLED` | Stay 0 until the institution approves them. |
+
+## Police module in short
+Read `docs/POLICE_MODULE.md` (switch, ranks, CID, access model, personnel-file records, duplicates, stations) and
+`docs/POLICE_LAW_1972_MAPPING.md` (what the 1972 Police law supports, and what is still open). Useful commands:
+`approve_police_ranks`, `create_command_authority`, `report_duplicate_identities`, `seed_test_personnel`.
+
+## Release history
 
 Administrative web platform for Puntland's Army, Navy and Police (development specification,
 **synthetic data only**). Stack: Django + DRF, PostgreSQL, React + TypeScript.

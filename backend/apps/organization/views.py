@@ -57,7 +57,7 @@ class UnitViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
             if value:
                 qs = qs.filter(**{field: value})
         if p.get("placeable") == "1":  # units people can be assigned to
-            qs = qs.filter(level__in=["branch_command", "unit"])
+            qs = qs.filter(level__in=["branch_command", "unit", "station"])
         return qs.select_related("parent", "branch").prefetch_related("designations")
 
     TREE_LIMIT = 2000

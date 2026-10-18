@@ -11,6 +11,8 @@ import { PersonnelDetail, PersonnelForm, PersonnelImport, PersonnelList } from "
 import { AssetDetail, LogisticsHome, ReconDetail, StockDetail } from "./pages/Logistics";
 import { TrainingHome, TrainingRecordDetail } from "./pages/Training";
 import { Notifications } from "./pages/Notifications";
+import { CrossSearch } from "./pages/CrossSearch";
+import { CombinedReport } from "./pages/CombinedReport";
 import { ReportDetail, ReportForm, ReportList } from "./pages/Reports";
 import { Summary } from "./pages/Summary";
 import { Organization } from "./pages/Organization";
@@ -45,6 +47,8 @@ export default function App() {
         <Route path="personnel/new" element={<PersonnelForm />} />
         <Route path="personnel/import" element={<PersonnelImport />} />
         <Route path="personnel/:id" element={<PersonnelDetail />} />
+        <Route path="search" element={<CrossSearch />} />
+        <Route path="combined" element={<CombinedReport />} />
         <Route path="reports" element={<ReportList />} />
         <Route path="reports/new" element={<ReportForm />} />
         <Route path="reports/:id/edit" element={<ReportForm />} />

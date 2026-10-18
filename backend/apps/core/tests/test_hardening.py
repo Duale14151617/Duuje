@@ -216,7 +216,8 @@ class MfaReplayTests(BaseApiTest):
 
     def test_every_privileged_role_is_confined_until_mfa_is_enrolled(self):
         privileged = set(Role.objects.filter(is_privileged=True).values_list("code", flat=True))
-        self.assertEqual(privileged, {"hq_admin", "regional_chief", "branch_admin", "auditor", "restricted_custodian", "logistics_reviewer"})
+        self.assertEqual(privileged, {"hq_admin", "regional_chief", "branch_admin", "auditor", "restricted_custodian", "logistics_reviewer",
+                                      "structure_approver", "cid_officer", "command_authority", "super_admin"})
         unit_for = {"headquarters": "HQ", "region": "BARI", "branch_command": "BARI-ARMY", "unit": "BARI-ARMY"}
         for code in sorted(privileged):
             role = Role.objects.get(code=code)

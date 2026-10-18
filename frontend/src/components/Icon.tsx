@@ -22,6 +22,7 @@ const ICONS = {
   plug: <><path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0V8z" /><path d="M12 18v4" /></>,
   bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></>,
   menu: <path d="M3 6h18M3 12h18M3 18h18" />,
+  search: <><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></>,
   close: <path d="M18 6 6 18M6 6l12 12" />,
   chevronsLeft: <path d="m11 17-5-5 5-5M18 17l-5-5 5-5" />,
   chevronsRight: <path d="m13 17 5-5-5-5M6 17l5-5-5-5" />,

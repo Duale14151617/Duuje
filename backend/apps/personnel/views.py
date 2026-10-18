@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import mixins, viewsets
@@ -21,6 +21,7 @@ from apps.core.params import uuid_param
 from apps.organization.models import OrganizationalUnit
 
 from . import profile as profile_svc
+from . import records
 from . import services as svc
 from .models import ImportBatch, Personnel
 from .serializers import (HistorySerializer, PersonnelCreateSerializer, PersonnelSerializer,
@@ -72,6 +73,10 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
         "change_status": ("personnel.manage", "unit"),
         "import_preview": ("personnel.import", "any"), "import_commit": ("personnel.import", "any"),
         "export": ("personnel.export", "any"),
+        "cross_search": ("search.cross_service", "any"),
+        "disciplinary": ("disciplinary.view", "unit"), "disciplinary_add": ("disciplinary.manage", "unit"),
+        "documents": ("documents.view", "unit"), "document_upload": ("documents.manage", "unit"),
+        "document_download": ("documents.view", "unit"), "document_withdraw": ("documents.manage", "unit"),
     }
 
     def scope_unit(self, obj):
@@ -190,6 +195,105 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
         profile_svc.save_photo(person, profile_svc.process_photo(upload))
         record("personnel.photo_update", request=request, entity_type="personnel", entity_id=person.pk)
         return Response({"has_photo": True})
+
+    # --- disciplinary history: append-only, encrypted, every view and change audited ----------------------
+    @action(detail=True, methods=["get"], url_path="disciplinary")
+    def disciplinary(self, request, pk=None):
+        person = self.get_object()
+        items = records.list_disciplinary(person)
+        record("disciplinary.view", request=request, entity_type="personnel", entity_id=person.pk,
+               metadata={"count": len(items)})  # never any of the text
+        return Response({"results": items})
+
+    @action(detail=True, methods=["post"], url_path="disciplinary/add")
+    def disciplinary_add(self, request, pk=None):
+        """New entry, or - when `corrects` names an earlier entry - a correction. Entries are never edited or deleted."""
+        person = self.get_object()
+        ser = records.DisciplinaryInputSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        with transaction.atomic():
+            row = records.add_disciplinary(person, request.user, ser.validated_data)
+            record("disciplinary.correct" if row.corrects_id else "disciplinary.add", request=request,
+                   entity_type="personnel", entity_id=person.pk,
+                   metadata={"record": str(row.pk), "corrects": str(row.corrects_id) if row.corrects_id else None})
+        return Response({"id": str(row.pk)}, status=201)
+
+    # --- service documents: upload / list / download / withdraw (encrypted, audited) ------------------------
+    @action(detail=True, methods=["get"], url_path="documents")
+    def documents(self, request, pk=None):
+        person = self.get_object()
+        items = records.list_documents(person)
+        record("document.list", request=request, entity_type="personnel", entity_id=person.pk,
+               metadata={"count": len(items)})
+        return Response({"results": items})
+
+    @action(detail=True, methods=["post"], url_path="documents/upload", parser_classes=[MultiPartParser])
+    def document_upload(self, request, pk=None):
+        person = self.get_object()
+        ser = records.DocumentInputSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        upload = request.FILES.get("file")
+        if upload is None:
+            raise field_error("file", "file_required", "Choose a file.")
+        raw, ctype = records.read_upload(upload)
+        with transaction.atomic():
+            doc = records.add_document(person, request.user, ser.validated_data, raw, ctype)
+            record("document.upload", request=request, entity_type="personnel", entity_id=person.pk,
+                   metadata={"document": str(doc.pk), "category": doc.category, "bytes": doc.size_bytes})
+        return Response(records.document_out(doc), status=201)
+
+    @action(detail=True, methods=["get"], url_path=r"documents/(?P<doc_id>[^/.]+)/download",
+            content_negotiation_class=IgnoreNegotiation)
+    def document_download(self, request, pk=None, doc_id=None):
+        person = self.get_object()
+        doc = records.get_document(person, doc_id)
+        if doc is None:
+            return HttpResponse(status=404)
+        try:
+            raw, filename = records.read_document(doc)
+        except ValueError:  # stored bytes no longer match their checksum: report it, never serve it
+            record("document.download", request=request, outcome="failure", entity_type="personnel",
+                   entity_id=person.pk, metadata={"document": str(doc.pk), "reason": "checksum_mismatch"})
+            return HttpResponse(status=500)
+        record("document.download", request=request, entity_type="personnel", entity_id=person.pk,
+               metadata={"document": str(doc.pk), "bytes": len(raw)})
+        resp = HttpResponse(raw, content_type=doc.content_type)
+        resp["Content-Disposition"] = f'attachment; filename="{filename}"'
+        resp["Cache-Control"] = "private, no-store"
+        resp["X-Content-Type-Options"] = "nosniff"
+        return resp
+
+    @action(detail=True, methods=["post"], url_path=r"documents/(?P<doc_id>[^/.]+)/withdraw")
+    def document_withdraw(self, request, pk=None, doc_id=None):
+        person = self.get_object()
+        doc = records.get_document(person, doc_id)
+        if doc is None:
+            return Response({"code": "not_found", "detail": "Not found."}, status=404)
+        ser = records.WithdrawSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        with transaction.atomic():
+            records.withdraw_document(doc, request.user, ser.validated_data["reason"])
+            record("document.withdraw", request=request, entity_type="personnel", entity_id=person.pk,
+                   metadata={"document": str(doc.pk)})
+        return Response({"withdrawn": True})
+
+    # --- cross-service search (Army + Police in one query) -------------------------------------------------
+    @action(detail=False, methods=["get"], url_path="search")
+    def cross_search(self, request):
+        """One database query over every service. Needs `search.cross_service`, and still returns only people the caller may
+        see: the personnel scope (branch limits, Police gate, restricted CID units) is applied to the same queryset, so a
+        user can never find a record here that the personnel list would hide."""
+        text = (request.query_params.get("q") or "").strip()
+        if len(text) < 2:
+            raise field_error("q", "q_too_short", "Type at least 2 characters.")
+        base = _filter(_scoped(request.user, "personnel.view"), request)
+        counts = {row["branch__code"]: row["n"] for row in base.order_by().values("branch__code").annotate(n=Count("pk"))}
+        total = sum(counts.values())
+        rows = base.select_related("branch", "org_unit", "rank").order_by("branch__code", "full_name")[:50]
+        record("personnel.cross_search", request=request, entity_type="personnel",
+               metadata={"query_length": len(text), "total": total})  # never the search text itself
+        return Response({"counts": counts, "total": total, "truncated": total > 50,
+                         "results": PersonnelSerializer(rows, many=True).data})
 
     # --- safe import: preview -> commit -----------------------------------
     @action(detail=False, methods=["post"], url_path="import/preview", parser_classes=[MultiPartParser], throttle_scope="bulk")
