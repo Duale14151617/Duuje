@@ -52,6 +52,15 @@ for _name in OTHER_REGIONS:
     DEMO_USERS.setdefault(f"{_k}.trainer", (f"{_name} Training Administrator", "training_admin", _r, None))
 
 
+if settings.POLICE_MODULE_ENABLED:  # one CID officer per region, limited to that region's CID unit
+    for _name in OTHER_REGIONS:
+        DEMO_USERS.setdefault(f"{_name.lower()}.cid", (f"{_name} CID Officer", "cid_officer", f"{_name.upper()}-POLICE-CID", "POLICE"))
+    # HQ CID officer: one assignment per regional CID unit, so it reaches CID records in every region and nothing else
+    # (no other Police units, no Army). A tuple of unit codes means "one assignment per unit".
+    DEMO_USERS.setdefault("hq.cid", ("HQ CID Officer", "cid_officer",
+                                     tuple(f"{_r.upper()}-POLICE-CID" for _r in ("Bari",) + OTHER_REGIONS), "POLICE"))
+
+
 class Command(BaseCommand):
     help = "Create synthetic demo accounts. Password from ARMYHQ_DEMO_PASSWORD (min 12 chars)."
 
@@ -78,7 +87,9 @@ class Command(BaseCommand):
                     code=f"{region.upper()}-ARMY-DEMO-A", name_en="Synthetic Unit A", name_so="Cutubka Tijaabada A",
                     level=OU.Level.UNIT, parent=region_army)
         for username, (full, role_code, unit_code, branch_code) in DEMO_USERS.items():
-            if not OU.objects.filter(code=unit_code).exists():
+            multi = not isinstance(unit_code, str)  # several units: one role assignment per unit
+            codes = [c for c in ([unit_code] if not multi else unit_code) if OU.objects.filter(code=c).exists()]
+            if not codes:
                 continue  # reference data for this region is missing; skip rather than fail the whole deploy
             legacy = User.objects.filter(username=f"demo.{username}").first()
             if legacy and not User.objects.filter(username=username).exists():
@@ -97,11 +108,16 @@ class Command(BaseCommand):
                         "password", "failed_login_count", "locked_until",
                         "mfa_enabled", "mfa_secret_enc", "updated_at",
                     ])
-                continue
-            user = User.objects.create_user(username, password=password, full_name=full)
-            RoleAssignment.objects.create(
-                user=user, role=Role.objects.get(code=role_code), org_unit=OU.objects.get(code=unit_code),
-                branch=ServiceBranch.objects.get(code=branch_code) if branch_code else None)
+                if not multi:
+                    continue
+            else:
+                user = User.objects.create_user(username, password=password, full_name=full)
+            role = Role.objects.get(code=role_code)
+            branch = ServiceBranch.objects.get(code=branch_code) if branch_code else None
+            if multi:  # drop any earlier Headquarters-wide assignment: this account is limited to the listed units
+                RoleAssignment.objects.filter(user=user, role=role, org_unit__level=OU.Level.HQ).delete()
+            for code in codes:
+                RoleAssignment.objects.get_or_create(user=user, role=role, org_unit=OU.objects.get(code=code), branch=branch)
         self._demo_personnel(army_cmd)
         self._demo_logistics_training()
         self.stdout.write(self.style.SUCCESS(
