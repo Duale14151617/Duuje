@@ -52,17 +52,17 @@ export function ReportingLine({ person, canManage, onChanged }: { person: Person
 
   return (
     <section className="card">
-      <h2>{t("rep.title")}</h2>
+      <h2>{t("rline.title")}</h2>
       <div className="stat">
-        <span>{t("rep.supervisor")}</span>
+        <span>{t("rline.supervisor")}</span>
         <b>
-          {current ? <Link to={`/personnel/${current.id}`}>{label(current)}</Link> : hidden ? t("rep.restricted") : t("rep.none")}
+          {current ? <Link to={`/personnel/${current.id}`}>{label(current)}</Link> : hidden ? t("rline.restricted") : t("rline.none")}
         </b>
       </div>
       {canManage && (
-        <div className="stat"><span>{t("rep.account")}</span><b>{person.account_username || t("rep.noAccount")}</b></div>
+        <div className="stat"><span>{t("rline.account")}</span><b>{person.account_username || t("rline.noAccount")}</b></div>
       )}
-      <div className="stat"><span>{t("rep.reportsToThem")}</span><b>{subs.length}</b></div>
+      <div className="stat"><span>{t("rline.reportsToThem")}</span><b>{subs.length}</b></div>
       {subs.length > 0 && (
         <ul className="list">
           {subs.map((s) => <li key={s.id} className="item"><Link to={`/personnel/${s.id}`}>{label(s)}</Link></li>)}
@@ -70,26 +70,26 @@ export function ReportingLine({ person, canManage, onChanged }: { person: Person
       )}
       {canManage && !editing && (
         <div className="row" style={{ marginTop: "1rem" }}>
-          <button className="secondary" onClick={start}>{t("rep.edit")}</button>
+          <button className="secondary" onClick={start}>{t("rline.edit")}</button>
         </div>
       )}
       {canManage && editing && (
         <form onSubmit={(e) => void save(e)} style={{ marginTop: "1rem" }}>
           <ErrorNotice error={error ?? candidates.error} />
           <input type="search" value={q} onChange={(e) => setQ(e.target.value)} maxLength={100}
-                 aria-label={t("rep.search")} placeholder={t("rep.search")} />
-          <Field label={t("rep.supervisor")}>
+                 aria-label={t("rline.search")} placeholder={t("rline.search")} />
+          <Field label={t("rline.supervisor")}>
             <select value={supervisor} onChange={(e) => setSupervisor(e.target.value)}>
-              <option value="">{t("rep.none")}</option>
+              <option value="">{t("rline.none")}</option>
               {current && !options.some((o) => o.id === current.id) && <option value={current.id}>{label(current)}</option>}
               {options.map((o) => <option key={o.id} value={o.id}>{label(o)}</option>)}
             </select>
           </Field>
-          <p className="muted">{t("rep.rule")}</p>
-          <Field label={t("rep.account")}>
+          <p className="muted">{t("rline.rule")}</p>
+          <Field label={t("rline.account")}>
             <input value={account} onChange={(e) => setAccount(e.target.value)} maxLength={64} autoCapitalize="none" autoComplete="off" />
           </Field>
-          <p className="muted">{t("rep.accountHelp")}</p>
+          <p className="muted">{t("rline.accountHelp")}</p>
           <div className="row">
             <button type="submit">{t("common.save")}</button>
             <button type="button" className="secondary" onClick={() => setEditing(false)}>{t("common.cancel")}</button>
