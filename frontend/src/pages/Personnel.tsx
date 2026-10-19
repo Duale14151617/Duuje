@@ -85,7 +85,7 @@ export function PersonnelList() {
       {can("personnel.manage") && (
         <label className="row" style={{ margin: ".5rem 0" }}>
           <input type="checkbox" style={{ width: "auto", minHeight: 0 }} checked={noSup} onChange={(e) => { setNoSup(e.target.checked); setPage(1); }} />
-          <span>{t("rep.onlyWithout")}</span>
+          <span>{t("rline.onlyWithout")}</span>
         </label>
       )}
       <ErrorNotice error={list.error ?? exportError} />
