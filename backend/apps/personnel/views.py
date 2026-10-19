@@ -47,6 +47,8 @@ def _filter(qs, request):
         qs = qs.filter(org_unit__path__startswith=unit.path) if unit else qs.none()
     if p.get("status"):
         qs = qs.filter(status=p["status"])
+    if p.get("no_supervisor") == "1":
+        qs = qs.filter(supervisor__isnull=True)
     return qs
 
 
@@ -55,8 +57,71 @@ def _scoped(user, code):
     return Personnel.objects.none() if q is None else Personnel.objects.filter(q)
 
 
+def _team(user):
+    """Rows a `personnel.view_team` holder may see: their own record plus the people who report directly to them.
+
+    The assignment's unit/branch limits and the Police / CID gates still apply (same engine as every other read), so a
+    member can never reach a record their assignment could not reach. Nobody is found when the account is not linked to a
+    personnel record: no link, no access."""
+    q = scope.unit_scope_q(user, "personnel.view_team", "org_unit__")
+    if q is None:
+        return Personnel.objects.none()
+    me = Personnel.objects.filter(account_id=user.pk).values_list("pk", flat=True).first()
+    if me is None:
+        return Personnel.objects.none()
+    return Personnel.objects.filter(q).filter(Q(pk=me) | Q(supervisor_id=me))
+
+
+def _readable(user):
+    """Everything this user may read: unit-wide `personnel.view` scope, plus the own-record / direct-subordinate rows."""
+    base = _scoped(user, "personnel.view")
+    if not scope.has_anywhere(user, "personnel.view_team"):
+        return base
+    return Personnel.objects.filter(Q(pk__in=base.values("pk")) | Q(pk__in=_team(user).values("pk")))
+
+
+def _brief(p):
+    return {"id": str(p.pk), "full_name": p.full_name, "service_number": p.service_number,
+            "rank": {"id": str(p.rank_id), "code": p.rank.code, "name_en": p.rank.name_en, "name_so": p.rank.name_so}}
+
+
+def _reporting(user, person):
+    """Reporting-line details for the detail screen. Only people who may read this person's unit see them, and each
+    linked person is shown only if the viewer may read *that* person's unit too (otherwise just a marker)."""
+    def seen(p):
+        return scope.can(user, "personnel.view", unit=p.org_unit) or scope.can(user, "personnel.manage", unit=p.org_unit)
+    if not seen(person):
+        return {}
+    sup = person.supervisor
+    subs = list(person.subordinates.select_related("rank", "org_unit").order_by("-rank__sort_order", "full_name")[:100])
+    out = {
+        "supervisor": None if sup is None else (_brief(sup) if seen(sup) else {"id": str(sup.pk), "restricted": True}),
+        "subordinates": [_brief(x) for x in subs if seen(x)],
+    }
+    if scope.can(user, "personnel.manage", unit=person.org_unit):
+        out["account_username"] = person.account.username if person.account_id else None
+    return out
+
+
+def _detail(request, person):
+    data = dict(PersonnelSerializer(person).data)
+    data.update(_reporting(request.user, person))
+    return data
+
+
+def _audit_team_read(request, person, what):
+    """Reading a subordinate's file through the team rule (not own file, not unit-wide access) is always audited."""
+    user = request.user
+    if person.account_id != user.pk and not scope.can(user, "personnel.view", unit=person.org_unit):
+        record("personnel.view_subordinate", request=request, entity_type="personnel", entity_id=person.pk,
+               metadata={"what": what})
+
+
 def _rule_to_400(exc):
     return field_error(exc.field, exc.code)
+
+
+VIEW = ("personnel.view", "personnel.view_team")  # unit-wide reader, or own-record + direct-subordinates reader
 
 
 class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
@@ -64,9 +129,10 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
     serializer_class = PersonnelSerializer
     permission_classes = [ScopedPermission]
     permission_map = {
-        "list": ("personnel.view", "any"), "retrieve": ("personnel.view", "unit"),
-        "history": ("personnel.view", "unit"),
-        "photo": ("personnel.view", "unit"), "photo_upload": ("personnel.manage", "unit"),
+        "list": (VIEW, "any"), "retrieve": (VIEW, "unit"),
+        "history": (VIEW, "unit"),
+        "photo": (VIEW, "unit"), "supervisor_candidates": ("personnel.manage", "unit"),
+        "reporting_lines": ("personnel.manage", "any"), "photo_upload": ("personnel.manage", "unit"),
         "profile": ("personnel.manage", "unit"),
         "create": ("personnel.manage", "any"), "partial_update": ("personnel.manage", "unit"),
         "transfer": ("personnel.manage", "unit"), "change_rank": ("personnel.manage", "unit"),
@@ -84,12 +150,17 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
 
     def get_queryset(self):
         # Scope lives in the queryset: out-of-scope people are simply not found.
-        return _filter(_scoped(self.request.user, "personnel.view"), self.request).select_related(
+        return _filter(_readable(self.request.user), self.request).select_related(
             "branch", "org_unit", "rank")
+
+    def retrieve(self, request, *args, **kwargs):
+        person = self.get_object()
+        _audit_team_read(request, person, "record")
+        return Response(_detail(request, person))
 
     def _out(self, person):
         person = Personnel.objects.select_related("branch", "org_unit", "rank").get(pk=person.pk)
-        return Response(PersonnelSerializer(person).data)
+        return Response(_detail(self.request, person))
 
     # --- create / edit ---------------------------------------------------
     def create(self, request, *args, **kwargs):
@@ -159,7 +230,50 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
     @action(detail=True, methods=["get"])
     def history(self, request, pk=None):
         person = self.get_object()
+        _audit_team_read(request, person, "history")
         return Response(HistorySerializer(person.history.all(), many=True).data)
+
+    # --- reporting lines -------------------------------------------------
+    @action(detail=True, methods=["get"], url_path="supervisor-candidates")
+    def supervisor_candidates(self, request, pk=None):
+        """People the editor may pick as this person's supervisor: same service, active, strictly senior, in the editor's
+        reach. The rules are the server's (check_supervisor), so the screen never offers a choice the save would refuse."""
+        person = self.get_object()
+        if not person.rank.active:
+            return Response([])
+        qs = _filter(_scoped(request.user, "personnel.view"), request).filter(
+            branch_id=person.branch_id, status="active", rank__active=True,
+            rank__sort_order__gt=person.rank.sort_order).exclude(pk=person.pk)
+        rows = qs.select_related("rank").order_by("-rank__sort_order", "full_name")[:20]
+        return Response([_brief(x) for x in rows])
+
+    @action(detail=False, methods=["post"], url_path="reporting-lines", parser_classes=[MultiPartParser],
+            throttle_scope="bulk")
+    def reporting_lines(self, request):
+        """Set supervisors / link logins for many existing people from a CSV (service_number, supervisor_service_number,
+        account_username). dry_run=true (default) only reports; dry_run=false applies, all-or-nothing, and re-checks
+        everything first because data and scope may have changed since the preview."""
+        upload = request.FILES.get("file")
+        if upload is None:
+            raise field_error("file", "file_required", "Choose a CSV file.")
+        try:
+            rows = svc.parse_lines_csv(upload)
+        except svc.RuleError as exc:
+            raise _rule_to_400(exc)
+        results = svc.validate_reporting_rows(request.user, rows)
+        bad = [r for r in results if r["errors"]]
+        report = [{"row": r["row"], "errors": r["errors"]} for r in results]
+        apply = str(request.data.get("dry_run", "true")).lower() in ("false", "0", "no")
+        if not apply:
+            record("personnel.reporting_lines_preview", request=request, entity_type="personnel",
+                   metadata={"rows": len(rows), "valid": len(rows) - len(bad)})
+            return Response({"total": len(rows), "valid": len(rows) - len(bad), "can_commit": not bad, "rows": report})
+        if bad:
+            return Response({"code": "import_has_errors", "detail": "Fix the file and preview again.", "rows": report}, status=409)
+        with transaction.atomic():
+            changed = svc.apply_reporting_rows(request.user, results)
+            record("personnel.reporting_lines", request=request, entity_type="personnel", metadata={"updated": changed})
+        return Response({"total": len(rows), "valid": len(rows), "updated": changed})
 
     # --- sensitive profile: photo, blood type, weapon ID, emergency contact (encrypted at rest) ----------
     @action(detail=True, methods=["get", "patch"])
@@ -178,6 +292,7 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
     @action(detail=True, methods=["get"], content_negotiation_class=IgnoreNegotiation)
     def photo(self, request, pk=None):
         person = self.get_object()
+        _audit_team_read(request, person, "photo")
         jpeg = profile_svc.read_photo(person)
         if jpeg is None:
             return HttpResponse(status=404)

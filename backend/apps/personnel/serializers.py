@@ -3,6 +3,7 @@ from datetime import date
 from rest_framework import serializers
 
 from apps.accounts import scope
+from apps.accounts.models import User
 from apps.accounts.serializers import BranchBriefSerializer, UnitBriefSerializer
 from apps.core.concurrency import require_version, versioned_update
 from apps.organization.models import OrganizationalUnit
@@ -30,7 +31,7 @@ class PersonnelSerializer(serializers.ModelSerializer):
     class Meta:
         model = Personnel
         fields = ["id", "service_number", "full_name", "phone", "branch", "org_unit", "rank", "status",
-                  "version", "created_at", "updated_at"]
+                  "supervisor_id", "version", "created_at", "updated_at"]
         read_only_fields = fields
 
 
@@ -95,6 +96,35 @@ class PersonnelCreateSerializer(_Basics):
 class PersonnelUpdateSerializer(_Basics):
     full_name = serializers.CharField(max_length=150, required=False)
     confirm_duplicate = serializers.BooleanField(required=False, default=False)
+    # Reporting line and login link. Both optional; null clears them.
+    supervisor = serializers.UUIDField(required=False, allow_null=True)  # resolved by hand: unknown and out-of-scope read alike
+    account_username = serializers.CharField(max_length=64, required=False, allow_null=True, allow_blank=True)
+
+    def validate_supervisor(self, sup):
+        """All rules live in svc.check_supervisor (shared with the bulk file). Every failure about *who* the supervisor is
+        carries the same code, so an id outside the editor's scope cannot be probed."""
+        if sup is None:
+            return None
+        found = Personnel.objects.select_related("rank", "org_unit").filter(pk=sup).first()
+        try:
+            if found is None:
+                raise svc.RuleError("supervisor_invalid", "supervisor")
+            svc.check_supervisor(self.context["request"].user, self.instance, found)
+        except svc.RuleError as exc:
+            raise fail(exc.field, exc.code)
+        return found
+
+    def validate_account_username(self, value):
+        value = (value or "").strip().lower()
+        if not value:
+            return None
+        try:
+            acct = User.objects.filter(username=value).first()
+            if acct is None:
+                raise svc.RuleError("account_invalid", "account_username")
+            return svc.check_account(self.instance, acct)
+        except svc.RuleError as exc:
+            raise fail(exc.field, exc.code)
 
     def validate(self, attrs):
         p = self.instance
@@ -116,6 +146,8 @@ class PersonnelUpdateSerializer(_Basics):
         expected = require_version(self.initial_data)
         validated_data.pop("confirm_duplicate", None)
         changes = dict(validated_data)
+        if "account_username" in changes:
+            changes["account"] = changes.pop("account_username")
         if "full_name" in changes:
             changes["name_key"] = svc.normalize_name(changes["full_name"])
         if "phone" in changes:
@@ -162,6 +194,12 @@ class RankChangeSerializer(_Workflow):
             svc.check_assignment(p.org_unit, rank)
         except svc.RuleError as exc:
             raise fail("rank" if exc.field == "rank" else exc.field, exc.code)
+        # Keep the reporting line coherent: a supervisor always outranks the people who report to them. Ranks that
+        # cannot be compared (retired ones) are skipped rather than guessed at.
+        if p.supervisor_id and svc.outranks(p.supervisor.rank, rank) is False:
+            raise fail("rank", "outranks_supervisor")
+        if any(svc.outranks(rank, sub.rank) is False for sub in p.subordinates.select_related("rank")):
+            raise fail("rank", "outranks_subordinate")
         return attrs
 
 

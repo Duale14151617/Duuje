@@ -69,9 +69,21 @@ export interface Dashboard {
 
 export interface RankBrief { id: string; code: string; name_en: string; name_so: string; approval_status: string }
 export type PersonnelStatus = "active" | "on_leave" | "suspended" | "retired" | "discharged";
+export interface PersonBrief {
+  id: string; full_name: string; service_number: string | null; rank: Pick<RankBrief, "id" | "code" | "name_en" | "name_so">;
+}
 export interface Person {
   id: string; service_number: string | null; full_name: string; phone: string; branch: BranchBrief;
   org_unit: UnitBrief; rank: RankBrief; status: PersonnelStatus; version: number;
+  /** Reporting line. Present on the detail screen only for people who may read this person's unit. */
+  supervisor_id?: string | null;
+  supervisor?: PersonBrief | { id: string; restricted: true } | null;
+  subordinates?: PersonBrief[];
+  /** Managers only. */
+  account_username?: string | null;
+}
+export interface ReportingLinesReport {
+  total: number; valid: number; can_commit?: boolean; updated?: number; rows?: { row: number; errors: string[] }[];
 }
 export interface HistoryEntry {
   id: string; field: "rank" | "org_unit" | "status"; old_label: string; new_label: string;

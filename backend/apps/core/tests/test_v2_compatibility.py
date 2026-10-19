@@ -62,7 +62,7 @@ V14_MIGRATIONS = {
 }
 NEW_PERMISSIONS = {"analytics.view", "integrations.view", "integrations.manage", "org.structure_propose", "org.structure_approve"}
 ROLES_GAINING_ANALYTICS = {"hq_reporting", "regional_chief", "branch_admin"}
-NEW_ROLES = {"structure_approver", "super_admin", "cid_officer", "command_authority"}  # the last two: Police module
+NEW_ROLES = {"structure_approver", "super_admin", "cid_officer", "command_authority", "member"}  # cid/command: Police module; member: own record + direct subordinates
 # Police module: branch_admin holds the sensitive personnel-file records (disciplinary history, service documents).
 BRANCH_ADMIN_RECORDS = {"disciplinary.view", "disciplinary.manage", "documents.view", "documents.manage"}
 # hq_admin receives every non-sensitive permission automatically, so it gains the integration and structure-proposal ones.

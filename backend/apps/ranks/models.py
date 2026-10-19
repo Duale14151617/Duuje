@@ -30,6 +30,8 @@ class Rank(models.Model):
     code = models.CharField(max_length=16)
     name_en = models.CharField(max_length=100)
     name_so = models.CharField(max_length=100, blank=True)
+    # Order of precedence inside the service: HIGHER = MORE SENIOR (Army: 1 = Dable ... 18 = President). Reporting lines
+    # (Personnel.supervisor) rely on it. Retired ranks are inactive and parked at 1000+, and are never compared.
     sort_order = models.PositiveSmallIntegerField(default=0)
     approval_status = models.CharField(max_length=10, choices=Approval.choices, default=Approval.DRAFT)
     approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,

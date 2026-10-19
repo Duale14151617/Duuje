@@ -32,6 +32,8 @@ DEMO_USERS = {
     "readonly": ("Read-only", "read_only", "MUDUG", None),
 }
 
+# Non-commanding member: sees only their own record and the people who report to them (see _demo_team).
+DEMO_USERS.setdefault("bari.member", ("Bari Member (Demo Person 03)", "member", "BARI-ARMY-DEMO-A", None))
 DEMO_USERS.setdefault("president", ("President / Commander-in-Chief", "command_authority", "HQ", None))
 DEMO_USERS.setdefault("commander", ("Commander of the Puntland Defense Forces", "command_authority", "HQ", None))
 if settings.POLICE_MODULE_ENABLED:  # Police pilot demo accounts; each is limited to the POLICE branch
@@ -119,6 +121,7 @@ class Command(BaseCommand):
             for code in codes:
                 RoleAssignment.objects.get_or_create(user=user, role=role, org_unit=OU.objects.get(code=code), branch=branch)
         self._demo_personnel(army_cmd)
+        self._demo_team()
         self._demo_logistics_training()
         self.stdout.write(self.style.SUCCESS(
             "Synthetic demo users ready. Privileged roles must enrol MFA on first login."))
@@ -133,6 +136,18 @@ class Command(BaseCommand):
             personnel_services.create_personnel(
                 None, full_name=f"Demo Person {i:02d}", phone=f"+25290000{i:04d}", service_number=f"DEMO-{i:04d}",
                 org_unit=unit, rank=rank, status="active", effective_date=None, reason="Synthetic demo record")
+
+    def _demo_team(self):
+        """Reporting line for the member demo: Demo Person 03 (PA-10) supervises 01 (PA-03) and 02 (PA-05); the
+        `bari.member` login belongs to person 03, so it sees those three records and nobody else."""
+        by_no = {p.service_number: p for p in Personnel.objects.filter(service_number__startswith="DEMO-")}
+        boss, a, b = by_no.get("DEMO-0003"), by_no.get("DEMO-0001"), by_no.get("DEMO-0002")
+        user = User.objects.filter(username="bari.member").first()
+        if not (boss and a and b and user):
+            return
+        Personnel.objects.filter(pk__in=[a.pk, b.pk]).update(supervisor=boss)
+        if not Personnel.objects.filter(account=user).exists():
+            Personnel.objects.filter(pk=boss.pk).update(account=user)
 
     def _demo_logistics_training(self):
         """Approve two harmless demo categories directly (DEBUG only) and add synthetic stock and assets."""

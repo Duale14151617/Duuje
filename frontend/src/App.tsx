@@ -7,6 +7,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { ForcedPassword, MfaEnrol } from "./pages/Enrol";
 import { Login } from "./pages/Login";
 import { ResetPassword } from "./pages/Reset";
+import { ReportingLines } from "./pages/ReportingLines";
 import { PersonnelDetail, PersonnelForm, PersonnelImport, PersonnelList } from "./pages/Personnel";
 import { AssetDetail, LogisticsHome, ReconDetail, StockDetail } from "./pages/Logistics";
 import { TrainingHome, TrainingRecordDetail } from "./pages/Training";
@@ -46,6 +47,7 @@ export default function App() {
         <Route path="personnel" element={<PersonnelList />} />
         <Route path="personnel/new" element={<PersonnelForm />} />
         <Route path="personnel/import" element={<PersonnelImport />} />
+        <Route path="personnel/reporting-lines" element={<ReportingLines />} />
         <Route path="personnel/:id" element={<PersonnelDetail />} />
         <Route path="search" element={<CrossSearch />} />
         <Route path="combined" element={<CombinedReport />} />

@@ -27,6 +27,11 @@ class Personnel(models.Model):
     org_unit = models.ForeignKey("organization.OrganizationalUnit", on_delete=models.PROTECT, related_name="personnel")
     rank = models.ForeignKey("ranks.Rank", on_delete=models.PROTECT, related_name="+")
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.ACTIVE)
+    # Reporting line: the person this one reports to. Drives the `personnel.view_team` rule (own record + direct subordinates).
+    supervisor = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="subordinates")
+    # The login account that belongs to this person (used to find "my own record"). One account per person, and vice versa.
+    account = models.OneToOneField(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                                   related_name="personnel_record")
     version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

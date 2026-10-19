@@ -36,7 +36,22 @@ class RankSerializer(serializers.ModelSerializer):
         if clash.exists():
             raise serializers.ValidationError({"code": [
                 serializers.ErrorDetail("This rank code already exists for the branch.", code="rank_code_taken")]})
+        self._keep_reporting_lines_valid(attrs)
         return attrs
+
+    def _keep_reporting_lines_valid(self, attrs):
+        """sort_order is the seniority order (higher = more senior) and reporting lines depend on it, so it cannot be
+        changed in a way that leaves someone reporting to a person of equal or lower rank."""
+        inst = self.instance
+        if inst is None or "sort_order" not in attrs or attrs["sort_order"] == inst.sort_order:
+            return
+        from apps.personnel.models import Personnel  # local import: personnel depends on ranks
+        new = attrs["sort_order"]
+        broken = (Personnel.objects.filter(rank=inst, supervisor__rank__active=True, supervisor__rank__sort_order__lte=new)
+                  | Personnel.objects.filter(supervisor__rank=inst, rank__active=True, rank__sort_order__gte=new))
+        if inst.active and broken.exists():
+            raise serializers.ValidationError({"sort_order": [serializers.ErrorDetail(
+                "This order would put someone at or above their own supervisor.", code="breaks_reporting_lines")]})
 
     def update(self, instance, validated_data):
         expected = require_version(self.initial_data)

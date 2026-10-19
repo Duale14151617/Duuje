@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased: Member role and reporting lines
+- New `member` role (permission `personnel.view_team`): a non-commanding member reads their own record and the records of people who report
+  to them, read-only, inside the assignment's scope and the Police / CID gates. No export, import, search, reports or sensitive records.
+- `Personnel.supervisor` (reporting line) and `Personnel.account` (login belonging to the person). Migration personnel 0005.
+- Rules in one place (`personnel/services.py`: `check_supervisor`, `outranks`): same service, strictly senior, reachable by the editor, no loops.
+  Seniority is `Rank.sort_order` (higher = more senior); retired ranks (inactive, parked at 1000+) are never compared. Rank changes and rank
+  `sort_order` edits that would break a reporting line are refused.
+- Screens: reporting-line panel on the person page (supervisor picker fed by `GET /personnel/{id}/supervisor-candidates/`, login link),
+  "only people without a supervisor" list filter, and bulk CSV page `/personnel/reporting-lines` (check, then apply all-or-nothing; blank cell =
+  unchanged, `clear` = remove) backed by `POST /personnel/reporting-lines/`.
+- Audit: `personnel.view_subordinate`, `personnel.reporting_lines`, `personnel.reporting_lines_preview`.
+- Demo seed: `bari.member` login (Demo Person 03) with a small reporting line. Tests: `personnel/tests/test_member_team_access.py`.
+  Not run at time of writing (no Django in the authoring environment): run the backend suite and `npm test` before deploying.
+
 ## Unreleased: Police module completion, batch 1
 - Disciplinary history and service documents on personnel files (encrypted, audited, append-only / never deleted).
 - Cross-service duplicate-identity check (block / flag) and `report_duplicate_identities` command.

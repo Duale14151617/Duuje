@@ -7,6 +7,7 @@ import { useAuth } from "../auth/AuthContext";
 import { Chip, ErrorNotice, Field, formatDate, Loading, Notice, Pager, useErrorText } from "../components/ui";
 import { ExportPdfButton } from "../components/ExportPdfButton";
 import { PersonnelProfile } from "../components/PersonnelProfile";
+import { ReportingLine } from "../components/ReportingLine";
 import { DisciplinaryPanel, DocumentsPanel } from "../components/PersonnelRecords";
 import { UnitPicker } from "../components/UnitPicker";
 import { useUnitTypes } from "../api/useUnitTypes";
@@ -29,9 +30,10 @@ export function PersonnelList() {
   const [unit, setUnit] = useState("");
   const [unitLabel, setUnitLabel] = useState("");
   const [page, setPage] = useState(1);
+  const [noSup, setNoSup] = useState(false);
   const [exportError, setExportError] = useState<unknown>(null);
   const cat = useUnitTypes();
-  const list = useFetch<Page<Person>>("/personnel/", { q, status, org_unit: unit, page });
+  const list = useFetch<Page<Person>>("/personnel/", { q, status, org_unit: unit, page, no_supervisor: noSup ? 1 : undefined });
   const canExport = can("personnel.export") && !!me?.features.personnel_export;
 
   async function exportCsv() {
@@ -63,6 +65,7 @@ export function PersonnelList() {
         <div className="row">
           {can("personnel.manage") && <Link className="btn" to="/personnel/new">{t("pers.add")}</Link>}
           {can("personnel.import") && <Link className="btn secondary" to="/personnel/import">{t("pers.import")}</Link>}
+          {can("personnel.manage") && <Link className="btn secondary" to="/personnel/reporting-lines">{t("replines.title")}</Link>}
           {canExport && <button className="secondary" onClick={() => void exportCsv()}>{t("pers.export")}</button>}
           {canExport && <ExportPdfButton filename="personnel.pdf" build={buildPdf} onError={setExportError} />}
         </div>
@@ -79,6 +82,12 @@ export function PersonnelList() {
         </Field>
         <UnitPicker label={t("pers.unit")} value={unit} allowAll onChange={(id, u) => { setUnit(id); setUnitLabel(u ? name(u) : ""); setPage(1); }} />
       </div>
+      {can("personnel.manage") && (
+        <label className="row" style={{ margin: ".5rem 0" }}>
+          <input type="checkbox" style={{ width: "auto", minHeight: 0 }} checked={noSup} onChange={(e) => { setNoSup(e.target.checked); setPage(1); }} />
+          <span>{t("rep.onlyWithout")}</span>
+        </label>
+      )}
       <ErrorNotice error={list.error ?? exportError} />
       {list.loading && !list.data ? <Loading /> : null}
       {list.data && list.data.results.length === 0 && <p>{t("pers.noResults")}</p>}
@@ -279,6 +288,7 @@ export function PersonnelDetail() {
         </section>
       )}
       {p && mode && <ChangeForm person={p} mode={mode} onDone={done} />}
+      {p && <ReportingLine person={p} canManage={can("personnel.manage")} onChanged={done} />}
       {p && <PersonnelProfile personId={p.id} canManage={can("personnel.manage")} />}
       {p && can("disciplinary.view") && <DisciplinaryPanel personId={p.id} canManage={can("disciplinary.manage")} />}
       {p && can("documents.view") && <DocumentsPanel personId={p.id} canManage={can("documents.manage")} />}

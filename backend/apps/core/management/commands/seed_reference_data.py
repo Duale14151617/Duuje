@@ -35,6 +35,7 @@ PERMISSIONS = {
     "audit.view": "Read audit events",
     "dashboard.view": "See the dashboard",
     "personnel.view": "View personnel records in scope",
+    "personnel.view_team": "View your own personnel record and your direct subordinates' records (read-only, within the assignment's scope)",
     "personnel.manage": "Create/edit personnel, transfers, rank and status changes in scope",
     "personnel.import": "Import personnel from CSV in scope",
     "personnel.export": "Export personnel to CSV in scope (also needs PERSONNEL_EXPORT_ENABLED)",
@@ -124,6 +125,10 @@ ROLES = {
     # Owner-level role: every permission, HQ-wide, MFA required. Separation-of-duties rules in the code still apply
     # (nobody can approve their own submission), so keep a second approver account for those flows.
     "super_admin": ("Super administrator", "Maamulaha sare", True, False, ["headquarters"], list(PERMISSIONS)),
+    # Every non-commanding member of the forces. Own record plus direct subordinates (Personnel.supervisor), nothing else:
+    # no unit-wide listing, no export, no reports. Commanders keep their unit/region/branch roles.
+    "member": ("Member (non-commanding)", "Xubin (aan taliye ahayn)", False, False, [],
+               BASIC + ["personnel.view_team"]),
     "read_only": ("Read-only user", "Isticmaale akhrin oo keliya", False, False, [],
                   BASIC + ["personnel.view", "reports.view"]),
 }

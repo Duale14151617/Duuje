@@ -24,7 +24,7 @@ export function Layout() {
     { to: "/structure", icon: "layers", label: "nav.structure", show: can("org.view") },
     { to: "/tree", icon: "tree", label: "nav.tree", show: can("org.view") },
     { to: "/structure-changes", icon: "swap", label: "nav.structureChanges", show: can("org.structure_propose") || can("org.structure_approve") },
-    { to: "/personnel", icon: "users", label: "nav.personnel", show: can("personnel.view") },
+    { to: "/personnel", icon: "users", label: "nav.personnel", show: can("personnel.view") || can("personnel.view_team") },
     { to: "/search", icon: "search", label: "nav.search", show: can("search.cross_service") },
     { to: "/combined", icon: "list", label: "nav.combined", show: can("reports.combined") },
     { to: "/reports", icon: "file", label: "nav.reports", show: can("reports.view") },
