@@ -1,3 +1,6 @@
+## Unreleased
+- Installable app (PWA): manifest, icons, safe service worker (no personal data cached), offline screen, Install button. See `docs/PWA.md`.
+
 # Changelog
 
 ## Unreleased: Member role and reporting lines

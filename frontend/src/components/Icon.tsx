@@ -21,6 +21,7 @@ const ICONS = {
   list: <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />,
   plug: <><path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0V8z" /><path d="M12 18v4" /></>,
   bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></>,
+  download: <><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></>,
   menu: <path d="M3 6h18M3 12h18M3 18h18" />,
   search: <><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></>,
   close: <path d="M18 6 6 18M6 6l12 12" />,

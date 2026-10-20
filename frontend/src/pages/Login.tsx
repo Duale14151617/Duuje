@@ -3,6 +3,7 @@ import { ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { ErrorNotice, Notice } from "../components/ui";
 import { useI18n } from "../i18n";
+import { InstallButton } from "../pwa/install";
 import { ThemeToggle } from "../theme/ThemeToggle";
 
 const icon = (children: ReactNode) => (
@@ -50,6 +51,7 @@ export function Login() {
           <div className="lp-header-tag">Integrated <i>·</i> Secure <i>·</i> Efficient</div>
         </div>
         <div className="lp-controls">
+          <InstallButton className="lp-lang" showLabel />
           <button type="button" className="lp-lang" onClick={() => setLang(lang === "en" ? "so" : "en")}
                   aria-label={t("lang.other")}>
             <GlobeIcon />

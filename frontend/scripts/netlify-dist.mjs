@@ -62,6 +62,13 @@ const headers = `/*
   Content-Security-Policy: ${csp}
 /index.html
   Cache-Control: no-cache
+/sw.js
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Content-Type: application/manifest+json
+  Cache-Control: no-cache
+/offline.html
+  Cache-Control: no-cache
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 /api/*

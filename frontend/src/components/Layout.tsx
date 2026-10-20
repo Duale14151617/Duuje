@@ -6,6 +6,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useI18n, type Key } from "../i18n";
 import { Icon, type IconName } from "./Icon";
 import { useMedia } from "./useMedia";
+import { InstallButton } from "../pwa/install";
 import { ThemeToggle } from "../theme/ThemeToggle";
 
 const SIDEBAR_KEY = "armyhq.sidebar";
@@ -113,6 +114,7 @@ export function Layout() {
           </span>
         </div>
         <div className="topbar-actions">
+          <InstallButton />
           <ThemeToggle />
           <button onClick={() => void switchLang()} lang={lang === "en" ? "so" : "en"}>{t("lang.other")}</button>
           <button className="icon-btn" onClick={() => void logout()} aria-label={t("common.signOut")} title={t("common.signOut")}><Icon name="logout" size={18} /></button>

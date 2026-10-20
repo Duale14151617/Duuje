@@ -5,7 +5,10 @@ import App from "./App";
 import { AuthProvider } from "./auth/AuthContext";
 import { I18nProvider } from "./i18n";
 import { ThemeProvider } from "./theme/ThemeContext";
+import { registerServiceWorker } from "./pwa/install";
 import "./styles.css";
+
+registerServiceWorker();
 
 createRoot(document.getElementById("root") as HTMLElement).render(
   <StrictMode>

@@ -27,6 +27,9 @@ server {
     # Single-page app (built with `npm run build`)
     root /var/www/armyhq;
     location / { try_files $uri /index.html; add_header Cache-Control "no-cache"; }
+    # Installable app files: always revalidate so updates reach devices (no add_header here, so the security headers above still apply)
+    location = /sw.js { expires -1; try_files $uri =404; }
+    location = /manifest.webmanifest { default_type application/manifest+json; expires -1; try_files $uri =404; }
     location /assets/ { add_header Cache-Control "public, max-age=31536000, immutable"; }
 
     # API: never cache; pass the real client address (set TRUST_PROXY_HEADERS=1 and NUM_PROXIES=1 in the app)

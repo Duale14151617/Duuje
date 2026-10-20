@@ -81,6 +81,16 @@ ROOT_URLCONF = "config.urls"
 # The Render demo image copies the Vite build here. WhiteNoise serves the built
 # frontend assets from /assets/* while Django serves the SPA index at / and routes.
 WHITENOISE_ROOT = BASE_DIR / "frontend_dist"
+WHITENOISE_MIMETYPES = {".webmanifest": "application/manifest+json"}
+
+
+def _whitenoise_headers(headers, path, url):
+    """Installable-app files must always be revalidated so a new version reaches devices promptly."""
+    if url in ("/sw.js", "/manifest.webmanifest", "/offline.html", "/offline.css", "/offline.js", "/index.html"):
+        headers["Cache-Control"] = "no-cache"
+
+
+WHITENOISE_ADD_HEADERS_FUNCTION = _whitenoise_headers
 WSGI_APPLICATION = "config.wsgi.application"
 AUTH_USER_MODEL = "accounts.User"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
