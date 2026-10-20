@@ -3,7 +3,7 @@
    anything user-specific. It only caches the public app files (hashed build assets, icons, offline screen).
    When the network is down, page loads show a plain offline screen. Bump VERSION to refresh all devices. */
 const VERSION = "armyhq-v1";
-const PRECACHE = ["/offline.html", "/offline.css", "/offline.js", "/icon-192.png", "/icon-512.png", "/favicon-32.png", "/puntland-flag.svg"];
+const PRECACHE = ["/offline.html", "/offline.css", "/offline.js", "/icon-192.png", "/icon-512.png", "/favicon-32.png", "/puntland-flag-logo.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(VERSION).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting()));

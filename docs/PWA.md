@@ -4,7 +4,7 @@ ARMY HQ can be installed on a phone or computer from the browser (Chrome, Edge, 
 An **Install app** button is also shown on the sign-in page and in the top bar.
 
 ## Files
-- `frontend/public/manifest.webmanifest`: name, colours and icons (`icon-192.png`, `icon-512.png`, `icon-maskable-512.png`).
+- `frontend/public/manifest.webmanifest`: name, colours and icons (`icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, all made from the Puntland flag image `puntland-flag-hero.png`; the in-app logo is `puntland-flag-logo.png`).
 - `frontend/public/sw.js`: service worker. **It never caches pages, API responses or personal data.** It caches only the public app files
   (content-hashed `/assets/*`, icons, offline screen). If the network fails, page loads show `offline.html`.
 - `frontend/public/offline.html|css|js`: offline screen. Styles and script are separate files because the Content-Security-Policy forbids inline code.

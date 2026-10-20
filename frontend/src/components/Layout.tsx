@@ -109,7 +109,7 @@ export function Layout() {
             <Icon name="menu" size={20} />
           </button>
           <span className="brand" style={{ display: "inline-flex", alignItems: "center", gap: ".5rem" }}>
-            <img src="/puntland-flag.svg" alt="Puntland flag" width={36} height={24} style={{ borderRadius: 3, boxShadow: "0 0 0 1px rgba(198,161,91,.7)" }} />
+            <img src="/puntland-flag-logo.png" alt="Puntland flag" width={42} height={28} style={{ borderRadius: 3, boxShadow: "0 0 0 1px rgba(198,161,91,.7)" }} />
             <span className="brand-text">{t("app.name")}</span>
           </span>
         </div>
@@ -144,7 +144,7 @@ export function Layout() {
            role={drawerOpen ? "dialog" : undefined} aria-modal={drawerOpen ? true : undefined} aria-label={drawerOpen ? t("nav.label") : undefined}>
         <div className="nav-head">
           <span className="nav-brand">
-            <img src="/puntland-flag.svg" alt="" width={36} height={24} style={{ borderRadius: 3, boxShadow: "0 0 0 1px rgba(198,161,91,.7)" }} />
+            <img src="/puntland-flag-logo.png" alt="" width={42} height={28} style={{ borderRadius: 3, boxShadow: "0 0 0 1px rgba(198,161,91,.7)" }} />
             {t("app.name")}
           </span>
           <button ref={closeBtn} type="button" className="icon-btn nav-close" onClick={() => closeDrawer(true)} aria-label={t("nav.close")}>
