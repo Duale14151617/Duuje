@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Seeded weapon categories (rifles, pistols, submachine guns, machine guns, sniper rifles, launchers, mortars/crew-served) for the Weapon register and ammunition categories per calibre/type (5.56, 7.62x39, 7.62x51, 7.62x54R, 9 mm, 12.7, 14.5, rockets, mortar bombs, grenades) for the Ammunition ledger. Seeded as draft; approve under Logistics -> Categories.
+- Demo mode: synthetic weapons and ammunition opening balances for the demo unit.
+- Weapon register form: suggestions for weapon type and caliber.
+
+
 ## Unreleased: Police stations, Chief of Police / Station Commander, rank editing and swapping
 - Police ranking is the same as the Army (18 ranks, stored as separate Police rows). Ranks are editable (code, category, names) and swappable (any two active ranks of a branch); audited, and refused when a reporting line would break.
 - Police appointments CHIEF_OF_POLICE (regional Police command) and STATION_COMMANDER (station). The commander reports to the chief when the line is empty and the rank rule holds.
