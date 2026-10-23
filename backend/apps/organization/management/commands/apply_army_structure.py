@@ -9,12 +9,12 @@ from apps.personnel.models import Personnel
 
 class Command(BaseCommand):
     help = ("Apply the Army organizational structure supplied by army personnel (Taliska Guud with directorates, the four "
-            "regional commands, Guuto and Urur units for Bari and Sanaag, Urur office types). Army only. Dry run by default; pass --apply to write. Idempotent.")
+            "regional commands, Guuto, Urur and battalion sections in every regional command (Mudug & Cayn, Nugaal & Sool, Bari, Sanaag), Urur office types). Army only. Dry run by default; pass --apply to write. Idempotent.")
 
     def add_arguments(self, parser):
         parser.add_argument("--apply", action="store_true", help="Write the changes (default is a dry run).")
         parser.add_argument("--guuto-per-command", type=int, default=army_structure.DEFAULT_GUUTO_PER_COMMAND,
-                            help="Guuto (brigades) in each of Bari and Sanaag. Raise it later to add more; nothing is ever removed.")
+                            help="Guuto (brigades) in each of the four regional commands. Raise it later to add more; nothing is ever removed.")
         parser.add_argument("--urur-per-guuto", type=int, default=army_structure.DEFAULT_URUR_PER_GUUTO,
                             help="Urur (battalions) in each Guuto. Raise it later to add more; nothing is ever removed.")
 
