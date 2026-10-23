@@ -113,15 +113,16 @@ function RegisterForm({ onDone, onCancel }: { onDone: () => void; onCancel: () =
       {cats.data && catList.length === 0 && (
         <Notice kind="error">
           {lang === "so"
-            ? "Weli ma jirto qayb hub ah oo la ansixiyay. Fur Logistics → Categories, oo ka dhig \"Weapons\" mid la ansixiyay (waxaa sameyn kara isticmaale leh ogolaansho ansixinta qalabka xaddidan), ka dibna halkan dib u soo laadi."
-            : "No approved weapon category exists yet. Open Logistics → Categories and approve the \"Weapons\" category (this needs a user with the restricted-approval permission), then reload this page."}
+            ? "Weli ma jirto qayb hub ah oo la ansixiyay. Fur Logistics → Categories, oo ka dhig qayb hub ah (tusaale Rifles, Pistols) mid la ansixiyay (waxaa sameyn kara isticmaale leh ogolaansho ansixinta qalabka xaddidan), ka dibna halkan dib u soo laadi."
+            : "No approved weapon category exists yet. Open Logistics → Categories and approve a weapon category such as Rifles or Pistols (this needs a user with the restricted-approval permission), then reload this page."}
         </Notice>
       )}
       <UnitPicker label={t("weap.holdingUnit")} value={f.org_unit} required onChange={(id) => setF({ ...f, org_unit: id })} params={{ placeable: 1 }} />
       <Field label={t("weap.serial")}><input value={f.serial} required maxLength={64} autoCapitalize="characters" onChange={set("serial")} /></Field>
-      <Field label={t("weap.type")}><input value={f.weapon_type} required maxLength={60} onChange={set("weapon_type")} /></Field>
+      <Field label={t("weap.type")}><input value={f.weapon_type} required maxLength={60} list="weapon-types" onChange={set("weapon_type")} /></Field>
+      <datalist id="weapon-types">{["Assault rifle", "Rifle", "Pistol", "Submachine gun", "Light machine gun", "General-purpose machine gun", "Heavy machine gun", "Sniper rifle", "RPG launcher", "Grenade launcher", "Mortar"].map((x) => <option key={x} value={x} />)}</datalist>
       <Field label={t("weap.makeModel")}><input value={f.make_model} maxLength={120} onChange={set("make_model")} /></Field>
-      <Field label={t("weap.caliber")}><input value={f.caliber} maxLength={40} onChange={set("caliber")} /></Field>
+      <Field label={t("weap.caliber")}><input value={f.caliber} maxLength={40} list="weapon-calibers" onChange={set("caliber")} /><datalist id="weapon-calibers">{["5.56x45 mm", "7.62x39 mm", "7.62x51 mm", "7.62x54R mm", "9 mm", "12.7 mm", "14.5 mm", "60 mm", "82 mm"].map((x) => <option key={x} value={x} />)}</datalist></Field>
       <Field label={t("weap.condition")}>
         <select value={f.condition} onChange={set("condition")}>{CONDITIONS.map((c) => <option key={c} value={c}>{t(`wcond.${c}` as Key)}</option>)}</select>
       </Field>
