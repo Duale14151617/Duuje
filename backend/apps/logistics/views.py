@@ -99,8 +99,8 @@ class AmmunitionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
     serializer_class = StockLineSerializer
     permission_classes = [ScopedPermission]
     pagination_class = None
-    permission_map = {"list": (VIEW_CODES, "unit"), "retrieve": (VIEW_CODES, "unit"), "statement": (VIEW_CODES, "unit"),
-                      "movement": ("logistics.manage", "unit")}
+    permission_map = {"list": ("logistics.restricted", "unit"), "retrieve": ("logistics.restricted", "unit"),
+                      "statement": ("logistics.restricted", "unit"), "movement": ("logistics.manage", "unit")}
 
     def scope_unit(self, obj):
         return obj.org_unit

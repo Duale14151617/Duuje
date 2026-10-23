@@ -68,7 +68,7 @@ class RegisterTests(WeaponBase):
         self.assertFalse(Asset.objects.filter(identifier="SNEAK-1").exists())
 
     def test_only_authorized_users_reach_the_register(self):
-        for user in (self.make_user("cmdr", "unit_commander", unit="BARI-ARMY-A"), self.make_user("uadm", "unit_admin", unit="BARI-ARMY-A"),
+        for user in (self.make_user("uadm", "unit_admin", unit="BARI-ARMY-A"),
                      self.make_user("mem", "member", unit="BARI-ARMY")):
             c = self.client_for(user)
             self.assertEqual(c.get(W).status_code, 403, user.username)

@@ -11,6 +11,7 @@ from decimal import Decimal
 from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 
 from apps.audit.services import record
 from apps.core import crypto
@@ -188,17 +189,30 @@ def _still_valid(inst):
             raise svc.InvalidState()
 
 
+class _Denied(ValidationError):
+    """A refusal that must be audited. The audit row is written AFTER the transaction rolls back, otherwise the rollback
+    that undoes the refused move would also erase the record of who tried it."""
+
+    def __init__(self, error, audit_action, inst_id, reason):
+        super().__init__(error.detail)
+        self.audit_action, self.inst_id, self.reason = audit_action, inst_id, reason
+
+
 def _move(user, inst_id, action, allowed, to, comment="", extra=None, check=None):
-    with transaction.atomic():
-        inst = _locked(inst_id)
-        if inst.status not in allowed:
-            raise svc.InvalidState()
-        if check:
-            check(inst)
-        old = inst.status
-        I.objects.filter(pk=inst.pk).update(status=to, version=inst.version + 1, updated_at=timezone.now(), **(extra or {}))
-        _event(inst, user, action, old, to, comment)
-        record(f"payment.{action}", actor=user, entity_type="payment", entity_id=inst.pk, metadata={"from": old, "to": to})
+    try:
+        with transaction.atomic():
+            inst = _locked(inst_id)
+            if inst.status not in allowed:
+                raise svc.InvalidState()
+            if check:
+                check(inst)
+            old = inst.status
+            I.objects.filter(pk=inst.pk).update(status=to, version=inst.version + 1, updated_at=timezone.now(), **(extra or {}))
+            _event(inst, user, action, old, to, comment)
+            record(f"payment.{action}", actor=user, entity_type="payment", entity_id=inst.pk, metadata={"from": old, "to": to})
+    except _Denied as d:
+        record(d.audit_action, actor=user, outcome="denied", entity_type="payment", entity_id=d.inst_id, metadata={"reason": d.reason})
+        raise
     inst.refresh_from_db()
     return inst
 
@@ -206,8 +220,7 @@ def _move(user, inst_id, action, allowed, to, comment="", extra=None, check=None
 def authorize_payment(user, inst):
     def check(i):
         if i.prepared_by_id == user.pk:
-            record("payment.authorize", actor=user, outcome="denied", entity_type="payment", entity_id=i.pk, metadata={"reason": "self_authorization"})
-            raise svc.rule("authorizer_must_differ", "status")
+            raise _Denied(svc.rule("authorizer_must_differ", "status"), "payment.authorize", i.pk, "self_authorization")
         _still_valid(i)
     return _move(user, inst.pk, "authorize", {"prepared"}, "authorized", extra={"authorized_by_id": user.pk,
                  "authorized_by_username": user.username, "authorized_at": timezone.now()}, check=check)
@@ -223,8 +236,7 @@ def begin_processing(user, inst):
     """The executing officer starts the EXTERNAL payment (Sahal app/agent or bank). Cannot be the person who authorised it."""
     def check(i):
         if i.authorized_by_id == user.pk:
-            record("payment.process", actor=user, outcome="denied", entity_type="payment", entity_id=i.pk, metadata={"reason": "authorizer_cannot_execute"})
-            raise svc.rule("executor_must_differ", "status")
+            raise _Denied(svc.rule("executor_must_differ", "status"), "payment.process", i.pk, "authorizer_cannot_execute")
         _still_valid(i)
     return _move(user, inst.pk, "process", {"authorized"}, "processing", extra={"executed_by_id": user.pk,
                  "executed_by_username": user.username, "executed_at": timezone.now()}, check=check)

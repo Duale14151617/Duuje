@@ -141,8 +141,8 @@ class SurvivorTests(PayrollBase):
         self.assertEqual(self.surv.get(f"{S}{cid}/").json()["eligible_tier"], None)  # wife's claim still pending
         self.assertEqual(self.surv.post(f"{S}{cid}/beneficiary/{wife}/decide/", {"verify": True}, format="json").status_code, 400)  # the registrar cannot verify their own entry
         self.assertEqual(self.surv2.post(f"{S}{cid}/beneficiary/{wife}/decide/", {"verify": True}, format="json").status_code, 200)
-        self.assertEqual(self.surv2.post(f"{S}{cid}/beneficiary/{parent}/decide/", {"verify": True}, format="json").status_code, 200)
-        self.assertEqual(self.surv.get(f"{S}{cid}/").json()["eligible_tier"], 1)  # parents verified but wife outranks them
+        self.assertEqual(self.surv2.post(f"{S}{cid}/beneficiary/{parent}/decide/", {"verify": True}, format="json").status_code, 400)  # wife outranks: higher_priority_exists
+        self.assertEqual(self.surv.get(f"{S}{cid}/").json()["eligible_tier"], 1)  # only the wife's class is eligible
         self.assertEqual(self.surv.post(f"{S}{cid}/verify/", {"outstanding_review": "No unpaid salary found"}, format="json").status_code, 200)
         bad = self.surv.post(f"{S}{cid}/propose/", {"beneficiary": parent, "amount": "10", "currency": "usd", "basis_ref": "Policy"}, format="json")
         self.assertEqual(bad.status_code, 400)  # parent is not in the eligible class

@@ -110,7 +110,7 @@ class WeaponViewSet(viewsets.GenericViewSet):
             base = OrganizationalUnit.objects.filter(pk=unit).first()
             qs = qs.filter(Q(org_unit__path__startswith=base.path) | Q(issued_to_unit__path__startswith=base.path)) if base else qs.none()
         if p.get("in_custody") == "1":
-            qs = qs.filter(custody__returned_at__isnull=True)
+            qs = qs.filter(custody__isnull=False, custody__returned_at__isnull=True)  # has an OPEN custody row (never-issued weapons have none)
         holder = uuid_param(request, "personnel")
         if holder:
             qs = qs.filter(custody__returned_at__isnull=True, custody__personnel_id=holder)

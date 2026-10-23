@@ -11,6 +11,19 @@ class VersionConflict(APIException):
     default_code = "version_conflict"
 
 
+def _unwrap_field_errors(errors):
+    """A ValidationError({field: [...]}) raised inside a serializer's validate_<field>() is stored by DRF under that field again,
+    giving {field: {field: [...]}}. Clients and tests read {field: [{message, code}]}, so remove the duplicated level."""
+    if not isinstance(errors, dict):
+        return errors
+    out = {}
+    for key, value in errors.items():
+        if isinstance(value, dict) and set(value) == {key}:
+            value = value[key]
+        out[key] = value
+    return out
+
+
 def api_exception_handler(exc, context):
     """Uniform error body: {code, detail, errors?}. Clients translate by code."""
     # DRF converts Django's Http404 / PermissionDenied internally but hands *this* handler the original exception,
@@ -26,7 +39,7 @@ def api_exception_handler(exc, context):
         response.data = {
             "code": "validation_error",
             "detail": "Validation failed.",
-            "errors": exc.get_full_details(),
+            "errors": _unwrap_field_errors(exc.get_full_details()),
         }
     else:
         codes = exc.get_codes()
