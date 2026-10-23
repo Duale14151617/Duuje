@@ -230,7 +230,7 @@ EXTRA = {
     "logistics_custodian": ["logistics.view", "logistics.manage", "logistics.reconcile", "logistics.report"],
     "training_admin": ["training.view", "training.manage", "training.report", "training.configure"],
 }
-CATEGORIES = [  # code, kind, restricted, name_en, name_so  (seeded as DRAFT; nothing weapon-specific is seeded)
+CATEGORIES = [  # code, kind, restricted, name_en, name_so  (seeded as DRAFT; weapon and ammunition categories included, no weapons or stock)
     ("general_supplies", "stock", False, "General supplies", "Saadka guud"),
     ("uniforms_clothing", "stock", False, "Uniforms and clothing", "Maryo iyo dharka"),
     ("vehicles", "asset", False, "Vehicles", "Gawaarida"),
@@ -238,6 +238,26 @@ CATEGORIES = [  # code, kind, restricted, name_en, name_so  (seeded as DRAFT; no
     ("restricted_equipment", "asset", True, "Restricted equipment", "Qalabka xaddidan"),
     ("weapons", "asset", True, "Weapons", "Hubka"),  # restricted, serial-numbered; draft until approved by the restricted-approval authority
     ("ammunition", "stock", True, "Ammunition", "Rasaasta"),  # restricted stock; draft until approved. Situation reports sum categories whose code starts with "ammunition"
+    # Weapon categories (Weapon register). Code must start with "weapons"; one category per class of weapon. Restricted, serial-numbered,
+    # draft until approved by the restricted-approval authority. Add or rename more under Logistics -> Categories.
+    ("weapons_rifles", "asset", True, "Rifles", "Qori (bunduuc)"),
+    ("weapons_pistols", "asset", True, "Pistols", "Bastoolado"),
+    ("weapons_smg", "asset", True, "Submachine guns", "Qori-yaryare toosh"),
+    ("weapons_machine_guns", "asset", True, "Machine guns", "Hubka toosha (bakoorad)"),
+    ("weapons_sniper", "asset", True, "Sniper rifles", "Qoryaha sirdoonka (sniper)"),
+    ("weapons_launchers", "asset", True, "Rocket and grenade launchers", "Gantaalaha RPG iyo bambooyinka"),
+    ("weapons_mortars", "asset", True, "Mortars and crew-served weapons", "Hubka culus iyo kooxeed"),
+    # Ammunition categories (Ammunition ledger). Code must start with "ammunition"; one category per calibre or type.
+    ("ammunition_556", "stock", True, "Ammunition 5.56x45 mm", "Rasaasta 5.56x45 mm"),
+    ("ammunition_762x39", "stock", True, "Ammunition 7.62x39 mm", "Rasaasta 7.62x39 mm"),
+    ("ammunition_762x51", "stock", True, "Ammunition 7.62x51 mm", "Rasaasta 7.62x51 mm"),
+    ("ammunition_762x54", "stock", True, "Ammunition 7.62x54R mm", "Rasaasta 7.62x54R mm"),
+    ("ammunition_9mm", "stock", True, "Ammunition 9 mm (pistol / SMG)", "Rasaasta 9 mm"),
+    ("ammunition_127", "stock", True, "Ammunition 12.7 mm", "Rasaasta 12.7 mm"),
+    ("ammunition_145", "stock", True, "Ammunition 14.5 mm", "Rasaasta 14.5 mm"),
+    ("ammunition_rockets", "stock", True, "Rockets and RPG rounds", "Gantaalaha iyo rasaasta RPG"),
+    ("ammunition_mortar", "stock", True, "Mortar bombs", "Bambooyinka mortarka"),
+    ("ammunition_grenades", "stock", True, "Hand grenades", "Gantaalaha gacanta"),
 ]
 COURSES = [("basic_administration", "Basic administration", "Maamul aasaasi ah", 5),
            ("first_aid", "First aid", "Gargaarka degdegga ah", 3),
