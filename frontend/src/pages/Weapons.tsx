@@ -90,7 +90,7 @@ export function Weapons() {
 }
 
 function RegisterForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
-  const { t, name } = useI18n();
+  const { t, name, lang } = useI18n();
   const cats = useFetch<{ results: (Named & { id: string })[] }>("/weapons/categories/");
   const [f, setF] = useState({ category: "", org_unit: "", serial: "", weapon_type: "", make_model: "", caliber: "", condition: "serviceable" });
   const [error, setError] = useState<unknown>(null);
@@ -105,12 +105,18 @@ function RegisterForm({ onDone, onCancel }: { onDone: () => void; onCancel: () =
     <form className="card" onSubmit={(e) => void submit(e)}>
       <ErrorNotice error={error ?? cats.error} />
       <Field label={t("weap.category")}>
-        <select value={f.category} required onChange={set("category")}>
+        <select value={f.category} required disabled={catList.length === 0} onChange={set("category")}>
           <option value="">—</option>
           {catList.map((c) => <option key={c.id} value={c.id}>{name(c)}</option>)}
         </select>
       </Field>
-      {cats.data && catList.length === 0 && <p className="muted">{t("weap.noCategory")}</p>}
+      {cats.data && catList.length === 0 && (
+        <Notice kind="error">
+          {lang === "so"
+            ? "Weli ma jirto qayb hub ah oo la ansixiyay. Fur Logistics → Categories, oo ka dhig \"Weapons\" mid la ansixiyay (waxaa sameyn kara isticmaale leh ogolaansho ansixinta qalabka xaddidan), ka dibna halkan dib u soo laadi."
+            : "No approved weapon category exists yet. Open Logistics → Categories and approve the \"Weapons\" category (this needs a user with the restricted-approval permission), then reload this page."}
+        </Notice>
+      )}
       <UnitPicker label={t("weap.holdingUnit")} value={f.org_unit} required onChange={(id) => setF({ ...f, org_unit: id })} params={{ placeable: 1 }} />
       <Field label={t("weap.serial")}><input value={f.serial} required maxLength={64} autoCapitalize="characters" onChange={set("serial")} /></Field>
       <Field label={t("weap.type")}><input value={f.weapon_type} required maxLength={60} onChange={set("weapon_type")} /></Field>
