@@ -144,3 +144,12 @@ class ArmyStructureTests(TemplateBase):
         self.assertEqual((a.org_unit_id, b.org_unit_id), (urur.pk, urur.pk))
         clerk = self.person("BARI-ARMY-G1-U1-FIN", "Finance Clerk")
         self.assertEqual(clerk.org_unit.code, "BARI-ARMY-G1-U1-FIN")
+
+    def test_every_regional_command_gets_the_same_detail(self):
+        """Guuto, Urur and the five battalion sections exist in all four regions, not just one."""
+        self.run_cmd(apply=True)
+        for region in ("BARI", "SANAAG", "MUDUG", "NUGAAL"):
+            cmd = OU.objects.get(code=f"{region}-ARMY")
+            guuto = OU.objects.get(code=f"{region}-ARMY-G1", parent=cmd)
+            urur = OU.objects.get(code=f"{region}-ARMY-G1-U1", parent=guuto)
+            self.assertEqual(OU.objects.filter(parent=urur).count(), len(AS.URUR_OFFICES), region)
