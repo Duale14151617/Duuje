@@ -799,6 +799,7 @@ export const so: Record<keyof typeof en, string> = {
   "org.type": "Nooca cutubka",
   "org.noType": "Nooc la'aan",
   "org.designations": "Magacyada takhasuska",
+  "org.pickerMore": "Waxaa la muujinayaa {shown} ka mid ah {total} cutub. Qor magac ama koodh (tusaale BARI ama MUDUG) si aad liiska u yarayso.",
   "org.searchUnits": "Ku raadi cutubyada magac ama koodh",
   "org.exceptionTitle": "Ka reebista tirada ee la ansixiyay (ikhtiyaari)",
   "org.exMin": "Ugu yaraan ee ka reebista",

@@ -795,6 +795,7 @@ export const en = {
   "org.type": "Unit type",
   "org.noType": "No type",
   "org.designations": "Specialist designations",
+  "org.pickerMore": "Showing {shown} of {total} units. Type a name or code (for example BARI or MUDUG) to narrow the list.",
   "org.searchUnits": "Search units by name or code",
   "org.exceptionTitle": "Approved strength exception (optional)",
   "org.exMin": "Exception minimum",
