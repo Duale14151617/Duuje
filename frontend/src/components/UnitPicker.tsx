@@ -17,7 +17,7 @@ export function UnitPicker({ label, value, onChange, params, required, allowAll,
   const [debounced, setDebounced] = useState("");
   const [chosen, setChosen] = useState<Unit | null>(null);
   useEffect(() => { const h = setTimeout(() => setDebounced(q.trim()), 250); return () => clearTimeout(h); }, [q]);
-  const list = useFetch<Page<Unit>>("/organization/units/", { placeable: 1, active: "true", page_size: 30, q: debounced, ...params });
+  const list = useFetch<Page<Unit>>("/organization/units/", { placeable: 1, active: "true", page_size: 100, q: debounced, ...params });
   const options = (list.data?.results ?? []).filter((u) => u.id !== exclude);
   const showChosen = chosen && chosen.id === value && !options.some((u) => u.id === value);
   return (
@@ -32,6 +32,9 @@ export function UnitPicker({ label, value, onChange, params, required, allowAll,
           {options.map((u) => <option key={u.id} value={u.id}>{name(u)} · {u.code}</option>)}
         </select>
       </Field>
+      {list.data && list.data.count > options.length && (
+        <p className="muted">{t("org.pickerMore", { shown: options.length, total: list.data.count })}</p>
+      )}
     </>
   );
 }
