@@ -211,7 +211,7 @@ def add_police_test_personnel(count, allow_draft_ranks=False):
     taken = set(Personnel.objects.values_list("name_key", flat=True))
     names = _candidates(count + 400, seed=20261)
     rng = random.Random(2)
-    weights = [14, 12, 10, 9, 8, 7, 6, 5, 5, 4, 3, 3, 2, 2, 1, 1]
+    weights = [14, 12, 10, 9, 8, 7, 6, 5, 5, 4, 3, 3, 2, 2, 1, 1, 1, 1]
     today, created, name_i = date.today(), 0, 0
     with transaction.atomic():
         for i in range(1, count + 1):

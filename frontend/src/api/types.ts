@@ -43,7 +43,7 @@ export interface Finding {
 }
 export interface Branch extends Named { id: string; code: string; active: boolean; version: number }
 export interface Rank extends Named {
-  id: string; branch: string; category: "enlisted" | "warrant" | "officer" | "unspecified"; code: string; sort_order: number;
+  id: string; branch: string; category: "enlisted" | "warrant" | "officer" | "unspecified" | "general_officer" | "senior_officer" | "junior_officer" | "inspector" | "nco" | "askari"; code: string; sort_order: number;
   approval_status: "draft" | "approved"; approved_at: string | null; active: boolean; version: number;
 }
 export interface UserRow {
@@ -68,7 +68,7 @@ export interface Dashboard {
 }
 
 export interface RankBrief { id: string; code: string; name_en: string; name_so: string; approval_status: string }
-export type PersonnelStatus = "active" | "on_leave" | "suspended" | "retired" | "discharged";
+export type PersonnelStatus = "active" | "on_leave" | "suspended" | "jailed" | "died" | "retired" | "discharged";
 export interface PersonBrief {
   id: string; full_name: string; service_number: string | null; rank: Pick<RankBrief, "id" | "code" | "name_en" | "name_so">;
 }
@@ -218,4 +218,21 @@ export interface CombinedReport {
   branches: (Named & { id: string; code: string; total: number; serving: number; units: number;
     by_status: Record<string, number>; by_rank_category: Record<string, number> })[];
   regions: { region: Named & { id: string; code: string }; serving_by_branch: Record<string, number>; serving: number }[];
+}
+
+export interface DeathEvidence { id: string; title: string; category: string; size_bytes: number }
+export interface DeathRecordOut {
+  id: string; state: "reported" | "confirmed" | "withdrawn"; date_of_death: string; note: string;
+  reported_at: string; reported_by: string; confirmed_at: string | null; confirmed_by: string;
+  withdrawn_at: string | null; withdrawn_by: string; withdrawn_reason: string;
+  /** Only for officers who may report or confirm deaths. */
+  evidence?: DeathEvidence[];
+}
+
+export interface AppointmentTypeOut { id: string; code: string; name_en: string; name_so: string; unit_type: string | null; exclusive: boolean }
+export interface AppointmentOut {
+  id: string; appointment_type: { id: string; code: string; name_en: string; name_so: string };
+  org_unit: { id: string; code: string; name_en: string; name_so: string };
+  effective_from: string; effective_to: string | null; authority_ref: string; current: boolean; created_by: string;
+  ended_at: string | null; ended_by: string; end_reason: string; has_access_link: boolean;
 }

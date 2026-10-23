@@ -190,10 +190,14 @@ def check_placement(level, parent, branch):
             raise PlacementError("region_has_no_branch")
         return None
     if level == L.BRANCH:
-        if parent.level != L.REGION:
-            raise PlacementError("branch_parent_must_be_region")
         if branch is None:
             raise PlacementError("branch_required")
+        # The Army headquarters (Taliska Guud) is an Army command directly under the system headquarters; every other
+        # branch command (and all Police/Navy commands) still sits under a region exactly as before.
+        if parent.level == L.HQ and branch.code == "ARMY":
+            return branch
+        if parent.level != L.REGION:
+            raise PlacementError("branch_parent_must_be_region")
         return branch
     if level == L.UNIT:
         if parent.level not in (L.BRANCH, L.UNIT):

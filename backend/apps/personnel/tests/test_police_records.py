@@ -27,7 +27,7 @@ class PoliceRecordsBase(BaseApiTest):
     def setUpTestData(cls):
         super().setUpTestData()
         Rank.objects.filter(branch__code="POLICE").update(approval_status="approved")
-        cls.p_rank = Rank.objects.filter(branch__code="POLICE", name_en="Inspector").first()
+        cls.p_rank = Rank.objects.get(branch__code="POLICE", code="PL-05")
         cls.a_rank = Rank.objects.filter(branch__code="ARMY", approval_status="approved").first()
 
     def police(self, name, unit="BARI-POLICE-PERS", **kw):
@@ -290,7 +290,7 @@ class CombinedReportTests(PoliceRecordsBase):
     @classmethod
     def setUpTestData(cls):
         super().setUpTestData()
-        rank = Rank.objects.filter(branch__code="POLICE", name_en="Inspector").first()
+        rank = Rank.objects.get(branch__code="POLICE", code="PL-05")
         arank = Rank.objects.filter(branch__code="ARMY", approval_status="approved").first()
         mk = lambda name, unit, r, status="active": svc.create_personnel(
             None, full_name=name, phone="", service_number=None, org_unit=OU.objects.get(code=unit), rank=r,

@@ -23,6 +23,9 @@ class BranchSerializer(serializers.ModelSerializer):
         return versioned_update(instance, validated_data, expected)
 
 
+BRANCH_LEVEL_TYPES = {"TALISKA_GUUD", "QAYB"}
+
+
 class UnitSerializer(serializers.ModelSerializer):
     parent = serializers.PrimaryKeyRelatedField(
         queryset=OrganizationalUnit.objects.all(), required=False, allow_null=True)
@@ -100,8 +103,10 @@ class UnitSerializer(serializers.ModelSerializer):
         if utype is not None:
             if not utype.active and (inst is None or inst.unit_type_id != utype.pk):
                 raise self._fail("unit_type", "unit_type_inactive")
-            # Taliska Guud is the regional command (a branch command); every other level of the template is a unit.
-            if (utype.code == "TALISKA_GUUD") != (level == OrganizationalUnit.Level.BRANCH):
+            # Taliska Guud (Army headquarters) and Qayb (regional command) are commands at branch-command level; Qayb may
+            # also be a nested unit (older structures). Every other level of the template is a unit.
+            on_branch = level == OrganizationalUnit.Level.BRANCH
+            if on_branch and utype.code not in BRANCH_LEVEL_TYPES or not on_branch and utype.code == "TALISKA_GUUD":
                 raise self._fail("unit_type", "unit_type_level_mismatch")
             if parent is not None and parent.unit_type_id and parent.unit_type.tier >= utype.tier:
                 raise self._fail("unit_type", "unit_type_tier_order")  # a Qayb cannot sit below a Koox, etc.

@@ -7,6 +7,9 @@ import { Dashboard } from "./pages/Dashboard";
 import { ForcedPassword, MfaEnrol } from "./pages/Enrol";
 import { Login } from "./pages/Login";
 import { ResetPassword } from "./pages/Reset";
+import { Attendance } from "./pages/Attendance";
+import { Ammunition } from "./pages/Ammunition";
+import { Weapons } from "./pages/Weapons";
 import { ReportingLines } from "./pages/ReportingLines";
 import { PersonnelDetail, PersonnelForm, PersonnelImport, PersonnelList } from "./pages/Personnel";
 import { AssetDetail, LogisticsHome, ReconDetail, StockDetail } from "./pages/Logistics";
@@ -47,6 +50,9 @@ export default function App() {
         <Route path="personnel" element={<PersonnelList />} />
         <Route path="personnel/new" element={<PersonnelForm />} />
         <Route path="personnel/import" element={<PersonnelImport />} />
+        <Route path="attendance" element={<Attendance />} />
+        <Route path="weapons" element={<Weapons />} />
+        <Route path="ammunition" element={<Ammunition />} />
         <Route path="personnel/reporting-lines" element={<ReportingLines />} />
         <Route path="personnel/:id" element={<PersonnelDetail />} />
         <Route path="search" element={<CrossSearch />} />

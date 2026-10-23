@@ -169,8 +169,13 @@ class UnitTypeAssignmentTests(TemplateBase):
         self.assertEqual(qayb.status_code, 201)
         bad = self.add(c, "TG-ON-UNIT", "BARI-ARMY", "TALISKA_GUUD")
         self.assertIn("unit_type_level_mismatch", self.codes(bad, "unit_type"))
-        r = c.post(UNITS, {"level": "branch_command", "parent": str(self.unit("BARI").pk), "branch": str(ServiceBranch.objects.get(code="ARMY").pk),
-                           "code": "BARI-ARMY-2", "name_en": "x", "unit_type": str(self.types["QAYB"].pk)}, format="json")
+        army = str(ServiceBranch.objects.get(code="ARMY").pk)
+        # A Qayb is also the regional command (branch-command level); a Guuto is never a command.
+        ok = c.post(UNITS, {"level": "branch_command", "parent": str(self.unit("BARI").pk), "branch": army,
+                            "code": "BARI-ARMY-2", "name_en": "x", "unit_type": str(self.types["QAYB"].pk)}, format="json")
+        self.assertEqual(ok.status_code, 201, ok.data)
+        r = c.post(UNITS, {"level": "branch_command", "parent": str(self.unit("BARI").pk), "branch": army,
+                           "code": "BARI-ARMY-3", "name_en": "x", "unit_type": str(self.types["GUUTO"].pk)}, format="json")
         self.assertIn("unit_type_level_mismatch", self.codes(r, "unit_type"))
         inverted = self.add(c, "KX", "QX", "QAYB")  # a Qayb inside a Qayb
         self.assertIn("unit_type_tier_order", self.codes(inverted, "unit_type"))

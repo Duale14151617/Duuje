@@ -105,7 +105,8 @@ class StockTransactionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StockTransaction
-        fields = ["id", "kind", "delta", "balance_after", "reason", "counterpart_unit", "actor_username", "correlation_id", "created_at"]
+        fields = ["id", "kind", "delta", "balance_after", "reason", "counterpart_unit", "external_ref", "authority_ref",
+                  "actor_username", "correlation_id", "created_at"]
         read_only_fields = fields
 
 

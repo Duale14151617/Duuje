@@ -66,7 +66,8 @@ class DashboardView(APIView):
             data["personnel"] = {"total": people.count(), "active": people.filter(status="active").count()}
         if "reports.view" in codes:
             block = {"my_open": Submission.objects.filter(
-                submitter=user, status__in=["draft", "returned", "amended"]).count()}
+                submitter=user, status__in=["draft", "returned", "amended"]).count(),
+                     "returned_for_correction": Submission.objects.filter(submitter=user, status="returned").count()}
             rq = scope.unit_scope_q(user, "reports.review", "org_unit__")
             if rq is not None:
                 block["awaiting_review"] = Submission.objects.filter(
@@ -83,4 +84,9 @@ class DashboardView(APIView):
             recs = TrainingRecord.objects.filter(tq) if tq is not None else TrainingRecord.objects.none()
             data["training"] = {"in_progress": recs.filter(status="in_progress").count(),
                                 "enrolled": recs.filter(status="enrolled").count()}
+        if scope.can(user, "payroll.view") or scope.can(user, "survivor.view"):
+            from apps.payroll.views import payroll_summary  # counts only; individual salaries and family data never appear here
+            full = payroll_summary()
+            data["payroll"] = full if scope.can(user, "payroll.view") else {
+                k: full[k] for k in ("survivor_cases", "beneficiaries_awaiting_verification", "allocations_awaiting_authorization")}
         return Response(data)

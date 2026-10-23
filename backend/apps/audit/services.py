@@ -32,3 +32,18 @@ def record(action, *, request=None, actor=None, entity_type="", entity_id="", ou
         ip_address=client_ip(request),
         metadata=metadata or {},
     )
+
+
+def record_read(request, action, *, entity_type, entity_id="", org_unit=None, count=None):
+    """Audit a sensitive READ (weapon register, attendance records). Called server-side from the view action itself, so a
+    direct API request cannot skip it. Records who, what resource, when (occurred_at) and the organizational scope; never
+    the returned rows, serial numbers or personal data."""
+    meta = {}
+    if org_unit is not None:
+        meta["org_unit"] = str(getattr(org_unit, "pk", org_unit))
+        path = getattr(org_unit, "path", None)
+        if path:
+            meta["org_path"] = path
+    if count is not None:
+        meta["count"] = int(count)
+    return record(action, request=request, entity_type=entity_type, entity_id=entity_id, metadata=meta)

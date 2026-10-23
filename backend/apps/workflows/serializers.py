@@ -125,6 +125,8 @@ class SubmissionWriteSerializer(serializers.Serializer):
         if not svc.date_ok(start, end):
             raise fail("period_end", "period_invalid")
         rtype = attrs.get("report_type") or self.instance.report_type
+        if rtype.code == "unit_situation_report" and attrs.get("figures"):
+            raise fail("figures", "figures_computed")  # computed from saved records, never typed in
         for key, value in (attrs.get("figures") or {}).items():
             if key not in rtype.figure_keys:
                 raise fail("figures", "unknown_figure")

@@ -64,6 +64,12 @@ class StockTransaction(AppendOnlyModel):
         ADJUST = "adjust"
         TRANSFER_OUT = "transfer_out"
         TRANSFER_IN = "transfer_in"
+        # Ammunition ledger (see ammunition.py): an opening balance, returns, recorded expenditure, losses and damage.
+        OPENING = "opening"
+        RETURN = "return"
+        EXPENDITURE = "expenditure"
+        LOSS = "loss"
+        DAMAGE = "damage"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     stock_line = models.ForeignKey(StockLine, on_delete=models.PROTECT, related_name="transactions")
@@ -74,6 +80,8 @@ class StockTransaction(AppendOnlyModel):
     counterpart_unit = models.ForeignKey("organization.OrganizationalUnit", null=True, blank=True,
                                          on_delete=models.PROTECT, related_name="+")
     group = models.UUIDField(null=True, blank=True)  # pairs the two sides of a transfer
+    external_ref = models.CharField(max_length=60, blank=True)  # voucher / delivery note / issue note number: stops one movement being entered twice
+    authority_ref = models.CharField(max_length=150, blank=True)  # documented authorization (adjustments, losses, damage)
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
     actor_username = models.CharField(max_length=150, blank=True)
     correlation_id = models.CharField(max_length=64, blank=True)
@@ -82,7 +90,19 @@ class StockTransaction(AppendOnlyModel):
     class Meta:
         db_table = "stock_transactions"
         ordering = ["-created_at", "-id"]
-        constraints = [models.CheckConstraint(condition=~Q(delta=0), name="stocktxn_nonzero_delta")]
+        constraints = [
+            models.CheckConstraint(condition=~Q(delta=0), name="stocktxn_nonzero_delta"),
+            # The direction of a movement follows from its kind; only an adjustment may go either way.
+            models.CheckConstraint(
+                condition=(Q(kind__in=["opening", "receive", "return", "transfer_in"], delta__gt=0)
+                           | Q(kind__in=["issue", "expenditure", "loss", "damage", "transfer_out"], delta__lt=0)
+                           | Q(kind="adjust")),
+                name="stocktxn_delta_sign_by_kind"),
+            # The same voucher cannot be booked twice for the same kind of movement on a line.
+            models.UniqueConstraint(fields=["stock_line", "kind", "external_ref"], condition=~Q(external_ref=""),
+                                    name="stocktxn_unique_voucher"),
+            models.UniqueConstraint(fields=["stock_line"], condition=Q(kind="opening"), name="stocktxn_one_opening"),
+        ]
 
 
 class Asset(models.Model):

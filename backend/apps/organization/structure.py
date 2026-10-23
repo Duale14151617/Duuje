@@ -12,7 +12,7 @@ from apps.personnel.models import Personnel
 
 from .models import DesignationRule, OrganizationalUnit, UnitType
 
-SERVING = ~Q(status__in=["retired", "discharged"])  # strength counts people still in service
+SERVING = ~Q(status__in=["retired", "discharged", "died"])  # strength counts people still in service
 
 
 def _ancestor_prefixes(path):

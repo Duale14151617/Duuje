@@ -2,6 +2,7 @@
 import os
 
 from django.conf import settings
+from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
 from django.db import transaction
@@ -33,6 +34,8 @@ DEMO_USERS = {
 }
 
 # Non-commanding member: sees only their own record and the people who report to them (see _demo_team).
+# Taliye Urur / Guuto stand-in: records attendance and makes the unit situation report for the synthetic unit.
+DEMO_USERS.setdefault("bari.commander", ("Bari Unit Commander (Demo)", "unit_commander", "BARI-ARMY-DEMO-A", None))
 DEMO_USERS.setdefault("bari.member", ("Bari Member (Demo Person 03)", "member", "BARI-ARMY-DEMO-A", None))
 DEMO_USERS.setdefault("president", ("President / Commander-in-Chief", "command_authority", "HQ", None))
 DEMO_USERS.setdefault("commander", ("Commander of the Puntland Defense Forces", "command_authority", "HQ", None))
@@ -79,6 +82,9 @@ class Command(BaseCommand):
         army_cmd = OU.objects.filter(code="BARI-ARMY").first()
         if not army_cmd:
             raise CommandError("Run `manage.py seed_reference_data` first.")
+        # The supplied Army structure (Taliska Guud, directorates, Qaybta commands). Synthetic deployments only: a real
+        # deployment applies it deliberately with `manage.py apply_army_structure` (dry run first).
+        call_command("apply_army_structure", "--apply", stdout=self.stdout)
         OU.objects.filter(code="BARI-ARMY-DEMO-A").first() or OU.objects.create(
             code="BARI-ARMY-DEMO-A", name_en="Synthetic Unit A", name_so="Cutubka Tijaabada A",
             level=OU.Level.UNIT, parent=army_cmd)

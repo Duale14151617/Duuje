@@ -14,6 +14,8 @@ class Personnel(models.Model):
         ACTIVE = "active"
         ON_LEAVE = "on_leave"
         SUSPENDED = "suspended"
+        JAILED = "jailed"
+        DIED = "died"  # set only by a confirmed death record (personnel/death.py); the profile stays on file permanently
         RETIRED = "retired"
         DISCHARGED = "discharged"
 
@@ -124,6 +126,8 @@ class PersonnelDocument(models.Model):
         TRAINING_CERTIFICATE = "training_certificate"
         COMMENDATION = "commendation"
         IDENTITY = "identity"
+        DEATH_EVIDENCE = "death_evidence"  # death certificate or other supporting document for a death record
+        ATTENDANCE_SUPPORT = "attendance_support"  # supporting document for an absence
         OTHER = "other"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -149,6 +153,104 @@ class PersonnelDocument(models.Model):
 
     def delete(self, *args, **kwargs):
         raise AppendOnlyError("Service documents cannot be deleted; withdraw them instead.")
+
+
+class DeathRecord(models.Model):
+    """The report and confirmation of a death. Reported by one authorized officer, confirmed by a *different* authorized
+    officer once supporting evidence is on file; only confirmation changes the person's status to Died. Rows are never
+    deleted (a mistaken report is withdrawn, with a reason) and the personnel profile, history and documents stay."""
+
+    class State(models.TextChoices):
+        REPORTED = "reported"
+        CONFIRMED = "confirmed"
+        WITHDRAWN = "withdrawn"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    personnel = models.ForeignKey(Personnel, on_delete=models.PROTECT, related_name="death_records")
+    date_of_death = models.DateField()
+    note = models.CharField(max_length=300, blank=True)
+    state = models.CharField(max_length=10, choices=State.choices, default=State.REPORTED)
+    reported_at = models.DateTimeField(auto_now_add=True)
+    reported_by_id = models.UUIDField(null=True, blank=True)
+    reported_by_username = models.CharField(max_length=150, blank=True)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    confirmed_by_id = models.UUIDField(null=True, blank=True)
+    confirmed_by_username = models.CharField(max_length=150, blank=True)
+    withdrawn_at = models.DateTimeField(null=True, blank=True)
+    withdrawn_by_id = models.UUIDField(null=True, blank=True)
+    withdrawn_by_username = models.CharField(max_length=150, blank=True)
+    withdrawn_reason = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        db_table = "personnel_death_records"
+        ordering = ["-reported_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(fields=["personnel"], condition=~models.Q(state="withdrawn"),
+                                    name="death_one_open_record_per_person"),
+            models.CheckConstraint(
+                condition=~models.Q(state="confirmed") | (models.Q(confirmed_at__isnull=False) & models.Q(confirmed_by_id__isnull=False)),
+                name="death_confirmed_has_confirmer"),
+        ]
+
+    def delete(self, *args, **kwargs):
+        raise AppendOnlyError("Death records cannot be deleted; withdraw a mistaken report instead.")
+
+
+class AppointmentType(models.Model):
+    """A command appointment title (Taliye Qaybeed, Taliye Urur ...). Data, not code: add or retire titles without a release.
+    An appointment is NOT a rank, NOT an organizational assignment and NOT an application role: it records who holds a command
+    office, where and since when. It never grants access by itself."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    code = models.CharField(max_length=40, unique=True)
+    name_en = models.CharField(max_length=120)
+    name_so = models.CharField(max_length=120, blank=True)
+    unit_type = models.ForeignKey("organization.UnitType", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    exclusive = models.BooleanField(default=True, help_text="Only one current holder per unit.")
+    active = models.BooleanField(default=True)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "personnel_appointment_types"
+        ordering = ["code"]
+
+
+class CommandAppointment(models.Model):
+    """Who holds which command office in which unit, with effective dates. Never deleted: an appointment is ended (with a
+    reason) and the row stays as history. Ending it also revokes the application role assignment it was linked to, so
+    access ends when the authority ends."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    personnel = models.ForeignKey(Personnel, on_delete=models.PROTECT, related_name="appointments")
+    org_unit = models.ForeignKey("organization.OrganizationalUnit", on_delete=models.PROTECT, related_name="+")
+    appointment_type = models.ForeignKey(AppointmentType, on_delete=models.PROTECT, related_name="appointments")
+    exclusive = models.BooleanField(default=True)  # copied from the type when created, so the database can enforce it
+    effective_from = models.DateField()
+    effective_to = models.DateField(null=True, blank=True)
+    authority_ref = models.CharField(max_length=150, blank=True)  # order / letter that authorizes the appointment
+    role_assignment = models.ForeignKey("accounts.RoleAssignment", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by_id = models.UUIDField(null=True, blank=True)
+    created_by_username = models.CharField(max_length=150, blank=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    ended_by_id = models.UUIDField(null=True, blank=True)
+    ended_by_username = models.CharField(max_length=150, blank=True)
+    end_reason = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        db_table = "personnel_command_appointments"
+        ordering = ["-effective_from", "-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["org_unit", "appointment_type"], name="appointment_one_open_exclusive",
+                                    condition=models.Q(ended_at__isnull=True, exclusive=True)),
+            models.CheckConstraint(condition=models.Q(effective_to__isnull=True) | models.Q(effective_to__gte=models.F("effective_from")),
+                                   name="appointment_dates_ordered"),
+        ]
+
+    def delete(self, *args, **kwargs):
+        raise AppendOnlyError("Appointments cannot be deleted; end the appointment instead.")
 
 
 class ImportBatch(models.Model):

@@ -95,6 +95,7 @@ export function ReportForm() {
     setTypeId(s.report_type.id); setUnitId(s.org_unit.id);
   }
   const type = s?.report_type ?? types.data?.find((x) => x.id === typeId);
+  const computed = type?.code === "unit_situation_report";  // figures are calculated from saved records, never typed in
   const units = (unitsRes.data?.results ?? []).filter((u) => (u.level === "branch_command" || u.level === "unit") && u.active);
 
   async function save(e: FormEvent) {
@@ -102,7 +103,7 @@ export function ReportForm() {
     setError(null);
     const nums: Record<string, number> = {};
     for (const [k, v] of Object.entries(figures)) if (v !== "") nums[k] = Number(v);
-    const content = { title, period_start: start, period_end: end, body, figures: nums };
+    const content = { title, period_start: start, period_end: end, body, ...(computed ? {} : { figures: nums }) };
     try {
       const saved = id
         ? await api<SubmissionDetail>(`/reports/submissions/${id}/`, { method: "PATCH", body: { ...content, version: s?.version } })
@@ -122,7 +123,7 @@ export function ReportForm() {
             <Field label={t("rep.type")}>
               <select value={typeId} onChange={(e) => setTypeId(e.target.value)} required>
                 <option value="" />
-                {types.data?.filter((x) => x.active !== false).map((x) => <option key={x.id} value={x.id}>{name(x)}</option>)}
+                {types.data?.filter((x) => x.active !== false && x.code !== "unit_situation_report").map((x) => <option key={x.id} value={x.id}>{name(x)}</option>)}
               </select>
             </Field>
             <Field label={t("rep.unit")}>
@@ -138,7 +139,7 @@ export function ReportForm() {
           <Field label={t("rep.periodStart")}><input type="date" value={start} onChange={(e) => setStart(e.target.value)} required /></Field>
           <Field label={t("rep.periodEnd")}><input type="date" value={end} onChange={(e) => setEnd(e.target.value)} required /></Field>
         </div>
-        {type && type.figure_keys.length > 0 && (
+        {type && !computed && type.figure_keys.length > 0 && (
           <fieldset className="card" style={{ margin: "0 0 .85rem" }}>
             <legend>{t("rep.figures")}</legend>
             {type.figure_keys.map((k) => (

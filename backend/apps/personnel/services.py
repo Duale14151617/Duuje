@@ -59,7 +59,7 @@ def service_number_taken(number, exclude_pk=None):
     return (qs.exclude(pk=exclude_pk) if exclude_pk else qs).exists()
 
 
-NOT_SERVING = (Personnel.Status.RETIRED, Personnel.Status.DISCHARGED)
+NOT_SERVING = (Personnel.Status.RETIRED, Personnel.Status.DISCHARGED, Personnel.Status.DIED)
 
 
 def duplicate_check(name_key, phone_key, unit, exclude_pk=None):
@@ -179,7 +179,7 @@ def validate_import_rows(user, rows):
                 except RuleError as exc:
                     errors.append(exc.code)
         status = r["status"] or "active"
-        if status not in STATUSES:
+        if status not in STATUSES or status == Personnel.Status.DIED:  # died only through a confirmed death record
             errors.append("status_invalid")
         if r["phone"] and not PHONE_RE.match(r["phone"]):
             errors.append("phone_invalid")
@@ -259,7 +259,7 @@ def check_supervisor(user, person, sup, overlay=None):
     Same service, strictly senior, reachable by the editor, no loop. `overlay` maps person-id -> supervisor-id for changes
     that are queued (bulk file) but not yet saved. Out-of-scope and non-existent supervisors give the same code."""
     bad = RuleError("supervisor_invalid", "supervisor")
-    if sup.pk == person.pk or sup.branch_id != person.branch_id:
+    if sup.pk == person.pk or sup.branch_id != person.branch_id or sup.status == Personnel.Status.DIED:
         raise bad
     if not (scope.can(user, "personnel.manage", unit=sup.org_unit) or scope.can(user, "personnel.view", unit=sup.org_unit)):
         raise bad
@@ -339,6 +339,8 @@ def validate_reporting_rows(user, rows):
         sup, acct = ..., ...  # Ellipsis = leave unchanged
         if person is None or person.pk not in editable:
             errors.append("person_unknown")  # unknown and out-of-scope are indistinguishable on purpose
+        elif person.status == Personnel.Status.DIED:
+            errors.append("person_deceased")
         elif person.pk in seen_people:
             errors.append("duplicate_row")
         else:

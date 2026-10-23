@@ -14,7 +14,7 @@ class PoliceScopeTests(BaseApiTest):
     def setUpTestData(cls):
         super().setUpTestData()  # seed_reference_data runs with the Police module ON
         Rank.objects.filter(branch__code="POLICE").update(approval_status="approved")  # draft ranks cannot be assigned
-        rank = Rank.objects.filter(branch__code="POLICE", name_en="Inspector").first()
+        rank = Rank.objects.get(branch__code="POLICE", code="PL-05")
         for number, name, unit in (("PP-T1", "Police Pers One", "BARI-POLICE-PERS"), ("PP-T2", "Police Cid One", "BARI-POLICE-CID")):
             svc.create_personnel(None, full_name=name, phone="", service_number=number, org_unit=cls.unit_by_code(unit),
                                  rank=rank, status="active", effective_date=date.today())
@@ -29,12 +29,13 @@ class PoliceScopeTests(BaseApiTest):
         self.assertEqual(resp.status_code, 200)
         return {r["service_number"] for r in resp.data["results"]}
 
-    def test_catalogue_is_draft_separate_from_army_and_invents_no_general_officers(self):
-        ranks = Rank.objects.filter(branch__code="POLICE")
-        self.assertEqual(ranks.count(), 15)
-        self.assertFalse(ranks.filter(category="general_officer").exists())
+    def test_police_ranking_is_the_army_ranking_in_separate_rows(self):
+        ranks = list(Rank.objects.filter(branch__code="POLICE", active=True).order_by("sort_order"))
+        army = list(Rank.objects.filter(branch__code="ARMY", active=True, approval_status="approved").order_by("sort_order"))
+        self.assertEqual(len(ranks), 18)
+        self.assertEqual([r.name_en for r in ranks], [r.name_en for r in army])
+        self.assertFalse({r.pk for r in ranks} & {r.pk for r in army})
         self.assertTrue(self.unit("BARI-POLICE-CID").restricted)
-        self.assertFalse(Rank.objects.filter(branch__code="ARMY", name_en="Colonel").exists())
 
     def test_cid_records_need_cid_access_not_just_police_membership(self):
         admin = self.client_for(self.make_user("polis", "branch_admin", unit="BARI", branch="POLICE"))

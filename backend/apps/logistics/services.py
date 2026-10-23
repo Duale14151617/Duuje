@@ -88,7 +88,7 @@ def create_stock_line(request, category, unit, uom, reorder_level):
     return line
 
 
-def _apply(user, line_id, kind, delta, reason, counterpart=None, group=None, expected_balance=None):
+def _apply(user, line_id, kind, delta, reason, counterpart=None, group=None, expected_balance=None, external_ref="", authority_ref=""):
     """Caller must already be inside transaction.atomic(). The row lock serialises concurrent writers."""
     line = StockLine.objects.select_for_update().get(pk=line_id)
     if expected_balance is not None and expected_balance != line.quantity:
@@ -100,10 +100,12 @@ def _apply(user, line_id, kind, delta, reason, counterpart=None, group=None, exp
     return StockTransaction.objects.create(
         stock_line=line, kind=kind, delta=delta, balance_after=new, reason=(reason or "")[:300],
         counterpart_unit=counterpart, group=group, actor=user, actor_username=user.username,
-        correlation_id=get_correlation_id())
+        external_ref=(external_ref or "")[:60], authority_ref=(authority_ref or "")[:150], correlation_id=get_correlation_id())
 
 
 def post_stock(request, line, kind, delta, reason, expected_balance=None):
+    if line.category.code.startswith("ammunition"):
+        raise field_error("category", "use_ammunition_ledger")  # ammunition has its own ledger with vouchers and authorizations
     authorize(request, line.org_unit, line.category)
     usable(line.category, "stock")
     with transaction.atomic():
@@ -139,7 +141,9 @@ def _event(user, asset, kind, from_status="", to_status="", from_unit=None, to_u
                                      actor_username=user.username)
 
 
-def register_asset(request, category, unit, identifier, description):
+def register_asset(request, category, unit, identifier, description, weapon_register=False):
+    if category.code.startswith("weapon") and not weapon_register:
+        raise field_error("category", "use_weapon_register")  # weapons need their type and custody record: see apps.weapons
     usable(category, "asset")
     placeable(unit)
     authorize(request, unit, category)
@@ -160,6 +164,8 @@ def change_asset(request, asset, action, expected_version, note="", to_unit=None
     user = request.user
     allowed_from, target = ASSET_RULES[action]
     authorize(request, asset.org_unit, asset.category)
+    from apps.weapons import services as weapons  # a weapon in a soldier's custody is not moved by ordinary asset actions
+    weapons.guard_asset_change(asset, action)
     if asset.version != expected_version:
         raise VersionConflict()
     if asset.status not in allowed_from:
@@ -187,6 +193,7 @@ def change_asset(request, asset, action, expected_version, note="", to_unit=None
         updated = versioned_update(locked, changes, expected_version)
         _event(user, updated, action, old_status, updated.status, old_unit if action == "transfer" else None,
                to_unit, note)
+        weapons.close_custody_on_loss(updated, action, user)
         record(f"asset.{action}", request=request, entity_type="asset", entity_id=updated.pk,
                metadata={"from": old_status, "to": updated.status, "to_unit": str(to_unit.pk) if to_unit else None})
     return updated
@@ -285,7 +292,7 @@ def complete_reconciliation(request, rec, expected_version):
                 current = StockLine.objects.select_for_update().get(pk=l.stock_line_id).quantity
                 delta = l.counted_quantity - current  # against the *current* balance, not the snapshot
                 if delta:
-                    _apply(request.user, l.stock_line_id, "adjust", delta, f"Reconciliation {rec.pk}")
+                    _apply(request.user, l.stock_line_id, "adjust", delta, f"Reconciliation {rec.pk}", authority_ref=f"Reconciliation {rec.pk}")
                     variances += 1
             else:
                 a = Asset.objects.select_for_update().get(pk=l.asset_id)

@@ -1,63 +1,56 @@
-"""The seeded Police ranks must match Article 23 of Law No. 2 of 23 December 1972 (supplied copy, page 107),
-and approving them is an accountable, guarded action."""
+"""Police ranks are the Army ranking (separate rows, approved), the retired 1972 draft rows are handled safely, and the remaining
+approval command stays guarded."""
 from io import StringIO
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import override_settings
 
-from apps.audit.models import AuditEvent
 from apps.core.testing import BaseApiTest
+from apps.ranks.catalogue import OFFICIAL_ARMY_RANKS
 from apps.ranks.models import Rank
-
-# Article 23(1), senior -> junior, exactly as printed (class, title). "General Officers" has no ranks listed.
-LAW = [("senior_officer", "Colonel"), ("senior_officer", "Lieutenant Colonel"), ("senior_officer", "Major"),
-       ("junior_officer", "Captain"), ("junior_officer", "Lieutenant"), ("junior_officer", "Second Lieutenant"),
-       ("inspector", "Chief Inspector"), ("inspector", "Inspector"), ("inspector", "Sub-Inspector"),
-       ("nco", "First Sergeant"), ("nco", "Sergeant"), ("nco", "Cadet Officer"),
-       ("askari", "First Askari"), ("askari", "Askari"), ("askari", "Recruit")]
+from apps.ranks.police_catalogue import apply_police_ranks
 
 
 @override_settings(POLICE_MODULE_ENABLED=True)
-class PoliceLawTests(BaseApiTest):
-    def test_catalogue_matches_article_23_in_order_and_class(self):
-        ranks = Rank.objects.filter(branch__code="POLICE").order_by("-sort_order")  # senior first
-        self.assertEqual([(r.category, r.name_en) for r in ranks], LAW)
+class PoliceRankTests(BaseApiTest):
+    def police(self):
+        return Rank.objects.filter(branch__code="POLICE", active=True).order_by("sort_order")
 
-    def test_general_officers_are_not_invented(self):
-        self.assertFalse(Rank.objects.filter(branch__code="POLICE", category="general_officer").exists())
+    def test_police_ranks_equal_the_army_list_in_order_and_are_approved(self):
+        self.assertEqual([r.name_en for r in self.police()], OFFICIAL_ARMY_RANKS)
+        self.assertTrue(all(r.approval_status == "approved" and r.category == "unspecified" for r in self.police()))
+        self.assertEqual(self.police().first().code, "PL-01")
 
-    def test_approval_needs_a_real_approver_and_the_review_confirmation(self):
-        self.make_user("rankadm", "super_admin")   # holds ranks.approve at headquarters
+    def test_seeding_again_changes_nothing_and_keeps_administrator_edits(self):
+        Rank.objects.filter(branch__code="POLICE", code="PL-10").update(name_en="Kabtan", name_so="Kabtan")
+        self.assertEqual(apply_police_ranks(Rank, Rank.objects.get(code="PL-10").branch), 0)
+        self.assertEqual(Rank.objects.get(branch__code="POLICE", code="PL-10").name_en, "Kabtan")
+
+    def test_untouched_1972_draft_rows_are_removed_and_edited_ones_are_left(self):
+        police = Rank.objects.get(branch__code="POLICE", code="PL-01").branch
+        Rank.objects.create(branch=police, code="PP-01", category="askari", name_en="Recruit", name_so="Recruit", sort_order=1)
+        Rank.objects.create(branch=police, code="PP-02", category="askari", name_en="Edited Name", name_so="x", sort_order=2)
+        apply_police_ranks(Rank, police)
+        self.assertFalse(Rank.objects.filter(code="PP-01").exists())
+        self.assertTrue(Rank.objects.filter(code="PP-02", active=True).exists())
+
+    def test_approval_command_still_needs_a_real_approver_and_the_review_confirmation(self):
+        self.make_user("rankadm", "super_admin")
         with self.assertRaises(CommandError):
             call_command("approve_police_ranks", by="nobody", confirm_reviewed=True)
         self.make_user("plain", "read_only", unit="BARI")
         with self.assertRaises(CommandError):
-            call_command("approve_police_ranks", by="plain", confirm_reviewed=True)   # lacks ranks.approve
+            call_command("approve_police_ranks", by="plain", confirm_reviewed=True)
         with self.assertRaises(CommandError):
-            call_command("approve_police_ranks", by="rankadm")                         # no --confirm-reviewed
-        self.assertFalse(Rank.objects.filter(branch__code="POLICE", approval_status="approved").exists())
-
-    def test_dry_run_writes_nothing_then_approval_is_attributed_and_audited(self):
-        admin = self.make_user("rankadm", "super_admin")
+            call_command("approve_police_ranks", by="rankadm")
         out = StringIO()
         call_command("approve_police_ranks", by="rankadm", dry_run=True, stdout=out)
-        self.assertIn("Would approve 15", out.getvalue())
-        self.assertFalse(Rank.objects.filter(branch__code="POLICE", approval_status="approved").exists())
-        call_command("approve_police_ranks", by="rankadm", confirm_reviewed=True, stdout=StringIO())
-        ranks = Rank.objects.filter(branch__code="POLICE")
-        self.assertEqual(ranks.filter(approval_status="approved", approved_by=admin).count(), 15)
-        self.assertEqual(AuditEvent.objects.filter(action="rank.approve", actor_id=admin.pk).count(), 15)
-
-    def test_a_renamed_rank_is_not_approved_by_the_command(self):
-        self.make_user("rankadm", "super_admin")
-        Rank.objects.filter(branch__code="POLICE", name_en="Recruit").update(name_en="Trainee")
-        call_command("approve_police_ranks", by="rankadm", confirm_reviewed=True, stdout=StringIO())
-        self.assertEqual(Rank.objects.get(branch__code="POLICE", name_en="Trainee").approval_status, "draft")
-        self.assertEqual(Rank.objects.filter(branch__code="POLICE", approval_status="approved").count(), 14)
+        self.assertIn("Would approve 0", out.getvalue())  # nothing left in draft: the ranks are already approved
 
     def test_command_authority_command_creates_a_confined_account(self):
         import os
+
         from apps.accounts.models import RoleAssignment, User
         os.environ["ARMYHQ_ADMIN_PASSWORD"] = "Correct-Horse-Battery-9"
         try:

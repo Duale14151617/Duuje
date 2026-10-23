@@ -4,6 +4,7 @@ from datetime import date
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import mixins, viewsets
@@ -82,6 +83,8 @@ class SubmissionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
         if q is None:
             return Submission.objects.none()
         qs = Submission.objects.filter(q).select_related("report_type", "org_unit", "approved_revision")
+        # A commander's periodic report is seen by others (the regional command above) only once it has been posted.
+        qs = qs.exclude(Q(report_type__code="unit_situation_report", status="draft") & ~Q(submitter=user))
         if self.action != "list":
             qs = qs.prefetch_related("revisions", "actions")
         p = self.request.query_params
@@ -114,10 +117,14 @@ class SubmissionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
         ser = SubmissionWriteSerializer(data=request.data, context={"request": request})
         ser.is_valid(raise_exception=True)
         d = ser.validated_data
+        figures = d.get("figures", {})
+        if d["report_type"].code == "unit_situation_report":
+            from apps.attendance.situation import compute_figures
+            figures = compute_figures(request.user, d["org_unit"], d["period_start"], d["period_end"])
         with transaction.atomic():
             sub = Submission.objects.create(
                 report_type=d["report_type"], org_unit=d["org_unit"], title=d["title"], period_start=d["period_start"],
-                period_end=d["period_end"], body=d.get("body", ""), figures=d.get("figures", {}),
+                period_end=d["period_end"], body=d.get("body", ""), figures=figures,
                 submitter=request.user, submitter_username=request.user.username)  # actor comes from the session only
             ApprovalAction.objects.create(submission=sub, action="create", to_status=sub.status, actor=request.user,
                                           actor_username=request.user.username)
@@ -137,6 +144,10 @@ class SubmissionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
         ser.is_valid(raise_exception=True)
         expected = require_version(request.data)
         changes = {k: v for k, v in ser.validated_data.items() if k not in ("report_type", "org_unit")}
+        if sub.report_type.code == "unit_situation_report":
+            from apps.attendance.situation import compute_figures
+            changes["figures"] = compute_figures(request.user, sub.org_unit, changes.get("period_start", sub.period_start),
+                                                 changes.get("period_end", sub.period_end))
         with transaction.atomic():
             updated = versioned_update(sub, changes, expected)
             record("report.edit", request=request, entity_type="submission", entity_id=updated.pk,

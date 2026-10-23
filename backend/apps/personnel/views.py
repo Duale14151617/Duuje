@@ -12,6 +12,7 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 
 from apps.accounts import scope
+from apps.accounts.models import RoleAssignment
 from apps.accounts.permissions import ScopedPermission
 from apps.audit.services import record
 from apps.core.concurrency import require_version, versioned_update
@@ -20,11 +21,13 @@ from apps.core.negotiation import IgnoreNegotiation
 from apps.core.params import uuid_param
 from apps.organization.models import OrganizationalUnit
 
+from . import appointments as appt_svc
+from . import death as death_svc
 from . import profile as profile_svc
 from . import records
 from . import services as svc
-from .models import ImportBatch, Personnel
-from .serializers import (HistorySerializer, PersonnelCreateSerializer, PersonnelSerializer,
+from .models import AppointmentType, CommandAppointment, ImportBatch, Personnel
+from .serializers import (AppointmentCreateSerializer, AppointmentEndSerializer, DeathReportSerializer, DeathWithdrawSerializer, HistorySerializer, PersonnelCreateSerializer, PersonnelSerializer,
                           PersonnelUpdateSerializer, RankChangeSerializer, StatusChangeSerializer,
                           TransferSerializer)
 
@@ -141,7 +144,13 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
         "export": ("personnel.export", "any"),
         "cross_search": ("search.cross_service", "any"),
         "disciplinary": ("disciplinary.view", "unit"), "disciplinary_add": ("disciplinary.manage", "unit"),
-        "documents": ("documents.view", "unit"), "document_upload": ("documents.manage", "unit"),
+        "appointment_types": (VIEW, "any"), "appointment_list": (VIEW, "any"), "person_appointments": (VIEW, "unit"),
+        "appointment_add": ("personnel.appointments_manage", "unit"), "appointment_end": ("personnel.appointments_manage", "unit"),
+        "death": (VIEW, "unit"), "death_report": ("personnel.record_death", "unit"),
+        "death_confirm": ("personnel.confirm_death", "unit"),
+        "death_withdraw": (("personnel.record_death", "personnel.confirm_death"), "unit"),
+        # Death evidence may be attached by whoever reports the death; every other category still needs documents.manage.
+        "documents": ("documents.view", "unit"), "document_upload": (("documents.manage", "personnel.record_death", "attendance.record"), "unit"),
         "document_download": ("documents.view", "unit"), "document_withdraw": ("documents.manage", "unit"),
     }
 
@@ -190,6 +199,8 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
     # --- tracked changes (each writes effective-dated history) -----------
     def _workflow(self, request, serializer_cls, field, audit_action):
         person = self.get_object()
+        if person.status == Personnel.Status.DIED:
+            raise field_error("status", "person_deceased", "This person is deceased; the file is closed to changes.")
         ser = serializer_cls(person, data=request.data, context={"request": request})
         ser.is_valid(raise_exception=True)
         expected = require_version(request.data)
@@ -213,6 +224,11 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
             svc.add_history(updated, field, old_ref, new_ref, old_l, new_l, day, reason, request.user)
             record(audit_action, request=request, entity_type="personnel", entity_id=updated.pk,
                    metadata={"from": old_ref, "to": new_ref, "effective_date": day.isoformat()})
+            if field == "status" and new_ref in ("retired", "discharged"):  # authority ends with service
+                ended, revoked = appt_svc.end_all_for(request.user, updated, f"Status changed to {new_ref}")
+                if ended:
+                    record("personnel.appointments_ended", request=request, entity_type="personnel", entity_id=updated.pk,
+                           metadata={"count": ended, "access_revoked": revoked, "reason": new_ref})
         return self._out(updated)
 
     @action(detail=True, methods=["post"])
@@ -232,6 +248,137 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
         person = self.get_object()
         _audit_team_read(request, person, "history")
         return Response(HistorySerializer(person.history.all(), many=True).data)
+
+    # --- command appointments (separate from rank, assignment and application role) --------------------------
+    @action(detail=False, methods=["get"], url_path="appointment-types")
+    def appointment_types(self, request):
+        rows = AppointmentType.objects.filter(active=True).select_related("unit_type")
+        return Response({"results": [{"id": str(t.pk), "code": t.code, "name_en": t.name_en, "name_so": t.name_so,
+                                      "unit_type": t.unit_type.code if t.unit_type_id else None,
+                                      "exclusive": t.exclusive} for t in rows]})
+
+    @action(detail=False, methods=["get"], url_path="appointments")
+    def appointment_list(self, request):
+        """Appointments of people the caller may read. ?org_unit=<id> (that unit and below), ?current=1."""
+        qs = CommandAppointment.objects.filter(personnel__in=_readable(request.user).values("pk")).select_related(
+            "appointment_type", "org_unit", "personnel__rank")
+        unit = uuid_param(request, "org_unit")
+        if unit:
+            base = OrganizationalUnit.objects.filter(pk=unit).first()
+            qs = qs.filter(org_unit__path__startswith=base.path) if base else qs.none()
+        if request.query_params.get("current") == "1":
+            qs = qs.filter(ended_at__isnull=True)
+        return Response({"results": [appt_svc.out(a, with_person=True) for a in qs[:200]]})
+
+    @action(detail=True, methods=["get"], url_path="appointments")
+    def person_appointments(self, request, pk=None):
+        person = self.get_object()
+        _audit_team_read(request, person, "appointments")
+        rows = person.appointments.select_related("appointment_type", "org_unit")
+        return Response({"results": [appt_svc.out(a) for a in rows]})
+
+    @action(detail=True, methods=["post"], url_path="appointments/add")
+    def appointment_add(self, request, pk=None):
+        person = self.get_object()
+        ser = AppointmentCreateSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        d = ser.validated_data
+        unit = OrganizationalUnit.objects.filter(pk=d["org_unit"]).first()
+        atype = AppointmentType.objects.filter(pk=d["appointment_type"]).first()
+        if unit is None or not scope.can(request.user, "personnel.appointments_manage", unit=unit):
+            raise field_error("org_unit", "org_unit_invalid", "That unit cannot be used.")  # unknown and out-of-scope read alike
+        if atype is None:
+            raise field_error("appointment_type", "appointment_type_invalid", "That appointment cannot be used.")
+        assignment = None
+        if d.get("role_assignment"):
+            assignment = RoleAssignment.objects.select_related("user").filter(pk=d["role_assignment"]).first()
+            if assignment is None:
+                raise field_error("role_assignment", "assignment_mismatch", "That access cannot be linked.")
+        with transaction.atomic():
+            try:
+                appt = appt_svc.create(request.user, person, unit, atype, d["effective_from"], d.get("effective_to"),
+                                       d.get("authority_ref", ""), assignment)
+            except svc.RuleError as exc:
+                raise _rule_to_400(exc)
+            record("personnel.appointment_created", request=request, entity_type="personnel", entity_id=person.pk,
+                   metadata={"appointment": str(appt.pk), "type": atype.code, "unit": unit.code,
+                             "effective_from": d["effective_from"].isoformat(), "access_linked": assignment is not None})
+        appt = CommandAppointment.objects.select_related("appointment_type", "org_unit").get(pk=appt.pk)
+        return Response(appt_svc.out(appt), status=201)
+
+    @action(detail=True, methods=["post"], url_path=r"appointments/(?P<appointment_id>[0-9a-f-]{36})/end")
+    def appointment_end(self, request, pk=None, appointment_id=None):
+        person = self.get_object()
+        ser = AppointmentEndSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        appt = person.appointments.select_related("appointment_type", "org_unit", "role_assignment__user").filter(pk=appointment_id).first()
+        if appt is None or not scope.can(request.user, "personnel.appointments_manage", unit=appt.org_unit):
+            return Response({"code": "not_found", "detail": "Not found."}, status=404)
+        with transaction.atomic():
+            try:
+                revoked = appt_svc.end(request.user, appt, ser.validated_data["reason"])
+            except svc.RuleError as exc:
+                raise _rule_to_400(exc)
+            record("personnel.appointment_ended", request=request, entity_type="personnel", entity_id=person.pk,
+                   metadata={"appointment": str(appt.pk), "access_revoked": revoked})
+        appt.refresh_from_db()
+        return Response(appt_svc.out(appt))
+
+    # --- death: report -> evidence -> confirm (death is a status, never a deletion) -------------------------
+    @action(detail=True, methods=["get"], url_path="death")
+    def death(self, request, pk=None):
+        person = self.get_object()
+        can_act = any(scope.can(request.user, c, unit=person.org_unit)
+                      for c in ("personnel.record_death", "personnel.confirm_death"))
+        evid = death_svc.evidence_list(person) if can_act else None
+        recs = person.death_records.all()
+        return Response({"results": [death_svc.record_out(r, evid if r.state != "withdrawn" else None) for r in recs]})
+
+    @action(detail=True, methods=["post"], url_path="death/report")
+    def death_report(self, request, pk=None):
+        person = self.get_object()
+        ser = DeathReportSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        with transaction.atomic():
+            try:
+                rec = death_svc.report(request.user, person, ser.validated_data["date_of_death"], ser.validated_data["note"])
+            except svc.RuleError as exc:
+                raise _rule_to_400(exc)
+            record("personnel.death_reported", request=request, entity_type="personnel", entity_id=person.pk,
+                   metadata={"death_record": str(rec.pk), "date_of_death": rec.date_of_death.isoformat()})
+        return Response(death_svc.record_out(rec, death_svc.evidence_list(person)), status=201)
+
+    @action(detail=True, methods=["post"], url_path="death/confirm")
+    def death_confirm(self, request, pk=None):
+        person = self.get_object()
+        expected = require_version(request.data)
+        rec = person.death_records.filter(state="reported").first()
+        if rec is None:
+            raise field_error("state", "death_not_pending", "There is no death report waiting for confirmation.")
+        with transaction.atomic():
+            try:
+                updated, closed = death_svc.confirm(request.user, person, rec, expected)
+            except svc.RuleError as exc:
+                raise _rule_to_400(exc)
+            record("personnel.death_confirmed", request=request, entity_type="personnel", entity_id=person.pk,
+                   metadata={"death_record": str(rec.pk), "date_of_death": rec.date_of_death.isoformat(),
+                             "reported_by": rec.reported_by_username, "account_closed": closed,
+                             "evidence_count": death_svc.evidence(person).count()})
+        return self._out(updated)
+
+    @action(detail=True, methods=["post"], url_path="death/withdraw")
+    def death_withdraw(self, request, pk=None):
+        person = self.get_object()
+        ser = DeathWithdrawSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        rec = person.death_records.filter(state="reported").first()
+        if rec is None:
+            raise field_error("state", "death_not_pending", "There is no death report that can be withdrawn.")
+        with transaction.atomic():
+            death_svc.withdraw(request.user, rec, ser.validated_data["reason"])
+            record("personnel.death_withdrawn", request=request, entity_type="personnel", entity_id=person.pk,
+                   metadata={"death_record": str(rec.pk)})
+        return Response({"results": [death_svc.record_out(r) for r in person.death_records.all()]})
 
     # --- reporting lines -------------------------------------------------
     @action(detail=True, methods=["get"], url_path="supervisor-candidates")
@@ -347,6 +494,15 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
         person = self.get_object()
         ser = records.DocumentInputSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
+        # Besides documents.manage, two narrow rights may attach ONE kind of document: death evidence (whoever reports a death)
+        # and attendance support (whoever records attendance). Every other category still needs documents.manage.
+        narrow = {"death_evidence": "personnel.record_death", "attendance_support": "attendance.record"}
+        cat = ser.validated_data["category"]
+        if not scope.can(request.user, "documents.manage", unit=person.org_unit) and not (
+                cat in narrow and scope.can(request.user, narrow[cat], unit=person.org_unit)):
+            record("access.denied", request=request, outcome="denied", entity_type="personnel", entity_id=person.pk,
+                   metadata={"action": "document_upload", "permission": "documents.manage"})
+            raise PermissionDenied("You may attach only the kind of document your role allows.")
         upload = request.FILES.get("file")
         if upload is None:
             raise field_error("file", "file_required", "Choose a file.")
@@ -384,6 +540,8 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
         doc = records.get_document(person, doc_id)
         if doc is None:
             return Response({"code": "not_found", "detail": "Not found."}, status=404)
+        if doc.category == "death_evidence" and person.status == Personnel.Status.DIED:
+            raise field_error("document", "death_evidence_locked", "Evidence for a confirmed death cannot be withdrawn.")
         ser = records.WithdrawSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         with transaction.atomic():

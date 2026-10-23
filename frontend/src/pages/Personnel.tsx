@@ -7,6 +7,8 @@ import { useAuth } from "../auth/AuthContext";
 import { Chip, ErrorNotice, Field, formatDate, Loading, Notice, Pager, useErrorText } from "../components/ui";
 import { ExportPdfButton } from "../components/ExportPdfButton";
 import { PersonnelProfile } from "../components/PersonnelProfile";
+import { AppointmentsPanel } from "../components/AppointmentsPanel";
+import { DeathPanel } from "../components/DeathPanel";
 import { ReportingLine } from "../components/ReportingLine";
 import { DisciplinaryPanel, DocumentsPanel } from "../components/PersonnelRecords";
 import { UnitPicker } from "../components/UnitPicker";
@@ -14,7 +16,8 @@ import { useUnitTypes } from "../api/useUnitTypes";
 import { useI18n, type Key } from "../i18n";
 import { downloadText, inspectCsv, toCsv, type CsvInspection } from "../lib/csv";
 
-const STATUSES = ["active", "on_leave", "suspended", "retired", "discharged"];
+const STATUSES = ["active", "on_leave", "suspended", "jailed", "died", "retired", "discharged"];
+const SETTABLE = STATUSES.filter((s) => s !== "died");  // Died is only ever set by a confirmed death record (see DeathPanel)
 const today = () => new Date().toISOString().slice(0, 10);
 
 function useApprovedRanks() {
@@ -96,7 +99,7 @@ export function PersonnelList() {
           <li key={p.id} className="item">
             <div className="row" style={{ justifyContent: "space-between" }}>
               <Link to={`/personnel/${p.id}`}><h2>{p.full_name}</h2></Link>
-              <Chip tone={p.status === "active" ? "approved" : "draft"}>{t(`pstatus.${p.status}` as Key)}</Chip>
+              <Chip tone={p.status === "active" ? "approved" : ["died", "jailed", "suspended"].includes(p.status) ? "bad" : "draft"}>{t(`pstatus.${p.status}` as Key)}</Chip>
             </div>
             <span className="muted">{p.rank.code} {name(p.rank)} · {name(p.org_unit)}{p.org_unit.unit_type && cat.typeById.get(p.org_unit.unit_type) ? ` (${name(cat.typeById.get(p.org_unit.unit_type)!)})` : ""}{p.service_number ? ` · ${p.service_number}` : ""}</span>
           </li>
@@ -149,7 +152,7 @@ export function PersonnelForm() {
         {unit && rankChoices.length === 0 && <Notice>{t("pers.noApprovedRanks")}</Notice>}
         <Field label={t("pers.status")}>
           <select value={form.status} onChange={set("status")}>
-            {STATUSES.map((s) => <option key={s} value={s}>{t(`pstatus.${s}` as Key)}</option>)}
+            {SETTABLE.map((s) => <option key={s} value={s}>{t(`pstatus.${s}` as Key)}</option>)}
           </select>
         </Field>
         {dup && (
@@ -234,7 +237,7 @@ function ChangeForm({ person, mode, onDone }: { person: Person; mode: Exclude<Mo
         <Field label={t("pers.status")}>
           <select value={status} onChange={(e) => setStatus(e.target.value)} required>
             <option value="" />
-            {STATUSES.filter((s) => s !== person.status).map((s) => <option key={s} value={s}>{t(`pstatus.${s}` as Key)}</option>)}
+            {SETTABLE.filter((s) => s !== person.status).map((s) => <option key={s} value={s}>{t(`pstatus.${s}` as Key)}</option>)}
           </select>
         </Field>
       )}
@@ -277,7 +280,7 @@ export function PersonnelDetail() {
           <div className="stat"><span>{t("pers.branch")}</span><b>{name(p.branch)}</b></div>
           <div className="stat"><span>{t("pers.serviceNumber")}</span><b>{p.service_number ?? "-"}</b></div>
           <div className="stat"><span>{t("pers.phone")}</span><b>{p.phone || "-"}</b></div>
-          {can("personnel.manage") && mode === null && (
+          {can("personnel.manage") && mode === null && p.status !== "died" && (
             <div className="row" style={{ marginTop: "1rem" }}>
               <button className="secondary" onClick={() => setMode("edit")}>{t("pers.editBasics")}</button>
               <button className="secondary" onClick={() => setMode("transfer")}>{t("pers.transfer")}</button>
@@ -288,7 +291,9 @@ export function PersonnelDetail() {
         </section>
       )}
       {p && mode && <ChangeForm person={p} mode={mode} onDone={done} />}
-      {p && <ReportingLine person={p} canManage={can("personnel.manage")} onChanged={done} />}
+      {p && <AppointmentsPanel person={p} />}
+      {p && <DeathPanel person={p} onChanged={done} />}
+      {p && <ReportingLine person={p} canManage={can("personnel.manage") && p.status !== "died"} onChanged={done} />}
       {p && <PersonnelProfile personId={p.id} canManage={can("personnel.manage")} />}
       {p && can("disciplinary.view") && <DisciplinaryPanel personId={p.id} canManage={can("disciplinary.manage")} />}
       {p && can("documents.view") && <DocumentsPanel personId={p.id} canManage={can("documents.manage")} />}

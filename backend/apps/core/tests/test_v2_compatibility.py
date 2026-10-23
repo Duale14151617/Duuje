@@ -62,10 +62,14 @@ V14_MIGRATIONS = {
 }
 NEW_PERMISSIONS = {"analytics.view", "integrations.view", "integrations.manage", "org.structure_propose", "org.structure_approve"}
 ROLES_GAINING_ANALYTICS = {"hq_reporting", "regional_chief", "branch_admin"}
-NEW_ROLES = {"structure_approver", "super_admin", "cid_officer", "command_authority", "member"}  # cid/command: Police module; member: own record + direct subordinates
+NEW_ROLES = {"structure_approver", "super_admin", "cid_officer", "command_authority", "member", "unit_commander", "weapons_custodian", "regional_commander",
+             "payroll_officer", "payroll_approver", "survivor_officer", "payment_officer", "payment_reconciler"}  # cid/command: Police module; member: own record + direct subordinates
 # Police module: branch_admin holds the sensitive personnel-file records (disciplinary history, service documents).
 BRANCH_ADMIN_RECORDS = {"disciplinary.view", "disciplinary.manage", "documents.view", "documents.manage"}
 # hq_admin receives every non-sensitive permission automatically, so it gains the integration and structure-proposal ones.
+# Death workflow: units and regions may REPORT a death; only branch_admin may CONFIRM (a different officer from the reporter).
+DEATH_GAINS = {"unit_admin": {"personnel.record_death"}, "regional_chief": {"personnel.record_death"},
+               "branch_admin": {"personnel.record_death", "personnel.confirm_death", "personnel.appointments_manage"}}
 HQ_ADMIN_GAINS = {"integrations.view", "integrations.manage", "org.structure_propose"}
 
 
@@ -81,6 +85,8 @@ class RoleCompatibilityTests(BaseApiTest):
             gained = have - set(codes)
             allowed = ({"analytics.view"} if role in ROLES_GAINING_ANALYTICS else set()) | (HQ_ADMIN_GAINS if role == "hq_admin" else set())
             allowed |= BRANCH_ADMIN_RECORDS if role == "branch_admin" else set()
+            allowed |= DEATH_GAINS.get(role, set())
+            allowed |= {"weapons.view"} if role == "regional_chief" else set()  # regional chief views its region's weapon register
             self.assertEqual(gained, allowed, role)
 
     def test_only_the_documented_role_was_added_and_none_removed(self):

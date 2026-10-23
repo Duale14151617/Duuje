@@ -31,6 +31,9 @@ export function Layout() {
     { to: "/reports", icon: "file", label: "nav.reports", show: can("reports.view") },
     { to: "/summary", icon: "list", label: "nav.summary", show: can("reports.summary") },
     { to: "/logistics", icon: "box", label: "nav.logistics", show: ["logistics.view", "logistics.restricted", "logistics.configure", "logistics.approve", "logistics.restricted_approve", "logistics.report"].some(can) },
+    { to: "/ammunition", icon: "box", label: "nav.ammunition", show: can("logistics.restricted") },
+    { to: "/weapons", icon: "lock", label: "nav.weapons", show: can("weapons.view") },
+    { to: "/attendance", icon: "check", label: "nav.attendance", show: can("attendance.view") },
     { to: "/training", icon: "cap", label: "nav.training", show: ["training.view", "training.configure", "training.report"].some(can) },
     { to: "/analytics", icon: "activity", label: "nav.analytics", show: can("analytics.view") },
     { to: "/ranks", icon: "award", label: "nav.ranks", show: can("ranks.view") },
@@ -109,7 +112,7 @@ export function Layout() {
             <Icon name="menu" size={20} />
           </button>
           <span className="brand" style={{ display: "inline-flex", alignItems: "center", gap: ".5rem" }}>
-            <img src="/puntland-flag-logo.png" alt="Puntland flag" width={42} height={28} style={{ borderRadius: 3, boxShadow: "0 0 0 1px rgba(198,161,91,.7)" }} />
+            <img src="/puntland-flag.svg" alt="Puntland flag" width={36} height={24} style={{ borderRadius: 3, boxShadow: "0 0 0 1px rgba(198,161,91,.7)" }} />
             <span className="brand-text">{t("app.name")}</span>
           </span>
         </div>
@@ -144,7 +147,7 @@ export function Layout() {
            role={drawerOpen ? "dialog" : undefined} aria-modal={drawerOpen ? true : undefined} aria-label={drawerOpen ? t("nav.label") : undefined}>
         <div className="nav-head">
           <span className="nav-brand">
-            <img src="/puntland-flag-logo.png" alt="" width={42} height={28} style={{ borderRadius: 3, boxShadow: "0 0 0 1px rgba(198,161,91,.7)" }} />
+            <img src="/puntland-flag.svg" alt="" width={36} height={24} style={{ borderRadius: 3, boxShadow: "0 0 0 1px rgba(198,161,91,.7)" }} />
             {t("app.name")}
           </span>
           <button ref={closeBtn} type="button" className="icon-btn nav-close" onClick={() => closeDrawer(true)} aria-label={t("nav.close")}>

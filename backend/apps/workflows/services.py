@@ -127,6 +127,9 @@ def perform_transition(request, sub, action, expected_version, comment=""):
         changes = {"status": target}
         revision_no = locked.current_revision
         verb = action
+        if action == "submit" and locked.report_type.code == "unit_situation_report":
+            from apps.attendance.situation import compute_figures  # figures are recomputed from saved records and frozen here
+            locked.figures = changes["figures"] = compute_figures(user, locked.org_unit, locked.period_start, locked.period_end)
         if action == "submit":
             revision_no += 1
             verb = "resubmit" if locked.current_revision > 0 else "submit"
@@ -168,7 +171,10 @@ def build_summary(user, params, code="reports.summary"):
     empty = {"consolidated": {"submissions": 0, "totals": {}}, "regions": []}
     if q is None:
         return empty
-    qs = Submission.objects.filter(q, approved_revision__isnull=False).select_related("approved_revision", "org_unit")
+    # Unit situation reports are snapshots of one unit and everything below it, so adding a Guuto's report to its Urur reports
+    # would double count: they are left out of consolidated totals.
+    qs = (Submission.objects.filter(q, approved_revision__isnull=False).exclude(report_type__code="unit_situation_report")
+          .select_related("approved_revision", "org_unit"))
     if params.get("report_type"):
         qs = qs.filter(report_type=params["report_type"])
     if params.get("from"):

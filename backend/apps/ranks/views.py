@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.models import F, Q
 from django.utils import timezone
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
@@ -21,6 +22,7 @@ class RankViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         "list": ("ranks.view", "any"), "retrieve": ("ranks.view", "any"),
         "create": ("ranks.manage", "global"), "partial_update": ("ranks.manage", "global"),
         "approve": ("ranks.approve", "global"), "unapprove": ("ranks.approve", "global"),
+        "swap": ("ranks.manage", "global"),
     }
 
     def get_queryset(self):
@@ -78,3 +80,40 @@ class RankViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         rank.save(update_fields=["approval_status", "approved_by", "approved_at", "version", "updated_at"])
         record("rank.unapprove", request=request, entity_type="rank", entity_id=rank.pk)
         return Response(RankSerializer(rank).data)
+
+    @action(detail=False, methods=["post"])
+    def swap(self, request):
+        """Swap the positions (order of precedence) of two ranks of the same branch in one step. A person must never end up at or above
+        their own supervisor, so a swap that would break a reporting line is refused and nothing changes."""
+        from apps.personnel.models import Personnel  # local import: personnel depends on ranks
+        body = request.data if isinstance(request.data, dict) else {}
+        ids = [body.get("first"), body.get("second")]
+        if not all(isinstance(i, str) for i in ids) or ids[0] == ids[1]:
+            return Response({"code": "invalid_swap", "detail": "Give two different ranks: first and second."}, status=400)
+        try:
+            with transaction.atomic():
+                rows = {str(r.pk): r for r in Rank.objects.select_for_update().filter(pk__in=ids)}
+                if len(rows) != 2:
+                    return Response({"code": "not_found", "detail": "Rank not found."}, status=404)
+                a, b = rows[ids[0]], rows[ids[1]]
+                if a.branch_id != b.branch_id:
+                    return Response({"code": "different_branch", "detail": "Only ranks of the same branch can be swapped."}, status=409)
+                if not (a.active and b.active):
+                    return Response({"code": "rank_inactive", "detail": "Retired ranks cannot be swapped."}, status=409)
+                a_order, b_order = a.sort_order, b.sort_order
+                Rank.objects.filter(pk=a.pk).update(sort_order=b_order, version=F("version") + 1)
+                Rank.objects.filter(pk=b.pk).update(sort_order=a_order, version=F("version") + 1)
+                broken = Personnel.objects.filter(rank__active=True, supervisor__rank__active=True,
+                                                  supervisor__rank__sort_order__lte=F("rank__sort_order")).filter(
+                    Q(rank__in=[a, b]) | Q(supervisor__rank__in=[a, b]))
+                if broken.exists():
+                    raise _BreaksReportingLines()
+                record("rank.swap", request=request, entity_type="rank", entity_id=a.pk,
+                       metadata={"with": str(b.pk), "branch": str(a.branch_id)})
+        except _BreaksReportingLines:
+            return Response({"code": "breaks_reporting_lines", "detail": "This swap would put someone at or above their own supervisor."}, status=409)
+        return Response({"results": RankSerializer(Rank.objects.filter(pk__in=ids).order_by("sort_order"), many=True).data})
+
+
+class _BreaksReportingLines(Exception):
+    pass

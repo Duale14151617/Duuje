@@ -22,7 +22,7 @@ Run `migrate` with `POSTGRES_USER=armyhq_owner`; run the app as `armyhq_app`.
 ## Release steps
 1. Back up the database (`pg_dump -Fc`), store encrypted off-host. Record the current git tag.
 2. Deploy code; set environment (see `.env.example`). `DJANGO_DEBUG` must be 0.
-3. `python manage.py migrate` (as owner), `createcachetable`, `seed_reference_data`, `check --deploy`.
+3. `python manage.py migrate` (as owner), `createcachetable`, `seed_reference_data`, `apply_army_structure --apply`, `check --deploy`.
 4. `cd frontend && npm ci && npm run build`; serve `dist/` and proxy `/api/` to gunicorn from the **same origin**
    over HTTPS (cookies are Secure/HttpOnly/SameSite=Lax; CSRF relies on same-origin).
 5. Smoke test: sign in, open each screen, confirm audit events appear.

@@ -11,6 +11,7 @@ cp .env.example backend/.env          # fill DJANGO_SECRET_KEY and FIELD_ENCRYPT
 cd backend && pip install -r requirements-dev.txt
 python manage.py migrate && python manage.py createcachetable
 python manage.py seed_reference_data   # permissions, roles, branches, regions, ranks
+python manage.py apply_army_structure --apply   # Army structure: HQ, directorates, regional commands, Guuto, Urur, battalion sections
 python manage.py create_hq_admin --username admin --full-name "Admin" --role super_admin
 python manage.py runserver
 cd ../frontend && npm ci && npm run dev   # http://localhost:5173
@@ -20,7 +21,7 @@ cd frontend && npm test && npm run typecheck && npm run lint
 
 ## Deploy on Render
 `render.yaml` is a Blueprint: one Docker web service plus a Postgres database. The container runs, in order: `migrate`,
-`createcachetable`, `seed_reference_data`, `seed_demo_data` (only when `ARMYHQ_DEMO_MODE=1`), `seed_test_personnel --from-env`, then gunicorn.
+`createcachetable`, `seed_reference_data`, `apply_army_structure --apply`, `seed_demo_data` (only when `ARMYHQ_DEMO_MODE=1`), `seed_test_personnel --from-env`, then gunicorn.
 Set in the Render dashboard: `FIELD_ENCRYPTION_KEY` (keep it safe: losing it makes encrypted records unreadable), `ARMYHQ_DEMO_PASSWORD`,
 and the switches below. See `RENDER_DEPLOY_GUIDE.md` and `docs/DEPLOY_ROLLBACK.md`.
 

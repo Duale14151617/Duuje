@@ -10,12 +10,13 @@ screens are untouched; the original Army-only behaviour is exactly what you get 
 * OFF: nothing Police-specific is seeded, and those scopes exclude every Police unit **on the server** (apps/accounts/scope.py).
   Existing Police records are kept in the database, only hidden.
 
-## Ranks (historical baseline, needs confirmation)
-Source: Article 23 "Order of Precedence", Law No. 2 of 23 Dec 1972. 15 ranks in 5 classes, plus a "General Officers" class
-with **no ranks** because none were supplied. All are seeded as **draft**: nobody can be assigned a draft rank, so an authorised
-administrator must review and approve each rank against current Puntland Police rules first (Ranks page).
-Somali labels are not verified (English is stored in both fields). "Cadet Officer" sits in the NCO class as supplied.
-Police ranks are a separate catalogue from Army ranks even where names overlap (e.g. Captain, Colonel).
+## Ranks (same as the Army)
+Police ranking is **the same as the Army's** (instruction of 2026-10-23): the 18 official Puntland Army ranks, same order, approved, stored as separate Police
+rows (`PL-01`..`PL-18`) so the two lists can differ later. They are fully changeable on the Ranks page / API (names, category, code, order) and
+**swappable**: `POST /api/v1/ranks/swap/ {"first": id, "second": id}` (permission `ranks.manage`) exchanges two ranks' positions of the same branch in one
+step, refuses a swap that would put anyone at or above their own supervisor, and is audited (`rank.swap`). The Ranks page lists the most senior rank first and offers Edit (code, category, English and Somali names), Move up / Move down (swap with the neighbour) and **Swap with…** (swap with any other active rank of the same branch).
+Renaming a rank voids its approval until it is re-approved. The earlier draft list from Article 23 of the 1972 law (`PP-01`..`PP-15`) is retired when still as
+seeded (deleted if unreferenced, otherwise deactivated); `report_rank_remap` lists anyone still on a retired rank. No General Officer titles exist beyond the Army list.
 
 ## Departments and CID
 Under each regional Police command: Personnel, Operations, Training, Finance and Logistics, CID, Public Relations, Traffic and
@@ -62,6 +63,27 @@ Service numbers were already unique across all services. There is no national-ID
 ## Combined report
 `GET /api/v1/reports/combined/` (page: Combined report), permission `reports.combined` (command_authority, super_admin).
 Aggregates only, audited (`report.combined_view`), same scope rules as other personnel data (CID left out without `cid.access`).
+
+## Police structure as working units
+`python manage.py apply_police_structure` (dry run by default; `--apply` to write; idempotent, additive, audited; does nothing while the switch is off)
+creates, for Bari, Karkaar, Nugaal, Mudug and the new **Sanaag**: the regional Police command, the seven departments (CID restricted) and
+**one Police station per command** (`BARI-POLICE-ST1` ...). Raise stations later with `--stations-per-command N` (1 to 20); nothing is ever deleted or
+renamed. The Dockerfile start command runs it after `seed_reference_data`. Names are placeholders to confirm with the Police authorities and are
+editable in the Organization screens. Army and Navy units are never touched.
+
+**To make Police work end to end you must still** set `POLICE_MODULE_ENABLED=1` (Render dashboard, it is owned there). The Police ranks are already approved, so people can be assigned.
+
+## Chief of Police and Station Leads
+Two command appointments (seeded while the switch is on; plain English labels, no Somali wording was supplied): **Chief of Police** (`POLICE_CHIEF`) and **Station Lead** (`POLICE_STATION_LEAD`), one holder each. The Chief is held at a regional Police command (`<REGION>-POLICE`), the Station Lead at a station (`<REGION>-POLICE-ST1` ...), which sits directly under that command, so the order is Chief of Police -> Station Lead. The server refuses either title anywhere else (`appointment_unit_mismatch`) and a second holder (`appointment_exists`). Appoint from the person's page (Command appointments). Like every appointment it grants no access by itself: give the Chief the `regional_commander` role (view) and a Station Lead the `unit_commander` role (attendance, reports), both limited to the Police branch; `unit_commander` may now be held at a station.
+
+## Chief of Police and Station Commander
+Every region has a regional Police command (Bari, Karkaar, Nugaal, Mudug, Sanaag) and at least one station under it. Two command appointments sit on that chain, created
+by `apply_police_structure --apply` and by `seed_reference_data` (Police switch on): **Chief of Police** (`CHIEF_OF_POLICE`, one holder per regional Police command) and
+**Station Commander** (`STATION_COMMANDER`, one holder per station). They are ordinary appointment titles (editable data, Somali names left blank: none supplied),
+appointed on the Appointments panel with `personnel.appointments_manage`. Rules: the Chief only on a Police command, the Station Commander only on a Police station,
+both only for Police officers. Beneath the chief: when both are appointed the commander's reporting line is set to the chief, in either order, but only if the line is empty and the
+chief strictly outranks the commander (never replaces a line set by hand). An appointment grants no access by itself.
+Stations: `--stations-per-command N` raises the number of stations in every region.
 
 ## Police stations
 Level `station`, only directly under a regional Police command; people can be assigned to it; `unit_admin` can be held at a station.

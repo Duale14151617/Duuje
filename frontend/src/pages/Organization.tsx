@@ -9,14 +9,16 @@ import { Chip, ErrorNotice, Field, Loading, Pager } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
 
 const PARENT_LEVELS: Record<string, string[]> = {
-  region: ["headquarters"], branch_command: ["region"], unit: ["branch_command", "unit"], station: ["branch_command"],
+  region: ["headquarters"], branch_command: ["region", "headquarters"], unit: ["branch_command", "unit"], station: ["branch_command"],
 };
 
 function TypeField({ level, types, value, onChange }: {
   level: string; types: UnitType[]; value: string; onChange: (v: string) => void }) {
   const { t, name } = useI18n();
-  // Taliska Guud is the regional command (a branch command); every other template level is a unit.
-  const fits = types.filter((x) => x.active && (x.code === "TALISKA_GUUD") === (level === "branch_command"));
+  // Taliska Guud (Army headquarters) and Qayb (regional command) sit at branch-command level; Qayb may also be nested.
+  // Every other template level is a unit. The server enforces this; the list only offers sensible choices.
+  const COMMAND_TYPES = ["TALISKA_GUUD", "QAYB"];
+  const fits = types.filter((x) => x.active && (level === "branch_command" ? COMMAND_TYPES.includes(x.code) : x.code !== "TALISKA_GUUD"));
   if (level !== "branch_command" && level !== "unit") return null;
   return (
     <Field label={t("org.type")}>

@@ -67,6 +67,11 @@ class PersonnelCreateSerializer(_Basics):
     effective_date = serializers.DateField(required=False, allow_null=True)
     confirm_duplicate = serializers.BooleanField(required=False, default=False)
 
+    def validate_status(self, value):
+        if value == "died":
+            raise fail("status", "use_death_workflow")  # a death is reported and confirmed, never typed in as a status
+        return value
+
     def validate(self, attrs):
         user = self.context["request"].user
         unit = attrs["org_unit"]
@@ -128,6 +133,8 @@ class PersonnelUpdateSerializer(_Basics):
 
     def validate(self, attrs):
         p = self.instance
+        if p.status == "died":
+            raise fail("status", "person_deceased")  # a deceased person's file is closed to edits (documents excepted)
         if svc.service_number_taken(attrs.get("service_number"), exclude_pk=p.pk):
             raise fail("service_number", "service_number_taken")
         name = attrs.get("full_name", p.full_name)
@@ -207,6 +214,32 @@ class StatusChangeSerializer(_Workflow):
     status = serializers.ChoiceField(choices=sorted(svc.STATUSES))
 
     def validate(self, attrs):
+        if self.instance.status == "died":
+            raise fail("status", "person_deceased")
+        if attrs["status"] == "died":
+            raise fail("status", "use_death_workflow")
         if attrs["status"] == self.instance.status:
             raise fail("status", "no_change")
         return attrs
+
+
+class DeathReportSerializer(serializers.Serializer):
+    date_of_death = serializers.DateField()
+    note = serializers.CharField(max_length=300, required=False, allow_blank=True, default="")
+
+
+class DeathWithdrawSerializer(serializers.Serializer):
+    reason = serializers.CharField(max_length=300)
+
+
+class AppointmentCreateSerializer(serializers.Serializer):
+    org_unit = serializers.UUIDField()
+    appointment_type = serializers.UUIDField()
+    effective_from = serializers.DateField()
+    effective_to = serializers.DateField(required=False, allow_null=True)
+    authority_ref = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
+    role_assignment = serializers.UUIDField(required=False, allow_null=True)
+
+
+class AppointmentEndSerializer(serializers.Serializer):
+    reason = serializers.CharField(max_length=300)

@@ -14,9 +14,10 @@ from apps.accounts.permissions import ScopedPermission
 from apps.audit.services import record
 from apps.core.concurrency import require_version, versioned_update
 from apps.core.errors import field_error
-from apps.core.params import uuid_param
+from apps.core.params import json_body, uuid_param
 from apps.organization.models import OrganizationalUnit
 
+from . import ammunition as ammo
 from . import services as svc
 from .models import Asset, InventoryCategory, Reconciliation, StockLine
 from .serializers import (AssetChangeSerializer, AssetCreateSerializer, AssetEventSerializer, AssetSerializer,
@@ -88,6 +89,59 @@ class CategoryViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.C
             record("category.approve", request=request, entity_type="inventory_category", entity_id=cat.pk,
                    metadata={"restricted": cat.restricted})
         return Response(CategorySerializer(cat).data)
+
+
+class AmmunitionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+    """Ammunition ledger: stock lines of ammunition categories, movements with vouchers and authorizations, and the statement
+    (opening, receipts, issues, returns, expenditure, losses, damage, adjustments, closing, reconciliation discrepancies).
+    Restricted stock: visible and postable only with logistics.restricted over the unit. Balances come from the saved movements."""
+
+    serializer_class = StockLineSerializer
+    permission_classes = [ScopedPermission]
+    pagination_class = None
+    permission_map = {"list": (VIEW_CODES, "unit"), "retrieve": (VIEW_CODES, "unit"), "statement": (VIEW_CODES, "unit"),
+                      "movement": ("logistics.manage", "unit")}
+
+    def scope_unit(self, obj):
+        return obj.org_unit
+
+    def get_queryset(self):
+        qs = StockLine.objects.filter(svc.visible_q(self.request.user, "org_unit__", "category__"),
+                                      category__code__startswith=ammo.PREFIX).select_related("category", "org_unit")
+        return _subtree(qs, self.request)
+
+    @action(detail=True, methods=["post"])
+    def movement(self, request, pk=None):
+        line = self.get_object()
+        d = json_body(request)
+        q = d.get("quantity")
+        counterpart = None
+        if d.get("counterpart_unit"):
+            try:
+                counterpart = OrganizationalUnit.objects.filter(pk=uuid.UUID(str(d["counterpart_unit"]))).first()
+            except ValueError:
+                counterpart = None
+            if counterpart is None:
+                raise field_error("counterpart_unit", "out_of_scope", "That unit is outside your scope.")
+        expected = d.get("expected_balance")
+        txn = ammo.post(request, line, str(d.get("kind") or ""), q if isinstance(q, int) else 0, d.get("reason") or "",
+                        d.get("external_ref") or "", d.get("authority_ref") or "", counterpart,
+                        expected if isinstance(expected, int) else None)
+        line = self.get_queryset().get(pk=line.pk)
+        return Response({"transaction": StockTransactionSerializer(txn).data, "line": StockLineSerializer(line).data}, status=201)
+
+    @action(detail=True, methods=["get"])
+    def statement(self, request, pk=None):
+        line = self.get_object()
+        today = timezone.localdate()
+        try:
+            start = timezone.datetime.fromisoformat(request.query_params["from"]).date() if request.query_params.get("from") else today.replace(day=1)
+            end = timezone.datetime.fromisoformat(request.query_params["to"]).date() if request.query_params.get("to") else today
+        except ValueError:
+            raise field_error("from", "invalid_date", "Use a date like 2026-03-01.")
+        if end < start:
+            raise field_error("to", "period_invalid", "The end must not be before the start.")
+        return Response({"line": StockLineSerializer(line).data, **ammo.statement(line, start, end)})
 
 
 class StockViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):

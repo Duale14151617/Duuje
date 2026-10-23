@@ -9,8 +9,12 @@ from apps.audit.views import AuditEventViewSet
 from apps.dashboard.views import DashboardView
 from apps.personnel.combined import CombinedReportViewSet
 from apps.personnel.views import PersonnelViewSet
-from apps.logistics.views import (AssetViewSet, CategoryViewSet, LogisticsSummaryViewSet, ReconciliationViewSet,
+from apps.logistics.views import (AmmunitionViewSet, AssetViewSet, CategoryViewSet, LogisticsSummaryViewSet, ReconciliationViewSet,
                                   StockViewSet)
+from apps.attendance.views import AttendanceViewSet
+from apps.weapons.views import WeaponViewSet
+from apps.payroll.views import PayrollRunViewSet, SalaryProfileViewSet, SurvivorCaseViewSet
+from apps.payroll.views_ext import ArrearsViewSet, PayrollPersonnelViewSet, PaymentViewSet, PolicyViewSet
 from apps.training.views import CourseViewSet, TrainingPeopleViewSet, TrainingRecordViewSet, TrainingSummaryViewSet
 from apps.workflows.views import NotificationViewSet, ReportTypeViewSet, SubmissionViewSet, SummaryViewSet
 from apps.organization.views import (DesignationViewSet, RuleViewSet, ServiceBranchViewSet, StructureChangeViewSet,
@@ -40,8 +44,18 @@ router.register("notifications", NotificationViewSet, basename="notification")
 router.register("logistics/categories", CategoryViewSet, basename="inv-category")
 router.register("logistics/stock", StockViewSet, basename="stock")
 router.register("logistics/assets", AssetViewSet, basename="asset")
+router.register("logistics/ammunition", AmmunitionViewSet, basename="ammunition")
 router.register("logistics/reconciliations", ReconciliationViewSet, basename="reconciliation")
 router.register("logistics/summary", LogisticsSummaryViewSet, basename="logistics-summary")
+router.register("attendance", AttendanceViewSet, basename="attendance")
+router.register("weapons", WeaponViewSet, basename="weapons")
+router.register("payroll/profiles", SalaryProfileViewSet, basename="payroll-profile")
+router.register("payroll/runs", PayrollRunViewSet, basename="payroll-run")
+router.register("survivor-cases", SurvivorCaseViewSet, basename="survivor-case")
+router.register("payroll/payments", PaymentViewSet, basename="payroll-payment")
+router.register("payroll/arrears", ArrearsViewSet, basename="payroll-arrears")
+router.register("payroll/personnel", PayrollPersonnelViewSet, basename="payroll-personnel")
+router.register("payroll/policy", PolicyViewSet, basename="payroll-policy")
 router.register("training/courses", CourseViewSet, basename="course")
 router.register("training/records", TrainingRecordViewSet, basename="training-record")
 router.register("training/people", TrainingPeopleViewSet, basename="training-person")

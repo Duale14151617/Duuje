@@ -6,7 +6,7 @@ import { ErrorNotice, Field, formatDate, Loading } from "./ui";
 import { useI18n, type Key } from "../i18n";
 
 const DIS_CATS = ["verbal_warning", "written_warning", "reprimand", "fine", "suspension", "demotion", "dismissal", "other"];
-const DOC_CATS = ["service_record", "appointment", "training_certificate", "commendation", "identity", "other"];
+const DOC_CATS = ["service_record", "appointment", "training_certificate", "commendation", "identity", "death_evidence", "other"];
 const today = () => new Date().toISOString().slice(0, 10);
 
 /** Disciplinary history. Entries are permanent; a correction is a new entry. Every view and change is logged by the server. */
