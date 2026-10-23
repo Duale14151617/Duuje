@@ -11,6 +11,17 @@ class VersionConflict(APIException):
     default_code = "version_conflict"
 
 
+def _normalize_validation_details(value):
+    """DRF 3.15+ may leave ErrorDetail values as strings; flatten them into {message, code} objects."""
+    if isinstance(value, dict):
+        return {k: _normalize_validation_details(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_normalize_validation_details(v) for v in value]
+    if hasattr(value, "code") and hasattr(value, "__str__"):
+        return {"message": str(value), "code": getattr(value, "code", "invalid")}
+    return value
+
+
 def api_exception_handler(exc, context):
     """Uniform error body: {code, detail, errors?}. Clients translate by code."""
     # DRF converts Django's Http404 / PermissionDenied internally but hands *this* handler the original exception,
@@ -26,7 +37,7 @@ def api_exception_handler(exc, context):
         response.data = {
             "code": "validation_error",
             "detail": "Validation failed.",
-            "errors": exc.get_full_details(),
+            "errors": _normalize_validation_details(exc.get_full_details()),
         }
     else:
         codes = exc.get_codes()
