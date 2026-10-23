@@ -117,7 +117,12 @@ class RouteCompatibilityTests(BaseApiTest):
         added = now - {tuple(r) for r in V14_ROUTES}
         self.assertEqual(added, {("analytics", "analytics"), ("integrations/clients", "integration-client"),
                                  ("organization/structure-changes", "structure-change"),
-                                 ("reports/combined", "report-combined")})  # Police module: combined Army + Police report
+                                 ("reports/combined", "report-combined"),  # Police module: combined Army + Police report
+                                 ("attendance", "attendance"), ("weapons", "weapons"), ("logistics/ammunition", "ammunition"),
+                                 ("survivor-cases", "survivor-case"), ("payroll/profiles", "payroll-profile"),
+                                 ("payroll/runs", "payroll-run"), ("payroll/personnel", "payroll-personnel"),
+                                 ("payroll/policy", "payroll-policy"), ("payroll/payments", "payroll-payment"),
+                                 ("payroll/arrears", "payroll-arrears")})  # attendance, weapons, ammunition and payroll modules
 
     def test_version_1_prefix_is_unchanged(self):
         self.assertEqual(self.client_for(self.make_user("hqr", "hq_reporting")).get("/api/v1/auth/me/").status_code, 200)
@@ -142,7 +147,9 @@ class RouteCompatibilityTests(BaseApiTest):
 V2_ADDED_MIGRATIONS = {  # migrations added to existing apps after v1.4 (2.0 structure changes, then the Police module)
     "organization": ["0004_structure_change", "0005_unit_restricted", "0006_station_level"],
     "ranks": ["0004_add_command_ranks", "0005_police_rank_categories"],
-    "personnel": ["0003_personnelprofile", "0004_disciplinary_and_documents"],
+    "personnel": ["0003_personnelprofile", "0004_disciplinary_and_documents", "0005_supervisor_and_account",
+                  "0006_death_record_and_statuses", "0007_command_appointments", "0008_attendance_support_category"],
+    "logistics": ["0003_ammunition_ledger"],
 }
 
 
