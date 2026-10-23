@@ -166,3 +166,28 @@ class Command(BaseCommand):
         for i in range(1, 4):
             Asset.objects.get_or_create(category=vehicles, identifier=f"DEMO-VEH-{i:03d}",
                                         defaults={"org_unit": unit, "description": "Synthetic demo vehicle"})
+        self._demo_weapons_ammunition(unit)
+
+    def _demo_weapons_ammunition(self, unit):
+        """Synthetic weapon register entries and ammunition ledger opening balances (demo only; serials are fake)."""
+        from apps.logistics.models import Asset, InventoryCategory, StockLine, StockTransaction
+        from apps.weapons.models import WeaponDetail
+        weapons = {  # category code: (weapon type, make/model, caliber, how many)
+            "weapons_rifles": ("Assault rifle", "Demo rifle", "7.62x39 mm", 3),
+            "weapons_pistols": ("Pistol", "Demo pistol", "9 mm", 2),
+            "weapons_machine_guns": ("Machine gun", "Demo machine gun", "7.62x54R mm", 1),
+        }
+        ammo = {"ammunition_762x39": 3000, "ammunition_9mm": 800, "ammunition_762x54": 500}  # category code: opening balance (rounds)
+        InventoryCategory.objects.filter(code__in=[*weapons, *ammo]).update(approval_status="approved")
+        for code, (wtype, make, cal, n) in weapons.items():
+            cat = InventoryCategory.objects.get(code=code)
+            for i in range(1, n + 1):
+                asset, _ = Asset.objects.get_or_create(category=cat, identifier=f"DEMO-{code[8:12].upper()}-{i:03d}",
+                                                       defaults={"org_unit": unit, "description": "Synthetic demo weapon"})
+                WeaponDetail.objects.get_or_create(asset=asset, defaults={"weapon_type": wtype, "make_model": make, "caliber": cal})
+        for code, qty in ammo.items():
+            cat = InventoryCategory.objects.get(code=code)
+            line, created = StockLine.objects.get_or_create(category=cat, org_unit=unit, defaults={"uom": "rounds", "quantity": qty})
+            if created:
+                StockTransaction.objects.create(stock_line=line, kind="opening", delta=qty, balance_after=qty,
+                                                reason="Synthetic demo opening balance", actor_username="demo")
