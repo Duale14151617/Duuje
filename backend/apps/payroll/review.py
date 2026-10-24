@@ -9,6 +9,7 @@ from django.utils import timezone
 from apps.audit.services import record
 from apps.personnel.models import Personnel
 
+from . import breakglass as bg
 from . import services as svc
 from .models import ArrearsClaim, PayrollLine, PolicySetting, StatusPayDecision
 
@@ -80,7 +81,7 @@ def decide_status_decision(user, d, approve, note=""):
     d = StatusPayDecision.objects.select_for_update().get(pk=d.pk)
     if d.state != "recorded":
         raise svc.InvalidState()
-    if d.recorded_by_id == user.pk:
+    if d.recorded_by_id == user.pk and not bg.bypass(user, "pay_decision_approver", "status_pay_decision", d.pk):
         record("pay_decision.decide", actor=user, outcome="denied", entity_type="status_pay_decision", entity_id=d.pk, metadata={"reason": "self_approval"})
         raise svc.rule("approver_must_differ", "state")
     if not approve and not str(note).strip():
@@ -149,7 +150,7 @@ def verify_arrears(user, claim, verify, note=""):
     c = ArrearsClaim.objects.select_for_update().get(pk=claim.pk)
     if c.status != "recorded":
         raise svc.InvalidState()
-    if c.recorded_by_id == user.pk:
+    if c.recorded_by_id == user.pk and not bg.bypass(user, "arrears_verifier", "arrears_claim", c.pk):
         raise svc.rule("verifier_must_differ", "status")
     if not verify and not str(note).strip():
         raise svc.rule("comment_required", "comment")
@@ -165,7 +166,7 @@ def approve_arrears(user, claim, approve, note=""):
     c = ArrearsClaim.objects.select_for_update().get(pk=claim.pk)
     if c.status != "verified":
         raise svc.InvalidState()
-    if user.pk in (c.recorded_by_id, c.verified_by_id):
+    if user.pk in (c.recorded_by_id, c.verified_by_id) and not bg.bypass(user, "arrears_approver", "arrears_claim", c.pk):
         record("arrears.approve", actor=user, outcome="denied", entity_type="arrears_claim", entity_id=c.pk, metadata={"reason": "approver_not_independent"})
         raise svc.rule("approver_must_differ", "status")
     if not approve and not str(note).strip():

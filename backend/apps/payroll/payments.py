@@ -16,6 +16,7 @@ from rest_framework.exceptions import ValidationError
 from apps.audit.services import record
 from apps.core import crypto
 
+from . import breakglass as bg
 from . import services as svc
 from .models import (ArrearsClaim, ArrearsPayment, BenefitAllocation, Beneficiary, PayrollLine, PaymentEvent, PaymentInstruction)
 
@@ -219,7 +220,7 @@ def _move(user, inst_id, action, allowed, to, comment="", extra=None, check=None
 
 def authorize_payment(user, inst):
     def check(i):
-        if i.prepared_by_id == user.pk:
+        if i.prepared_by_id == user.pk and not bg.bypass(user, "payment_authorizer", "payment", i.pk):
             raise _Denied(svc.rule("authorizer_must_differ", "status"), "payment.authorize", i.pk, "self_authorization")
         _still_valid(i)
     return _move(user, inst.pk, "authorize", {"prepared"}, "authorized", extra={"authorized_by_id": user.pk,
@@ -235,7 +236,7 @@ def cancel_payment(user, inst, comment):
 def begin_processing(user, inst):
     """The executing officer starts the EXTERNAL payment (Sahal app/agent or bank). Cannot be the person who authorised it."""
     def check(i):
-        if i.authorized_by_id == user.pk:
+        if i.authorized_by_id == user.pk and not bg.bypass(user, "payment_executor", "payment", i.pk):
             raise _Denied(svc.rule("executor_must_differ", "status"), "payment.process", i.pk, "authorizer_cannot_execute")
         _still_valid(i)
     return _move(user, inst.pk, "process", {"authorized"}, "processing", extra={"executed_by_id": user.pk,
@@ -298,7 +299,7 @@ def reconcile_payment(user, inst_id, statement_ref, statement_amount, statement_
     inst = _locked(inst_id)
     if inst.status != "paid" or inst.recon_status == "reconciled":
         raise svc.InvalidState()
-    if inst.executed_by_id == user.pk:
+    if inst.executed_by_id == user.pk and not bg.bypass(user, "payment_reconciler", "payment", inst.pk):
         record("payment.reconcile", actor=user, outcome="denied", entity_type="payment", entity_id=inst.pk, metadata={"reason": "executor_cannot_reconcile"})
         raise svc.rule("reconciler_must_differ", "status")
     sref = str(statement_ref or "").strip()[:80]

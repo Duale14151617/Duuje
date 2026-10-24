@@ -76,6 +76,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "apps.accounts.middleware.SessionEpochMiddleware",
+    "apps.payroll.breakglass.BreakGlassMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
@@ -195,6 +196,8 @@ PERSONNEL_EXPORT_ENABLED = env_bool("PERSONNEL_EXPORT_ENABLED", False)
 # Puntland Police module. OFF until the institution approves the pilot. When off: no Police ranks/departments are seeded and
 # every personnel/report/training/logistics/analytics scope excludes Police units (enforced in apps/accounts/scope.py).
 POLICE_MODULE_ENABLED = env_bool("POLICE_MODULE_ENABLED", False)
+# Emergency override of the different-person payroll rules, super admin only, written reason required, always audited (see apps/payroll/breakglass.py).
+BREAK_GLASS_ENABLED = env_bool("ARMYHQ_BREAK_GLASS", True)
 
 # Summary exports stay off until approved, like personnel exports.
 REPORT_EXPORT_ENABLED = env_bool("REPORT_EXPORT_ENABLED", False)

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
-import { api } from "../api/client";
+import { api, ApiError } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 import { useI18n } from "../i18n";
 import { ErrorNotice, Field } from "./ui";
 
@@ -11,15 +12,19 @@ export function Act({ title, path, fields, extra, onDone, submitLabel }: {
   title: string; path: string; fields: ActField[]; extra?: Record<string, unknown>; onDone: () => void; submitLabel: string;
 }) {
   const { t } = useI18n();
+  const { can } = useAuth();
   const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
   const [v, setV] = useState<Record<string, string>>({});
   const [err, setErr] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
-  async function go(e: FormEvent) {
+  // Emergency override: offered only to the super administrator, and only after the server refused a different-person rule.
+  const blocked = err instanceof ApiError && !!err.fieldCode?.endsWith("_must_differ") && can("system.full_access");
+  async function go(e: FormEvent, override = false) {
     e.preventDefault(); setBusy(true); setErr(null);
     const body: Record<string, unknown> = { ...extra };
     for (const f of fields) { const x = v[f.key] ?? ""; if (x !== "") body[f.key] = f.type === "int" ? Number(x) : x; }
-    try { await api(path, { method: "POST", body }); setOpen(false); setV({}); onDone(); } catch (x) { setErr(x); } finally { setBusy(false); }
+    try { await api(path, { method: "POST", body, headers: override ? { "X-Override-Reason": reason.trim() } : undefined }); setOpen(false); setV({}); setReason(""); onDone(); } catch (x) { setErr(x); } finally { setBusy(false); }
   }
   if (!open) return <button type="button" className="secondary" onClick={() => setOpen(true)}>{title}</button>;
   return (
@@ -34,6 +39,13 @@ export function Act({ title, path, fields, extra, onDone, submitLabel }: {
                      onChange={(e) => setV({ ...v, [f.key]: e.target.value })} />}
         </Field>
       ))}
+      {blocked && (
+        <div className="card">
+          <p className="muted">{t("bg.note")}</p>
+          <Field label={t("bg.reason")}><input value={reason} maxLength={300} onChange={(e) => setReason(e.target.value)} /></Field>
+          <button type="button" disabled={busy || reason.trim().length < 15} onClick={(e) => void go(e as unknown as FormEvent, true)}>{t("bg.go")}</button>
+        </div>
+      )}
       <div className="row"><button type="submit" disabled={busy}>{submitLabel}</button><button type="button" className="secondary" onClick={() => setOpen(false)}>{t("common.cancel")}</button></div>
     </form>
   );

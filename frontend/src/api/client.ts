@@ -54,7 +54,7 @@ export async function refreshCsrf(): Promise<void> {
   csrfToken = data.csrf_token;
 }
 
-interface Options { method?: "GET" | "POST" | "PATCH" | "DELETE"; body?: unknown; query?: Record<string, string | number | undefined | null> }
+interface Options { method?: "GET" | "POST" | "PATCH" | "DELETE"; body?: unknown; headers?: Record<string, string>; query?: Record<string, string | number | undefined | null> }
 
 export async function api<T = unknown>(path: string, opts: Options = {}): Promise<T> {
   const method = opts.method ?? "GET";
@@ -78,6 +78,7 @@ export async function api<T = unknown>(path: string, opts: Options = {}): Promis
         Accept: "application/json",
         ...(opts.body !== undefined ? { "Content-Type": "application/json" } : {}),
         ...(method !== "GET" ? { "X-CSRFToken": csrfToken } : {}),
+        ...(opts.headers ?? {}),
       },
       body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
     });

@@ -14,6 +14,7 @@ from apps.core.errors import field_error
 from apps.personnel.models import DeathRecord, Personnel
 from apps.personnel.services import NOT_SERVING
 
+from . import breakglass as bg
 from .models import (AllocationDecision, ArrearsClaim, BenefitAllocation, Beneficiary, BeneficiaryChange, PaymentTransaction,
                      PayrollAction, PayrollLine, PayrollPeriod, PayrollRun, SalaryProfile, SalaryScale, StatusPayDecision,
                      SurvivorCase, SurvivorPayment)
@@ -96,7 +97,7 @@ def create_profile(user, person, data):
 def decide_profile(user, profile, approve, note=""):
     if profile.status != SalaryProfile.Status.PENDING:
         raise InvalidState()
-    if profile.created_by_id == user.pk:
+    if profile.created_by_id == user.pk and not bg.bypass(user, "profile_approver", "salary_profile", profile.pk):
         record("salary_profile.decide", actor=user, outcome="denied", entity_type="salary_profile", entity_id=profile.pk,
                metadata={"reason": "self_approval"})
         raise rule("approver_must_differ", "status")
@@ -248,7 +249,7 @@ def return_run(user, run, comment):
 
 
 def approve_run(user, run):
-    if run.prepared_by_id == user.pk:
+    if run.prepared_by_id == user.pk and not bg.bypass(user, "run_approver", "payroll_run", run.pk):
         record("payroll.approve", actor=user, outcome="denied", entity_type="payroll_run", entity_id=run.pk, metadata={"reason": "self_approval"})
         raise rule("approver_must_differ", "status")
     with transaction.atomic():
@@ -384,7 +385,7 @@ def decide_beneficiary(user, b, verify, note=""):
     if b.state != Beneficiary.State.PENDING:
         raise InvalidState()
     _live(b.case)
-    if b.created_by_username == user.username:
+    if b.created_by_username == user.username and not bg.bypass(user, "beneficiary_verifier", "beneficiary", b.pk):
         raise rule("verifier_must_differ", "state")
     if not verify and not note.strip():
         raise rule("comment_required", "comment")
@@ -477,7 +478,7 @@ def authorize_allocation(user, a):
     case = a.beneficiary.case
     if case.status != "verified" or eligible_tier(case) != a.beneficiary.tier:
         raise rule("case_not_verified", "case")  # disputed, re-opened or superseded claims cannot be authorised
-    if a.proposed_by_id == user.pk:
+    if a.proposed_by_id == user.pk and not bg.bypass(user, "allocation_authorizer", "allocation", a.pk):
         record("allocation.authorize", actor=user, outcome="denied", entity_type="allocation", entity_id=a.pk, metadata={"reason": "self_approval"})
         raise rule("approver_must_differ", "status")
     BenefitAllocation.objects.filter(pk=a.pk).update(status="authorized", authorized_by_id=user.pk, authorized_by_username=user.username,
@@ -572,7 +573,7 @@ def decide_allocation_decision(user, d, approve, note=""):
     d = AllocationDecision.objects.select_for_update().select_related("allocation__beneficiary__case").get(pk=d.pk)
     if d.state != "proposed":
         raise InvalidState()
-    if d.proposed_by_id == user.pk:
+    if d.proposed_by_id == user.pk and not bg.bypass(user, "allocation_decision_approver", "allocation", d.allocation_id):
         record("allocation.decision_decide", actor=user, outcome="denied", entity_type="allocation", entity_id=d.allocation_id,
                metadata={"reason": "self_approval", "decision": str(d.pk)})
         raise rule("approver_must_differ", "state")
