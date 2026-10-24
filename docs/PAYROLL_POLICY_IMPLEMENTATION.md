@@ -56,7 +56,7 @@ lines already prepared are never rewritten).
 - Sharia shares inside a class (e.g. several wives, sons and daughters) are not computed by the system.
 
 ## Not done
-- **No frontend screens** for payments, arrears, review queue, decisions or policy. API only. No Somali/English strings.
+- Frontend screens now exist for payments, arrears and pay decisions (Payroll page tabs, English and draft Somali). Still **no screen** for the policy settings (`/payroll/policy/` is API only, apart from the deduction tiers read by the decision form), and no screen for entering salary components.
 - No export of payroll or beneficiary data exists, by design (nothing to authorise).
 - Payroll is headquarters-level ("global" grants) and covers Army and Police personnel alike; whether Police payroll must be separate is undecided.
 - Negative (reversal) lines cannot be paid or collected through the payment workflow; recoveries are not modelled.

@@ -40,7 +40,7 @@ def is_ammunition(category):
     return category.code.startswith(PREFIX)
 
 
-def post(request, line, kind, quantity, reason="", external_ref="", authority_ref="", counterpart=None, expected_balance=None):
+def post(request, line, kind, quantity, reason="", external_ref="", authority_ref="", counterpart=None, expected_balance=None, via_soldier=False):
     if not is_ammunition(line.category):
         raise field_error("category", "not_ammunition")
     if kind not in SIGN:
@@ -78,6 +78,14 @@ def post(request, line, kind, quantity, reason="", external_ref="", authority_re
                 returned = moves.filter(kind="return").aggregate(s=Sum("delta"))["s"] or 0
                 if returned + quantity > issued:
                     raise field_error("quantity", "return_exceeds_issued")
+                if not via_soldier:
+                    # Rounds issued to a soldier come back only through that soldier's holdings (otherwise they would count twice:
+                    # in the store and still on the soldier). The general ledger may return only what was issued to other recipients.
+                    linked = moves.filter(soldier_rounds__isnull=False)
+                    l_issued = -(linked.filter(kind="issue").aggregate(s=Sum("delta"))["s"] or 0)
+                    l_returned = linked.filter(kind="return").aggregate(s=Sum("delta"))["s"] or 0
+                    if (returned - l_returned) + quantity > issued - l_issued:
+                        raise field_error("quantity", "return_exceeds_unassigned")
             txn = svc._apply(request.user, locked.pk, kind, delta, reason, counterpart=counterpart,
                              expected_balance=expected_balance, external_ref=external_ref, authority_ref=authority_ref)
             record(f"ammunition.{kind}", request=request, entity_type="stock_line", entity_id=locked.pk,

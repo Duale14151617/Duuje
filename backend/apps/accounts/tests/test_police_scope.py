@@ -71,6 +71,13 @@ class PoliceScopeTests(BaseApiTest):
         self.assertEqual({r["service_number"] for r in sup.get("/api/v1/personnel/search/", {"q": "Police"}).data["results"]},
                          {"PP-T1", "PP-T2"})
 
+    def test_super_admin_reaches_everything_even_with_the_police_module_off(self):
+        sup = self.client_for(self.make_user("sup3", "super_admin"))
+        admin = self.client_for(self.make_user("polis4", "branch_admin", unit="BARI", branch="POLICE"))
+        with override_settings(POLICE_MODULE_ENABLED=False):
+            self.assertEqual(self.numbers(sup), {"PP-T1", "PP-T2"})  # maintenance override: nothing is out of reach
+            self.assertEqual(self.numbers(admin), set())              # every other role still obeys the switch
+
     def test_switching_the_module_off_hides_police_records_server_side(self):
         admin = self.client_for(self.make_user("polis3", "branch_admin", unit="BARI", branch="POLICE"))
         self.assertEqual(self.numbers(admin), {"PP-T1"})

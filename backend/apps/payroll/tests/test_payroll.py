@@ -119,6 +119,26 @@ class PayrollRunTests(PayrollBase):
         self.assertTrue(PayrollLine.objects.filter(personnel=self.soldier).exists())  # history kept
 
 
+class PayrollScreenSupportTests(PayrollBase):
+    def test_people_lookup_is_for_payroll_managers_and_returns_only_basics(self):
+        r = self.officer.get(P + "profiles/people/", {"q": "Synthetic"})
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual([(x["full_name"], x["service_number"]) for x in r.json()["results"]], [("Synthetic Soldier", "S-100")])
+        self.assertEqual(set(r.json()["results"][0]), {"id", "full_name", "service_number", "status"})
+        self.assertEqual(self.officer.get(P + "profiles/people/", {"q": "S"}).json()["results"], [])  # one character is refused
+        self.assertEqual(self.approver.get(P + "profiles/people/", {"q": "Synthetic"}).status_code, 403)  # approver cannot search people
+        self.assertEqual(self.unit_user.get(P + "profiles/people/", {"q": "Synthetic"}).status_code, 403)
+
+    def test_deceased_members_are_not_offered_for_a_salary_profile(self):
+        self.kill(self.soldier)
+        self.assertEqual(self.officer.get(P + "profiles/people/", {"q": "Synthetic"}).json()["results"], [])
+
+    def test_profile_list_shows_the_member_name(self):
+        self.profile()
+        row = self.officer.get(P + "profiles/").json()["results"][0]
+        self.assertEqual((row["personnel_name"], row["service_number"]), ("Synthetic Soldier", "S-100"))
+
+
 class SurvivorTests(PayrollBase):
     def case(self):
         self.kill(self.soldier)
@@ -161,6 +181,15 @@ class SurvivorTests(PayrollBase):
 
     def test_regular_staff_cannot_reach_survivor_data(self):
         self.assertEqual(self.unit_user.get(S).status_code, 403)
+
+    def test_deceased_lookup_lists_confirmed_deaths_without_an_open_case(self):
+        self.assertEqual(self.surv.get(S + "deceased/").json()["results"], [])  # a living member is never offered
+        self.kill(self.soldier)
+        rows = self.surv.get(S + "deceased/").json()["results"]
+        self.assertEqual([(r["service_number"], r["date_of_death"]) for r in rows], [("S-100", "2026-03-10")])
+        self.assertEqual(self.surv.post(S, {"personnel": str(self.soldier.pk)}, format="json").status_code, 201)
+        self.assertEqual(self.surv.get(S + "deceased/").json()["results"], [])  # now has a case
+        self.assertEqual(self.unit_user.get(S + "deceased/").status_code, 403)
 
 
 class ReadAuditTests(PayrollBase):

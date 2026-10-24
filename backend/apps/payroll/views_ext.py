@@ -24,7 +24,8 @@ PAY_VIEW = ("payroll.view", "payment.prepare", "payment.authorize", "payment.exe
 def _inst_out(i):
     return {"id": str(i.pk), "kind": i.kind, "line": str(i.line_id) if i.line_id else None, "claim": str(i.claim_id) if i.claim_id else None,
             "allocation": str(i.allocation_id) if i.allocation_id else None, "personnel": str(i.personnel_id),
-            "beneficiary": str(i.beneficiary_id) if i.beneficiary_id else None, "period": f"{i.period_year}-{i.period_month:02d}",
+            "beneficiary": str(i.beneficiary_id) if i.beneficiary_id else None, "personnel_name": i.personnel.full_name,
+            "service_number": i.personnel.service_number, "period": f"{i.period_year}-{i.period_month:02d}",
             "method": i.method, "recipient_name": i.recipient_name, "recipient_display": i.recipient_display,
             "amount": str(i.amount), "currency": i.currency, "transaction_reference": i.transaction_reference,
             "status": i.status, "failure_reason": i.failure_reason, "note": i.note, "retry_of": str(i.retry_of_id) if i.retry_of_id else None,
@@ -62,7 +63,7 @@ class PaymentViewSet(viewsets.ViewSet):
                                      for c, m in pay.METHODS.items()], "integration_note": pay.INTEGRATION_NOTE})
 
     def list(self, request):
-        qs = PaymentInstruction.objects.all()
+        qs = PaymentInstruction.objects.select_related("personnel")
         q = request.query_params
         for key, field in (("status", "status"), ("method", "method"), ("kind", "kind"), ("reconciliation", "recon_status")):
             if q.get(key):
@@ -125,7 +126,8 @@ class PaymentViewSet(viewsets.ViewSet):
 
 def _claim_out(c):
     paid = review.arrears_paid(c)
-    return {"id": str(c.pk), "personnel": str(c.personnel_id), "periods": c.periods, "source_lines": c.source_lines, "amount": str(c.amount),
+    return {"id": str(c.pk), "personnel": str(c.personnel_id), "personnel_name": c.personnel.full_name,
+            "service_number": c.personnel.service_number, "periods": c.periods, "source_lines": c.source_lines, "amount": str(c.amount),
             "currency": c.currency, "evidence_ref": c.evidence_ref, "note": c.note, "status": c.status, "paid": str(paid),
             "outstanding": str(c.amount - paid) if c.status == "approved" else None, "recorded_by": c.recorded_by_username,
             "verified_by": c.verified_by_username, "approved_by": c.approved_by_username, "decision_note": c.decision_note,
@@ -139,7 +141,7 @@ class ArrearsViewSet(viewsets.ViewSet):
                       "approve": ("arrears.approve", "global")}
 
     def list(self, request):
-        qs = ArrearsClaim.objects.all()
+        qs = ArrearsClaim.objects.select_related("personnel")
         if request.query_params.get("personnel"):
             pid = request.query_params["personnel"]
             qs = qs.filter(personnel_id=pid) if _valid(pid) else qs.none()

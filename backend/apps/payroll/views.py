@@ -44,7 +44,8 @@ def _date(value, name):
 
 
 def _profile_out(p):
-    return {"id": str(p.pk), "personnel": str(p.personnel_id), "scale": str(p.scale_id) if p.scale_id else None,
+    return {"id": str(p.pk), "personnel": str(p.personnel_id), "personnel_name": p.personnel.full_name,
+            "service_number": p.personnel.service_number, "scale": str(p.scale_id) if p.scale_id else None,
             "base_amount": str(p.base_amount), "currency": p.currency, "components": p.components,
             "effective_from": p.effective_from.isoformat(), "authority_ref": p.authority_ref, "status": p.status,
             "created_by": p.created_by_username, "created_at": p.created_at, "decided_by": p.decided_by_username,
@@ -75,7 +76,7 @@ class SalaryProfileViewSet(viewsets.ViewSet):
     permission_classes = [ScopedPermission]
     permission_map = {"list": ("payroll.view", "global"), "create": ("payroll.manage", "global"),
                       "approve": ("payroll.approve", "global"), "reject": ("payroll.approve", "global"),
-                      "scales": ("payroll.view", "global")}
+                      "scales": ("payroll.view", "global"), "people": ("payroll.manage", "global")}
 
     def list(self, request):
         qs = SalaryProfile.objects.all()
@@ -84,7 +85,7 @@ class SalaryProfileViewSet(viewsets.ViewSet):
             qs = qs.filter(personnel_id=pid) if _valid(pid) else qs.none()
         if request.query_params.get("status"):
             qs = qs.filter(status=request.query_params["status"])
-        rows = list(qs[:200])
+        rows = list(qs.select_related("personnel")[:200])
         record_read(request, "payroll.read_profiles", entity_type="salary_profile", count=len(rows))
         return Response({"results": [_profile_out(p) for p in rows]})
 
@@ -92,6 +93,19 @@ class SalaryProfileViewSet(viewsets.ViewSet):
     def scales(self, request):
         return Response({"results": [{"id": str(s.pk), "code": s.code, "name": s.name, "base_amount": str(s.base_amount),
                                       "currency": s.currency} for s in SalaryScale.objects.filter(active=True)]})
+
+    @action(detail=False, methods=["get"])
+    def people(self, request):
+        """Find a living member to propose a salary profile for. Payroll staff hold no personnel access, so this returns only
+        name, service number and status, and only for a search of two or more characters."""
+        term = (request.query_params.get("q") or "").strip()[:60]
+        if len(term) < 2:
+            return Response({"results": []})
+        from django.db.models import Q
+        rows = list(Personnel.objects.filter(Q(full_name__icontains=term) | Q(service_number__icontains=term))
+                    .exclude(status__in=("died", "retired", "discharged")).order_by("full_name")[:20])
+        record_read(request, "payroll.read_people_lookup", entity_type="personnel", count=len(rows))
+        return Response({"results": [{"id": str(x.pk), "full_name": x.full_name, "service_number": x.service_number, "status": x.status} for x in rows]})
 
     @transaction.atomic
     def create(self, request):
@@ -239,7 +253,7 @@ class SurvivorCaseViewSet(viewsets.ViewSet):
         "beneficiary": ("survivor.manage", "global"), "decide_beneficiary": ("survivor.verify", "global"),
         "verify": ("survivor.verify", "global"), "dispute": ("survivor.manage", "global"), "propose": ("survivor.manage", "global"),
         "authorize": ("survivor.approve", "global"), "close": ("survivor.approve", "global"),
-        "update_beneficiary": ("survivor.manage", "global"), "propose_decision": ("survivor.manage", "global"),
+        "deceased": ("survivor.manage", "global"), "update_beneficiary": ("survivor.manage", "global"), "propose_decision": ("survivor.manage", "global"),
         "decide_decision": ("survivor.approve", "global"),
     }
 
@@ -255,6 +269,18 @@ class SurvivorCaseViewSet(viewsets.ViewSet):
         c = self._case(pk)
         record_read(request, "survivor.read_case", entity_type="survivor_case", entity_id=c.pk)
         return Response(_case_out(c))
+
+    @action(detail=False, methods=["get"])
+    def deceased(self, request):
+        """Members whose death is confirmed and who have no open survivor case: the people a case can be opened for.
+        Survivor staff hold no personnel access, so this gives them name, service number and date of death only."""
+        from apps.personnel.models import DeathRecord
+        open_ids = SurvivorCase.objects.exclude(status="closed").values("personnel_id")
+        rows = (DeathRecord.objects.filter(state=DeathRecord.State.CONFIRMED, personnel__status=Personnel.Status.DIED)
+                .exclude(personnel_id__in=open_ids).select_related("personnel").order_by("-date_of_death")[:100])
+        record_read(request, "survivor.read_deceased", entity_type="survivor_case", count=len(rows))
+        return Response({"results": [{"personnel": str(r.personnel_id), "full_name": r.personnel.full_name,
+                                      "service_number": r.personnel.service_number, "date_of_death": r.date_of_death.isoformat()} for r in rows]})
 
     @transaction.atomic
     def create(self, request):
