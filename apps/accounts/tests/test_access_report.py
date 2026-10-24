@@ -13,9 +13,17 @@ from apps.accounts import access_report as ar
 from apps.accounts.models import RoleAssignment, User
 from apps.audit.models import AuditEvent
 from apps.core.testing import BaseApiTest
+from apps.organization.models import OrganizationalUnit as OU
 
 
 class AccessReportTests(BaseApiTest):
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        # The reference seed has no unit-level nodes; create the one these tests use.
+        OU.objects.create(code="BARI-ARMY-A", name_en="BARI-ARMY-A", level="unit",
+                          parent=OU.objects.get(code="BARI-ARMY"))
+
     def setUp(self):
         super().setUp()
         self.sup = self.make_user("boss", "super_admin")
