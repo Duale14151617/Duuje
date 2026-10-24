@@ -191,3 +191,31 @@ class Command(BaseCommand):
             if created:
                 StockTransaction.objects.create(stock_line=line, kind="opening", delta=qty, balance_after=qty,
                                                 reason="Synthetic demo opening balance", actor_username="demo")
+        self._demo_soldier_holdings(unit)
+
+    def _demo_soldier_holdings(self, unit):
+        """Give two demo soldiers a weapon and some rounds, so the holdings report has something to show (demo only)."""
+        from django.db.models import F
+        from apps.logistics.models import Asset, StockLine, StockTransaction
+        from apps.weapons.models import SoldierRounds, WeaponCustody
+        if SoldierRounds.objects.exists() or WeaponCustody.objects.exists():
+            return
+        people = list(Personnel.objects.filter(service_number__in=["DEMO-0001", "DEMO-0002"], org_unit__path__startswith=unit.path)
+                      .select_related("org_unit").order_by("service_number"))
+        rifles = list(Asset.objects.filter(category__code="weapons_rifles", identifier__startswith="DEMO-", status="in_stock").order_by("identifier"))
+        line = StockLine.objects.filter(category__code="ammunition_762x39", org_unit=unit).first()
+        for n, person in enumerate(people):
+            if n < len(rifles):
+                a = rifles[n]
+                WeaponCustody.objects.create(asset=a, personnel=person, issued_by_username="demo", authority_ref="Demo order 1/2026",
+                                             issue_condition="serviceable", status_before="in_stock")
+                Asset.objects.filter(pk=a.pk).update(status="issued", issued_to_unit=person.org_unit)
+            if line is not None:
+                issued, spent = 120 - 30 * n, 20 * (n + 1)
+                line.refresh_from_db()
+                txn = StockTransaction.objects.create(stock_line=line, kind="issue", delta=-issued, balance_after=line.quantity - issued,
+                                                      reason=f"Issued to {person.service_number}", external_ref=f"DEMO-ISS-{n + 1}", actor_username="demo")
+                StockLine.objects.filter(pk=line.pk).update(quantity=F("quantity") - issued, version=F("version") + 1)
+                SoldierRounds.objects.create(personnel=person, stock_line=line, kind="issue", delta=issued, reference=f"DEMO-ISS-{n + 1}",
+                                           store_transaction=txn, actor_username="demo")
+                SoldierRounds.objects.create(personnel=person, stock_line=line, kind="expended", delta=-spent, note="Demo range practice", actor_username="demo")

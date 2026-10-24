@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useFetch } from "../api/useFetch";
@@ -55,6 +56,7 @@ export function Ammunition() {
 
 function LineDetail({ id, canPost, onPosted }: { id: string; canPost: boolean; onPosted: () => void }) {
   const { t } = useI18n();
+  const { can } = useAuth();
   const [from, setFrom] = useState(today().slice(0, 8) + "01");
   const [to, setTo] = useState(today());
   const st = useFetch<Statement>(`/logistics/ammunition/${id}/statement/`, { from, to });
@@ -84,6 +86,7 @@ function LineDetail({ id, canPost, onPosted }: { id: string; canPost: boolean; o
         <>
           {!d.check.matches_balances && <Notice kind="error">{t("ammo.mismatch")}</Notice>}
           {d.outstanding_discrepancies > 0 && <Notice kind="error">{t("ammo.outstanding", { n: d.outstanding_discrepancies })}</Notice>}
+          <Notice>{t("acc.statementNote")} {can("weapons.view") && <Link to="/accountability">{t("acc.open")}</Link>}</Notice>
           {ROWS.map(([label, key]) => <div className="stat" key={key}><span>{t(label)}</span><b>{d[key] as number}</b></div>)}
           {d.reconciliations.length > 0 && (
             <>

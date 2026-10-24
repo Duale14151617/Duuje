@@ -69,8 +69,11 @@ def _gates(user):
     return g
 
 
+FULL_ACCESS = "system.full_access"  # maintenance override held by super_admin: module switches and gates never hide data from it
+
+
 def _blocked(user, a, code, unit):
-    if not code.startswith(GATED_PREFIXES):
+    if not code.startswith(GATED_PREFIXES) or FULL_ACCESS in a.perm_codes:
         return False
     g = _gates(user)
     if g["police"] is not None and unit.branch_id == g["police"]:
@@ -111,7 +114,7 @@ def unit_scope_q(user, code, prefix=""):
         part = Q(**{f"{prefix}path__startswith": a.org_unit.path})
         if a.branch_id is not None:
             part &= Q(**{f"{prefix}branch_id": a.branch_id})
-        if code.startswith(GATED_PREFIXES):
+        if code.startswith(GATED_PREFIXES) and FULL_ACCESS not in a.perm_codes:
             g = _gates(user)
             if g["police"] is not None and (
                     not settings.POLICE_MODULE_ENABLED

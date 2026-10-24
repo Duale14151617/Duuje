@@ -1,6 +1,7 @@
 import uuid
 
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Sum
+from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
@@ -12,13 +13,14 @@ from apps.audit.services import record_read
 from apps.core.concurrency import require_version
 from apps.core.errors import field_error
 from apps.core.params import json_body, uuid_param
-from apps.logistics.models import Asset, AssetEvent, InventoryCategory
+from apps.logistics.models import Asset, AssetEvent, InventoryCategory, StockLine
 from apps.organization.models import OrganizationalUnit
 from apps.personnel.models import Personnel
 from apps.personnel.services import NOT_SERVING
 
+from . import rounds as rnd
 from . import services as svc
-from .models import WeaponCustody, WeaponDetail
+from .models import SoldierRounds, WeaponCustody, WeaponDetail
 
 
 def _uid(value):
@@ -81,6 +83,7 @@ class WeaponViewSet(viewsets.GenericViewSet):
     permission_map = {
         "list": ("weapons.view", "any"), "retrieve": ("weapons.view", "unit"), "summary": ("weapons.view", "any"),
         "categories": ("weapons.manage", "any"), "people": ("weapons.manage", "any"), "create": ("weapons.manage", "any"),
+        "holdings": ("weapons.view", "any"), "disposition": ("weapons.view", "any"), "rounds_history": ("weapons.view", "any"), "rounds": ("weapons.manage", "any"), "ammo_lines": ("weapons.manage", "any"),
         "issue": ("weapons.manage", "unit"), "give_back": ("weapons.manage", "unit"), "condition": ("weapons.manage", "unit"),
     }
 
@@ -144,6 +147,154 @@ class WeaponViewSet(viewsets.GenericViewSet):
         return Response({"results": [{"id": str(x.pk), "full_name": x.full_name, "service_number": x.service_number,
                                       "rank": {"code": x.rank.code, "name_en": x.rank.name_en, "name_so": x.rank.name_so},
                                       "unit": _unit_brief(x.org_unit)} for x in qs.order_by("full_name")[:20]]})
+
+    @action(detail=False, methods=["get"])
+    def ammo_lines(self, request):
+        """The ammunition stock lines a unit can issue rounds from (its own store and those above it), with the rounds in store."""
+        q = scope.unit_scope_q(request.user, "weapons.manage", "org_unit__")
+        uid = _uid(request.query_params.get("org_unit"))
+        unit = OrganizationalUnit.objects.filter(pk=uid).first() if uid else None
+        if q is None or unit is None:
+            return Response({"results": []})
+        # Rounds can only be issued from the store of the soldier's own unit or one above it (the unit's path starts with the store's).
+        qs = StockLine.objects.filter(q, category__code__startswith="ammunition", category__approval_status="approved",
+                                      category__active=True).select_related("category", "org_unit")
+        lines = [l for l in qs.order_by("category__code", "-org_unit__path") if unit.path.startswith(l.org_unit.path)]
+        return Response({"results": [{"id": str(l.pk), "quantity": l.quantity, "uom": l.uom,
+                                      "category": {"code": l.category.code, "name_en": l.category.name_en, "name_so": l.category.name_so},
+                                      "unit": _unit_brief(l.org_unit)} for l in lines[:50]]})
+
+    @action(detail=False, methods=["post"])
+    def rounds(self, request):
+        """Issue rounds to a soldier from the store, take unused rounds back, or write off expended or lost rounds."""
+        d = json_body(request)
+        pid, lid = _uid(d.get("personnel")), _uid(d.get("stock_line"))
+        q = scope.unit_scope_q(request.user, "weapons.manage", "org_unit__")
+        person = Personnel.objects.filter(q, pk=pid).select_related("rank", "org_unit").first() if (q is not None and pid) else None
+        if person is None:
+            raise field_error("personnel", "out_of_scope", "That person is outside your scope.")
+        line = StockLine.objects.filter(pk=lid).select_related("category", "org_unit").first() if lid else None
+        if line is None:
+            raise field_error("stock_line", "out_of_scope", "That ammunition line was not found.")
+        qty = d.get("quantity")
+        row = rnd.post(request, person, line, str(d.get("kind") or ""), qty if isinstance(qty, int) else 0,
+                       d.get("reference") or "", d.get("authority_ref") or "", d.get("note") or "")
+        return Response({"id": str(row.pk), "kind": row.kind, "delta": row.delta,
+                         "held": rnd.held(person.pk, line.pk), "store_balance": StockLine.objects.get(pk=line.pk).quantity}, status=201)
+
+    @action(detail=False, methods=["get"])
+    def holdings(self, request):
+        """Superior's report: for every soldier in the unit and below, the weapons held (serials) and the rounds held per
+        ammunition type with what was issued, returned, expended and lost. Derived from the custody and rounds ledgers."""
+        q = scope.unit_scope_q(request.user, "weapons.view", "org_unit__")
+        uid = _uid(request.query_params.get("org_unit"))
+        unit = OrganizationalUnit.objects.filter(pk=uid).first() if uid else None
+        if q is None:
+            return Response({"results": [], "totals": {"soldiers": 0, "weapons": 0, "rounds": 0}})
+        people = Personnel.objects.filter(q)
+        if unit is not None:
+            people = people.filter(org_unit__path__startswith=unit.path)
+        pid = _uid(request.query_params.get("personnel"))
+        if pid:
+            people = people.filter(pk=pid)
+        term = (request.query_params.get("q") or "").strip()[:60]
+        if term:
+            people = people.filter(Q(full_name__icontains=term) | Q(service_number__icontains=term))
+        pk_list = list(people.values_list("pk", flat=True)[:5000])
+        rows = {}
+
+        def entry(p):
+            return rows.setdefault(p.pk, {"personnel": {"id": str(p.pk), "full_name": p.full_name, "service_number": p.service_number,
+                                                        "status": p.status, "rank": {"code": p.rank.code, "name_en": p.rank.name_en, "name_so": p.rank.name_so},
+                                                        "unit": _unit_brief(p.org_unit)},
+                                          "weapons": [], "rounds": {}})
+        visible = self.get_queryset().values("pk")
+        for c in (WeaponCustody.objects.filter(returned_at__isnull=True, personnel_id__in=pk_list, asset__in=visible)
+                  .select_related("asset__weapon", "asset__category", "personnel__rank", "personnel__org_unit")):
+            w = c.asset.weapon
+            entry(c.personnel)["weapons"].append({"id": str(c.asset_id), "serial": c.asset.identifier, "weapon_type": w.weapon_type,
+                                                  "caliber": w.caliber, "condition": w.condition, "issued_at": c.issued_at,
+                                                  "category": {"code": c.asset.category.code, "name_en": c.asset.category.name_en,
+                                                               "name_so": c.asset.category.name_so}})
+        ledger = (SoldierRounds.objects.filter(personnel_id__in=pk_list)
+                  .values("personnel_id", "stock_line__category__code", "stock_line__category__name_en", "stock_line__category__name_so",
+                          "stock_line_id", "kind").annotate(s=Sum("delta")))
+        by_person = {}
+        for r in ledger:
+            by_person.setdefault(r["personnel_id"], {}).setdefault(r["stock_line_id"], {"r": r, "k": {}})["k"][r["kind"]] = r["s"]
+        if by_person:
+            for p in Personnel.objects.filter(pk__in=by_person.keys()).select_related("rank", "org_unit"):
+                e = entry(p)
+                for lid, v in by_person[p.pk].items():
+                    k, r = v["k"], v["r"]
+                    e["rounds"][str(lid)] = {"stock_line": str(lid),
+                                             "category": {"code": r["stock_line__category__code"], "name_en": r["stock_line__category__name_en"],
+                                                          "name_so": r["stock_line__category__name_so"]},
+                                             "issued": k.get("issue", 0), "returned": -k.get("return", 0),
+                                             "expended": -k.get("expended", 0), "lost": -k.get("lost", 0),
+                                             "held": sum(k.values())}
+        show_all = request.query_params.get("all") == "1"  # also list serving soldiers who hold nothing yet (to issue them rounds)
+        if show_all:
+            for p in people.exclude(status__in=NOT_SERVING).select_related("rank", "org_unit").order_by("full_name")[:500]:
+                entry(p)
+        results = []
+        for e in rows.values():
+            lines = sorted(e["rounds"].values(), key=lambda x: x["category"]["code"])
+            e["rounds"] = {"total": sum(x["held"] for x in lines), "lines": lines}
+            if show_all or e["weapons"] or e["rounds"]["total"] or any(x["issued"] for x in lines):
+                e["weapons"].sort(key=lambda x: x["serial"])
+                results.append(e)
+        results.sort(key=lambda e: (e["personnel"]["unit"]["code"] if e["personnel"]["unit"] else "", e["personnel"]["full_name"]))
+        totals = {"soldiers": len(results), "weapons": sum(len(e["weapons"]) for e in results),
+                  "rounds": sum(e["rounds"]["total"] for e in results)}
+        record_read(request, "weapon.read_holdings", entity_type="weapon_register", org_unit=unit, count=len(results))
+        return Response({"results": results[:500], "totals": totals, "truncated": len(results) > 500})
+
+    @action(detail=False, methods=["get"])
+    def rounds_history(self, request):
+        """One soldier's complete issue, return, expenditure and loss history, with the running balance per ammunition type."""
+        q = scope.unit_scope_q(request.user, "weapons.view", "org_unit__")
+        pid = _uid(request.query_params.get("personnel"))
+        person = Personnel.objects.filter(q, pk=pid).select_related("rank", "org_unit").first() if (q is not None and pid) else None
+        if person is None:
+            raise field_error("personnel", "out_of_scope", "That person is outside your scope.")
+        lid = _uid(request.query_params.get("stock_line"))
+        line = StockLine.objects.filter(pk=lid).first() if lid else None
+        rows, balances = rnd.history(person, line)
+        record_read(request, "weapon.read_rounds_history", entity_type="personnel", entity_id=person.pk, org_unit=person.org_unit, count=len(rows))
+        return Response({"results": rows, "held": sum(balances.values())})
+
+    @action(detail=False, methods=["get"])
+    def disposition(self, request):
+        """Accountability of ammunition. Without stock_line: the unit's ammunition lines with the rounds in store and the rounds held
+        by soldiers, side by side. With stock_line (and from/to): the reconciliation of what was issued against what was returned,
+        expended, lost and is still held, checked against the unit ledger, per soldier."""
+        lid = _uid(request.query_params.get("stock_line"))
+        if not lid:
+            q = scope.unit_scope_q(request.user, "weapons.view", "org_unit__")
+            if q is None:
+                return Response({"results": []})
+            lines = list(StockLine.objects.filter(q, category__code__startswith="ammunition").select_related("category", "org_unit")
+                         .order_by("org_unit__path", "category__code")[:200])
+            held = {i: n for i, n in SoldierRounds.objects.filter(stock_line__in=lines).values_list("stock_line_id").annotate(n=Sum("delta"))}
+            record_read(request, "weapon.read_disposition", entity_type="stock_line", count=len(lines))
+            return Response({"results": [{"id": str(l.pk), "category": {"code": l.category.code, "name_en": l.category.name_en, "name_so": l.category.name_so},
+                                          "unit": _unit_brief(l.org_unit), "in_store": l.quantity, "held_by_soldiers": held.get(l.pk, 0)} for l in lines]})
+        line = StockLine.objects.filter(pk=lid, category__code__startswith="ammunition").select_related("category", "org_unit").first()
+        if line is None or not scope.can(request.user, "weapons.view", unit=line.org_unit):
+            raise field_error("stock_line", "out_of_scope", "That ammunition line is outside your scope.")
+        today = timezone.localdate()
+        try:
+            start = timezone.datetime.fromisoformat(request.query_params["from"]).date() if request.query_params.get("from") else today.replace(day=1)
+            end = timezone.datetime.fromisoformat(request.query_params["to"]).date() if request.query_params.get("to") else today
+        except ValueError:
+            raise field_error("from", "invalid_date", "Use a date like 2026-03-01.")
+        if end < start:
+            raise field_error("to", "period_invalid", "The end must not be before the start.")
+        record_read(request, "weapon.read_disposition", entity_type="stock_line", entity_id=line.pk, org_unit=line.org_unit)
+        return Response({"line": {"id": str(line.pk), "category": {"code": line.category.code, "name_en": line.category.name_en, "name_so": line.category.name_so},
+                                  "unit": _unit_brief(line.org_unit), "uom": line.uom},
+                         **rnd.disposition(line, start, end)})
 
     @action(detail=False, methods=["get"])
     def summary(self, request):

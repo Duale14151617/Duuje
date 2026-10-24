@@ -98,12 +98,13 @@ PERMISSIONS = {
     "documents.manage": "Upload and withdraw service documents on personnel files in scope",
     "reports.combined": "See combined Army + Police summaries (headquarters-wide; command authority). Aggregates only",
     "cid.access": "Reach personnel records inside restricted units such as CID (Police). Never implied by any other permission",
+    "system.full_access": "Maintenance override: reach every part of the system even where a module switch (for example the Police pilot being off) would hide it. Super administrator only; every action stays in the audit log",
 }
 # Never granted to administrators by default (reports.configure is not sensitive, so hq_admin keeps it).
 SENSITIVE_PREFIXES = ("personnel.", "reports.view", "reports.submit", "reports.review", "reports.summary", "reports.export",
                       "logistics.view", "logistics.manage", "logistics.restricted", "logistics.reconcile",
                       "logistics.report", "logistics.approve", "training.view", "training.manage", "training.report", "analytics.",
-                      "org.structure_approve", "cid.", "police.", "search.", "disciplinary.", "documents.", "reports.combined", "attendance.", "weapons.", "payroll.", "survivor.", "payment.", "arrears.")
+                      "org.structure_approve", "cid.", "police.", "search.", "disciplinary.", "documents.", "reports.combined", "attendance.", "weapons.", "payroll.", "survivor.", "payment.", "arrears.", "system.")
 REPORT_TYPES = [  # code, kind, name_en, name_so, figure keys
     ("monthly_admin_report", "report", "Monthly administrative report", "Warbixinta maamul ee bishii",
      ["personnel_strength", "personnel_on_leave", "personnel_in_training"]),
@@ -153,8 +154,9 @@ ROLES = {
                           BASIC + ["personnel.view", "reports.view", "reports.summary", "analytics.view", "police.cross_access",
                           "search.cross_service"]),
     "auditor": ("Auditor", "Hubiyaha", True, False, ["headquarters"], ["dashboard.view", "org.view", "audit.view"]),
-    # Owner-level role: every permission, HQ-wide, MFA required. Separation-of-duties rules in the code still apply
-    # (nobody can approve their own submission), so keep a second approver account for those flows.
+    # Owner-level role: every permission (including system.full_access, the maintenance override of module switches), HQ-wide, MFA
+    # required. Separation-of-duties rules in the code still apply (nobody can approve their own submission), and the audit log and
+    # append-only records stay protected, so keep a second approver account for those flows.
     "super_admin": ("Super administrator", "Maamulaha sare", True, False, ["headquarters"], list(PERMISSIONS)),
     # Every non-commanding member of the forces. Own record plus direct subordinates (Personnel.supervisor), nothing else:
     # no unit-wide listing, no export, no reports. Commanders keep their unit/region/branch roles.
