@@ -58,3 +58,12 @@ page-size cap; migrations match models, are non-destructive and reversible; real
 - Penetration test of a staging environment seeded with synthetic data.
 
 Version 2.0 additions are reviewed separately in `docs/SECURITY_REVIEW_v2.0.md`.
+
+## Break-glass override (payroll and payments)
+
+The "must be a different person" rules (profile, run, payment, arrears, survivor and pay-decision approvals) can be skipped for ONE action
+by a user holding `system.full_access` (super administrator), and only with a written reason of at least 15 characters (header
+`X-Override-Reason`; the screen asks for it after a rule refuses the action). Every use is written to the audit log as
+`breakglass.override` with the check that was skipped and the reason. Nothing else is overridden: state, amounts and permissions still apply.
+
+Switch it off with `ARMYHQ_BREAK_GLASS=0` (default: on). Review the `breakglass.override` events after any emergency use.

@@ -37,6 +37,11 @@ DEMO_USERS = {
 # Taliye Urur / Guuto stand-in: records attendance and makes the unit situation report for the synthetic unit.
 DEMO_USERS.setdefault("bari.commander", ("Bari Unit Commander (Demo)", "unit_commander", "BARI-ARMY-DEMO-A", None))
 DEMO_USERS.setdefault("bari.member", ("Bari Member (Demo Person 03)", "member", "BARI-ARMY-DEMO-A", None))
+# Finance duties are split between four roles (the service layer refuses self-approval), so the payroll flow needs one account each.
+DEMO_USERS.setdefault("payroll.officer", ("Payroll Officer", "payroll_officer", "HQ", None))
+DEMO_USERS.setdefault("payroll.approver", ("Payroll Approver", "payroll_approver", "HQ", None))
+DEMO_USERS.setdefault("payment.officer", ("Payment Execution Officer", "payment_officer", "HQ", None))
+DEMO_USERS.setdefault("payment.reconciler", ("Payment Reconciliation Officer", "payment_reconciler", "HQ", None))
 DEMO_USERS.setdefault("president", ("President / Commander-in-Chief", "command_authority", "HQ", None))
 DEMO_USERS.setdefault("commander", ("Commander of the Puntland Defense Forces", "command_authority", "HQ", None))
 if settings.POLICE_MODULE_ENABLED:  # Police pilot demo accounts; each is limited to the POLICE branch
