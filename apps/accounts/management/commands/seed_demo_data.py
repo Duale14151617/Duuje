@@ -62,6 +62,27 @@ for _name in OTHER_REGIONS:
     DEMO_USERS.setdefault(f"{_k}.trainer", (f"{_name} Training Administrator", "training_admin", _r, None))
 
 
+# Health Department of each Army regional command: a head who manages the department's people, and a reporting officer.
+for _name in ("Bari", "Nugaal", "Mudug", "Sanaag"):  # the four Army regional commands (Karkaar is within Bari)
+    _r = _name.upper()
+    DEMO_USERS.setdefault(f"{_name.lower()}.health", (f"{_name} Health Department Head", "unit_admin", f"{_r}-ARMY-HEALTH", None))
+    DEMO_USERS.setdefault(f"{_name.lower()}.healthofficer", (f"{_name} Health Reporting Officer", "reporting_officer", f"{_r}-ARMY-HEALTH", None))
+
+# Regional finance pays that region's SALARIES (headquarters prepares and approves the monthly run). Four accounts per Army regional command, one
+# per step so nobody approves their own work: prepare, authorize, send (outside the system) and reconcile. Roles are assigned at the command.
+# A read-only auditor sits at the first battalion (Urur) of each command. Karkaar is within Bari.
+for _name in ("Bari", "Nugaal", "Mudug", "Sanaag"):
+    _k, _r = _name.lower(), _name.upper()
+    DEMO_USERS.setdefault(f"{_k}.fin.prepare", (f"{_name} Finance: Prepare Payments", "payroll_officer", f"{_r}-ARMY", None))
+    DEMO_USERS.setdefault(f"{_k}.fin.authorize", (f"{_name} Finance: Authorize Payments", "payroll_approver", f"{_r}-ARMY", None))
+    DEMO_USERS.setdefault(f"{_k}.fin.pay", (f"{_name} Finance: Send Payments", "payment_officer", f"{_r}-ARMY", None))
+    DEMO_USERS.setdefault(f"{_k}.fin.reconcile", (f"{_name} Finance: Reconcile", "payment_reconciler", f"{_r}-ARMY", None))
+    DEMO_USERS.setdefault(f"{_k}.audit.u1", (f"{_name} Battalion 1 Finance Auditor", "auditor", f"{_r}-ARMY-G1-U1", None))
+
+# One weapons custodian per Army regional command (Karkaar is within Bari): register, issue and take back weapons in that region only.
+for _name in ("Bari", "Nugaal", "Mudug", "Sanaag"):
+    DEMO_USERS.setdefault(f"{_name.lower()}.weapons", (f"{_name} Weapons Custodian", "weapons_custodian", f"{_name.upper()}-ARMY", None))
+
 if settings.POLICE_MODULE_ENABLED:  # one CID officer per region, limited to that region's CID unit
     for _name in OTHER_REGIONS:
         DEMO_USERS.setdefault(f"{_name.lower()}.cid", (f"{_name} CID Officer", "cid_officer", f"{_name.upper()}-POLICE-CID", "POLICE"))

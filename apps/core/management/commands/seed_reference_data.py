@@ -153,7 +153,11 @@ ROLES = {
     "command_authority": ("Command authority", "Awoodda taliska", True, False, ["headquarters"],
                           BASIC + ["personnel.view", "reports.view", "reports.summary", "analytics.view", "police.cross_access",
                           "search.cross_service"]),
-    "auditor": ("Auditor", "Hubiyaha", True, False, ["headquarters"], ["dashboard.view", "org.view", "audit.view"]),
+    # Regional finance: the four payment roles may also be assigned at a regional command, where they handle only that command's SALARY payments
+    # (headquarters still prepares and approves the monthly run). An auditor may be assigned at a regional command or a battalion (Urur), read-only.
+    # The auditor reads and never acts: the audit log plus payroll (profiles, runs, payments, arrears). It holds no payroll.manage/approve or
+    # payment.* permission, so it cannot prepare, approve, send or reconcile a payment, and payment.details stays with the payment officer.
+    "auditor": ("Auditor", "Hubiyaha", True, False, ["headquarters", "region", "branch_command", "unit"], ["dashboard.view", "org.view", "audit.view", "payroll.view"]),
     # Owner-level role: every permission (including system.full_access, the maintenance override of module switches), HQ-wide, MFA
     # required. Separation-of-duties rules in the code still apply (nobody can approve their own submission), and the audit log and
     # append-only records stay protected, so keep a second approver account for those flows.
@@ -179,14 +183,14 @@ ROLES = {
     # the payment officer EXECUTES (sends the payment outside the system and records it), the reconciler CHECKS it against the
     # statement; the auditor only reads the audit log. The service layer also refuses self-approval, so one person holding two
     # roles still cannot approve, execute or reconcile their own work. Names/levels to confirm with the army.
-    "payroll_officer": ("Payroll officer", "Sarkaalka mushaharka", True, False, ["headquarters"],
+    "payroll_officer": ("Payroll officer", "Sarkaalka mushaharka", True, False, ["headquarters", "region", "branch_command"],
                         BASIC + ["payroll.view", "payroll.manage", "payroll.review", "payment.prepare", "arrears.manage", "survivor.view"]),
-    "payroll_approver": ("Payroll approver", "Ansixiyaha mushaharka", True, False, ["headquarters"],
+    "payroll_approver": ("Payroll approver", "Ansixiyaha mushaharka", True, False, ["headquarters", "region", "branch_command"],
                          BASIC + ["payroll.view", "payroll.approve", "payroll.decide", "payment.authorize", "arrears.approve",
                                   "survivor.view", "survivor.approve"]),
-    "payment_officer": ("Payment execution officer", "Sarkaalka fulinta lacag-bixinta", True, False, ["headquarters"],
+    "payment_officer": ("Payment execution officer", "Sarkaalka fulinta lacag-bixinta", True, False, ["headquarters", "region", "branch_command"],
                         BASIC + ["payroll.view", "payment.execute", "payment.details"]),
-    "payment_reconciler": ("Payment reconciliation officer", "Sarkaalka isku-xaaqidda lacagaha", True, False, ["headquarters"],
+    "payment_reconciler": ("Payment reconciliation officer", "Sarkaalka isku-xaaqidda lacagaha", True, False, ["headquarters", "region", "branch_command"],
                            BASIC + ["payroll.view", "payment.reconcile"]),
     "survivor_officer": ("Survivor-benefit officer", "Sarkaalka gunnada ka dhaxlayaasha", True, False, ["headquarters"],
                          BASIC + ["survivor.view", "survivor.manage", "survivor.verify"]),
