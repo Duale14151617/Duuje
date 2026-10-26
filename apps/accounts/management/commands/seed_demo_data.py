@@ -79,6 +79,16 @@ for _name in ("Bari", "Nugaal", "Mudug", "Sanaag"):
     DEMO_USERS.setdefault(f"{_k}.fin.reconcile", (f"{_name} Finance: Reconcile", "payment_reconciler", f"{_r}-ARMY", None))
     DEMO_USERS.setdefault(f"{_k}.audit.u1", (f"{_name} Battalion 1 Finance Auditor", "auditor", f"{_r}-ARMY-G1-U1", None))
 
+# Roles that had no demo account. Survivor benefits need two people (one registers, another verifies), so there are two survivor officers.
+# Arrears need a second payroll officer: one records the claim, a different one verifies it, then the approver decides.
+DEMO_USERS.setdefault("payroll.officer2", ("Payroll Officer 2", "payroll_officer", "HQ", None))
+DEMO_USERS.setdefault("structure.approver", ("Structure Approver", "structure_approver", "HQ", None))
+DEMO_USERS.setdefault("survivor.officer", ("Survivor-Benefit Officer", "survivor_officer", "HQ", None))
+DEMO_USERS.setdefault("survivor.verifier", ("Survivor-Benefit Verifier", "survivor_officer", "HQ", None))
+# Taliye Qaybeed: one per Army regional command (assigned at the command, view and review of what its Guuto and Urur post).
+for _name in ("Bari", "Nugaal", "Mudug", "Sanaag"):
+    DEMO_USERS.setdefault(f"{_name.lower()}.regcommander", (f"{_name} Regional Commander (Taliye Qaybeed)", "regional_commander", f"{_name.upper()}-ARMY", None))
+
 # One weapons custodian per Army regional command (Karkaar is within Bari): register, issue and take back weapons in that region only.
 for _name in ("Bari", "Nugaal", "Mudug", "Sanaag"):
     DEMO_USERS.setdefault(f"{_name.lower()}.weapons", (f"{_name} Weapons Custodian", "weapons_custodian", f"{_name.upper()}-ARMY", None))
