@@ -62,7 +62,7 @@ V14_MIGRATIONS = {
 }
 NEW_PERMISSIONS = {"analytics.view", "integrations.view", "integrations.manage", "org.structure_propose", "org.structure_approve"}
 ROLES_GAINING_ANALYTICS = {"hq_reporting", "regional_chief", "branch_admin"}
-NEW_ROLES = {"structure_approver", "super_admin", "cid_officer", "command_authority", "member", "unit_commander", "weapons_custodian", "regional_commander",
+NEW_ROLES = {"structure_approver", "super_admin", "cid_officer", "command_authority", "member", "unit_commander", "weapons_custodian", "regional_commander", "transport_officer", "vehicle_disposal_approver",
              "payroll_officer", "payroll_approver", "survivor_officer", "payment_officer", "payment_reconciler"}  # cid/command: Police module; member: own record + direct subordinates
 # Police module: branch_admin holds the sensitive personnel-file records (disciplinary history, service documents).
 BRANCH_ADMIN_RECORDS = {"disciplinary.view", "disciplinary.manage", "documents.view", "documents.manage"}
@@ -87,6 +87,8 @@ class RoleCompatibilityTests(BaseApiTest):
             allowed |= BRANCH_ADMIN_RECORDS if role == "branch_admin" else set()
             allowed |= DEATH_GAINS.get(role, set())
             allowed |= {"weapons.view"} if role == "regional_chief" else set()  # regional chief views its region's weapon register
+            allowed |= {"vehicles.view"} if role in ("regional_chief", "branch_admin") else set()  # vehicle register: oversight roles read it
+            allowed |= {"vehicles.configure"} if role == "hq_admin" else set()  # HQ admin maintains the vehicle categories
             self.assertEqual(gained, allowed, role)
 
     def test_only_the_documented_role_was_added_and_none_removed(self):
@@ -118,7 +120,7 @@ class RouteCompatibilityTests(BaseApiTest):
         self.assertEqual(added, {("analytics", "analytics"), ("integrations/clients", "integration-client"),
                                  ("organization/structure-changes", "structure-change"),
                                  ("reports/combined", "report-combined"),  # Police module: combined Army + Police report
-                                 ("attendance", "attendance"), ("weapons", "weapons"), ("logistics/ammunition", "ammunition"),
+                                 ("attendance", "attendance"), ("weapons", "weapons"), ("vehicles", "vehicle"), ("logistics/ammunition", "ammunition"),
                                  ("survivor-cases", "survivor-case"), ("payroll/profiles", "payroll-profile"),
                                  ("payroll/runs", "payroll-run"), ("payroll/personnel", "payroll-personnel"),
                                  ("payroll/policy", "payroll-policy"), ("payroll/payments", "payroll-payment"),

@@ -10,6 +10,7 @@ import { ResetPassword } from "./pages/Reset";
 import { Attendance } from "./pages/Attendance";
 import { Ammunition } from "./pages/Ammunition";
 import { Weapons } from "./pages/Weapons";
+import { VehicleDetail, Vehicles } from "./pages/Vehicles";
 import { Holdings } from "./pages/Holdings";
 import { AmmoAccountability } from "./pages/AmmoAccountability";
 import { Survivors } from "./pages/Survivors";
@@ -56,6 +57,8 @@ export default function App() {
         <Route path="personnel/import" element={<PersonnelImport />} />
         <Route path="attendance" element={<Attendance />} />
         <Route path="weapons" element={<Weapons />} />
+        <Route path="vehicles" element={<Vehicles />} />
+        <Route path="vehicles/:id" element={<VehicleDetail />} />
         <Route path="holdings" element={<Holdings />} />
         <Route path="accountability" element={<AmmoAccountability />} />
         <Route path="survivors" element={<Survivors />} />
