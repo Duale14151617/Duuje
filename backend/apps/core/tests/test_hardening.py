@@ -220,7 +220,7 @@ class MfaReplayTests(BaseApiTest):
         self.assertEqual(privileged, {"hq_admin", "regional_chief", "branch_admin", "auditor", "restricted_custodian", "logistics_reviewer",
                                       "structure_approver", "cid_officer", "command_authority", "super_admin",
                                       "payroll_officer", "payroll_approver", "survivor_officer", "payment_officer", "payment_reconciler",
-                                      "weapons_custodian", "regional_commander"})
+                                      "weapons_custodian", "regional_commander", "transport_officer", "vehicle_disposal_approver"})
         unit_for = {"headquarters": "HQ", "region": "BARI", "branch_command": "BARI-ARMY", "unit": "BARI-ARMY"}
         for code in sorted(privileged):
             role = Role.objects.get(code=code)

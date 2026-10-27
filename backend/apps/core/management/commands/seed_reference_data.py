@@ -58,6 +58,14 @@ PERMISSIONS = {
     "survivor.verify": "Verify or reject beneficiaries and mark a case verified",
     "survivor.approve": "Authorize survivor allocations and close cases (never your own proposal)",
     "weapons.manage": "Register weapons, issue them to personnel, take them back and record condition for units in scope",
+    "vehicles.view": "View the military vehicle register (Vehicle ID, plate, driver, location, status, history) for units in scope; every view is audited",
+    "vehicles.create": "Register Army vehicles into units in scope",
+    "vehicles.edit": "Edit vehicle details, assign drivers and custodians, record location, status, maintenance and documents for units in scope",
+    "vehicles.transfer": "Transfer vehicles between units (needs authority in both the sending and receiving unit)",
+    "vehicles.dispose": "Propose decommissioning/disposal of a vehicle (the proposal needs separate approval)",
+    "vehicles.approve": "Approve or reject a proposed vehicle disposal; cannot decide one's own proposal",
+    "vehicles.cost": "See and record maintenance costs on vehicles in scope",
+    "vehicles.configure": "Create and edit vehicle categories (headquarters)",
     "attendance.view": "View attendance and absence records and summaries for personnel in scope",
     "attendance.record": "Record and amend daily attendance for personnel in scope (never changes personnel status)",
     "personnel.appointments_manage": "Appoint and end command appointments (Taliye Qaybeed, Taliye Urur ...) for units in scope; never grants access by itself",
@@ -104,7 +112,7 @@ PERMISSIONS = {
 SENSITIVE_PREFIXES = ("personnel.", "reports.view", "reports.submit", "reports.review", "reports.summary", "reports.export",
                       "logistics.view", "logistics.manage", "logistics.restricted", "logistics.reconcile",
                       "logistics.report", "logistics.approve", "training.view", "training.manage", "training.report", "analytics.",
-                      "org.structure_approve", "cid.", "police.", "search.", "disciplinary.", "documents.", "reports.combined", "attendance.", "weapons.", "payroll.", "survivor.", "payment.", "arrears.", "system.")
+                      "org.structure_approve", "cid.", "police.", "search.", "disciplinary.", "documents.", "reports.combined", "attendance.", "weapons.", "vehicles.", "payroll.", "survivor.", "payment.", "arrears.", "system.")
 REPORT_TYPES = [  # code, kind, name_en, name_so, figure keys
     ("monthly_admin_report", "report", "Monthly administrative report", "Warbixinta maamul ee bishii",
      ["personnel_strength", "personnel_on_leave", "personnel_in_training"]),
@@ -166,7 +174,7 @@ ROLES = {
     # personnel status, ammunition issued and remaining). Assigned per unit; link it to the command appointment so that it ends with it.
     "unit_commander": ("Unit commander (Taliye Guuto / Taliye Urur)", "Taliyaha cutubka (Taliye Guuto / Taliye Urur)", False, False,
                        ["unit", "station"], BASIC + ["personnel.view", "attendance.view", "attendance.record", "reports.view", "reports.submit",
-                                          "logistics.view", "logistics.restricted", "weapons.view"]),
+                                          "logistics.view", "logistics.restricted", "weapons.view", "vehicles.view"]),
     # Taliye Qaybeed: sees what the heads of the Guuto and Urur in the region have posted (reports, attendance, personnel). Assigned at the
     # regional command (a Qayb). View only: reviewing or approving the reports is a separate authority.
     "regional_commander": ("Regional commander (Taliye Qaybeed)", "Taliyaha Qaybta (Taliye Qaybeed)", True, False, ["branch_command"],
@@ -175,6 +183,12 @@ ROLES = {
     # personnel permission (the issue screen uses a minimal lookup). Privileged: requires MFA like the other restricted roles.
     "weapons_custodian": ("Weapons custodian", "Ilaaliyaha hubka", True, False, ["branch_command", "unit"],
                           BASIC + ["logistics.view", "logistics.manage", "logistics.restricted", "weapons.view", "weapons.manage"]),
+    # Transport / fleet officer: keeps the vehicle register for the units in the assignment. Privileged (MFA) like the other restricted
+    # custodians. Disposal approval is a separate role so that the proposer and the approver are different people.
+    "transport_officer": ("Transport officer", "Sarkaalka gaadiidka", True, False, ["region", "branch_command", "unit"],
+                          BASIC + ["vehicles.view", "vehicles.create", "vehicles.edit", "vehicles.transfer", "vehicles.dispose", "vehicles.cost"]),
+    "vehicle_disposal_approver": ("Vehicle disposal approver", "Ansixiyaha ka saarista gaadiidka", True, False, ["headquarters", "region", "branch_command"],
+                                  BASIC + ["vehicles.view", "vehicles.approve"]),
     # Finance duties are split four ways: the payroll officer PREPARES (runs, payment instructions, arrears), the approver AUTHORISES,
     # the payment officer EXECUTES (sends the payment outside the system and records it), the reconciler CHECKS it against the
     # statement; the auditor only reads the audit log. The service layer also refuses self-approval, so one person holding two
@@ -216,14 +230,14 @@ REGIONS = ["Bari", "Karkaar", "Nugaal", "Mudug"]
 
 # Extra grants per role (applied on top of the tuples above).
 EXTRA = {
-    "hq_admin": ["logistics.configure", "training.configure"],
+    "hq_admin": ["logistics.configure", "training.configure", "vehicles.configure"],
     "hq_reporting": ["logistics.report", "training.report", "analytics.view"],
-    "regional_chief": ["weapons.view", "logistics.view", "logistics.report", "training.view", "training.report", "analytics.view",
+    "regional_chief": ["vehicles.view", "weapons.view", "logistics.view", "logistics.report", "training.view", "training.report", "analytics.view",
                        "personnel.record_death"],
     # Disciplinary history and service documents are sensitive: only these privileged (MFA) roles hold them by default
     # (branch_admin, cid_officer), plus super_admin. Adjust here if the institution decides otherwise; the next seed run
     # re-syncs roles. Combined Army + Police summaries go to command_authority only (and super_admin).
-    "branch_admin": ["logistics.view", "logistics.report", "training.view", "training.report", "analytics.view",
+    "branch_admin": ["vehicles.view", "logistics.view", "logistics.report", "training.view", "training.report", "analytics.view",
                      "disciplinary.view", "disciplinary.manage", "documents.view", "documents.manage",
                      "personnel.record_death", "personnel.confirm_death", "personnel.appointments_manage"],
     "cid_officer": ["disciplinary.view", "disciplinary.manage", "documents.view", "documents.manage"],
@@ -232,6 +246,11 @@ EXTRA = {
     "logistics_custodian": ["logistics.view", "logistics.manage", "logistics.reconcile", "logistics.report"],
     "training_admin": ["training.view", "training.manage", "training.report", "training.configure"],
 }
+VEHICLE_CATEGORIES = [  # code, name_en, name_so, sort. Available categories only: seeding does not assert that the Army owns any vehicle of a type.
+    ("ambulance", "Ambulance", "Gaari bakhaar", 10), ("armored_truck", "Armored truck", "Gawaari hubaysan", 20),
+    ("hilux_4x4", "Hilux 4x4", "Hilux 4x4", 30), ("truck", "Truck", "Gawaari xamuul", 40), ("bus", "Bus", "Bas", 50),
+    ("motorcycle", "Motorcycle", "Mooto", 60), ("utility", "Utility vehicle", "Gaari adeeg", 70),
+]
 CATEGORIES = [  # code, kind, restricted, name_en, name_so  (seeded as DRAFT; weapon and ammunition categories included, no weapons or stock)
     ("general_supplies", "stock", False, "General supplies", "Saadka guud"),
     ("uniforms_clothing", "stock", False, "Uniforms and clothing", "Maryo iyo dharka"),
@@ -323,6 +342,11 @@ class Command(BaseCommand):
         for code, kind, restricted, en, so in CATEGORIES:  # draft until institutionally reviewed
             InventoryCategory.objects.get_or_create(code=code, defaults={
                 "kind": kind, "restricted": restricted, "name_en": en, "name_so": so})
+        from apps.vehicles.models import SYSTEM_STATUSES, VehicleCategory, VehicleStatusType
+        for code, en, so, avail, order in SYSTEM_STATUSES:
+            VehicleStatusType.objects.get_or_create(code=code, defaults={"name_en": en, "name_so": so, "available": avail, "is_system": True, "sort_order": order})
+        for code, en, so, order in VEHICLE_CATEGORIES:
+            VehicleCategory.objects.get_or_create(code=code, defaults={"name_en": en, "name_so": so, "sort_order": order})
         for code, en, so, days in COURSES:
             Course.objects.get_or_create(code=code, defaults={"name_en": en, "name_so": so, "duration_days": days})
         self.stdout.write(self.style.SUCCESS(

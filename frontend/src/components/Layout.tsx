@@ -33,6 +33,7 @@ export function Layout() {
     { to: "/logistics", icon: "box", label: "nav.logistics", show: ["logistics.view", "logistics.restricted", "logistics.configure", "logistics.approve", "logistics.restricted_approve", "logistics.report"].some(can) },
     { to: "/ammunition", icon: "box", label: "nav.ammunition", show: can("logistics.restricted") },
     { to: "/weapons", icon: "lock", label: "nav.weapons", show: can("weapons.view") },
+    { to: "/vehicles", icon: "box", label: "nav.vehicles", show: can("vehicles.view") },
     { to: "/holdings", icon: "users", label: "nav.holdings", show: can("weapons.view") },
     { to: "/accountability", icon: "list", label: "nav.accountability", show: can("weapons.view") },
     { to: "/payroll", icon: "list", label: "nav.payroll", show: can("payroll.view") },
