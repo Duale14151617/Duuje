@@ -13,6 +13,7 @@ from apps.logistics.views import (AmmunitionViewSet, AssetViewSet, CategoryViewS
                                   StockViewSet)
 from apps.attendance.views import AttendanceViewSet
 from apps.weapons.views import WeaponViewSet
+from apps.vehicles.views import VehicleViewSet
 from apps.payroll.views import PayrollRunViewSet, SalaryProfileViewSet, SurvivorCaseViewSet
 from apps.payroll.views_ext import ArrearsViewSet, PayrollPersonnelViewSet, PaymentViewSet, PolicyViewSet
 from apps.training.views import CourseViewSet, TrainingPeopleViewSet, TrainingRecordViewSet, TrainingSummaryViewSet
@@ -49,6 +50,7 @@ router.register("logistics/reconciliations", ReconciliationViewSet, basename="re
 router.register("logistics/summary", LogisticsSummaryViewSet, basename="logistics-summary")
 router.register("attendance", AttendanceViewSet, basename="attendance")
 router.register("weapons", WeaponViewSet, basename="weapons")
+router.register("vehicles", VehicleViewSet, basename="vehicle")
 router.register("payroll/profiles", SalaryProfileViewSet, basename="payroll-profile")
 router.register("payroll/runs", PayrollRunViewSet, basename="payroll-run")
 router.register("survivor-cases", SurvivorCaseViewSet, basename="survivor-case")
