@@ -113,7 +113,7 @@ export function photoUrl(personId: string, v: number): string {
   return `/api/v1/personnel/${personId}/photo/?v=${v}`;
 }
 
-export async function upload<T>(path: string, field: string, file: File): Promise<T> {
+export async function upload<T>(path: string, field: string, file: File, extra: Record<string, string> = {}): Promise<T> {
   if (import.meta.env.VITE_DEMO === "1") {
     const m = path.match(/^\/personnel\/([^/]+)\/photo\/upload\/$/);
     if (m) {
@@ -126,6 +126,7 @@ export async function upload<T>(path: string, field: string, file: File): Promis
     return demoUpload() as T;
   }
   const form = new FormData();
+  for (const [k, v] of Object.entries(extra)) form.append(k, v);
   form.append(field, file);
   const send = () => fetch(`/api/v1${path}`, {
     method: "POST", credentials: "same-origin", headers: { "X-CSRFToken": csrfToken }, body: form });
