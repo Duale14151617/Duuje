@@ -30,6 +30,7 @@ import { Institutions } from "./pages/Institutions";
 import { Ranks } from "./pages/Ranks";
 import { Analytics } from "./pages/Analytics";
 import { Integrations } from "./pages/Integrations";
+import { FoodStores } from "./pages/FoodStores";
 import { OrgTree } from "./pages/OrgTree";
 import { StructureChanges } from "./pages/StructureChanges";
 import { UserDetail, Users } from "./pages/Users";
@@ -47,6 +48,7 @@ export default function App() {
         <Route index element={<Dashboard />} />
         <Route path="organization" element={<Organization />} />
         <Route path="structure" element={<Structure />} />
+        <Route path="food" element={<FoodStores />} />
         <Route path="institutions" element={<Institutions />} />
         <Route path="tree" element={<OrgTree />} />
         <Route path="structure-changes" element={<StructureChanges />} />

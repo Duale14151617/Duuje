@@ -9,6 +9,7 @@ from apps.audit.views import AuditEventViewSet
 from apps.dashboard.views import DashboardView
 from apps.personnel.combined import CombinedReportViewSet
 from apps.personnel.views import PersonnelViewSet
+from apps.logistics.food_views import FoodAllocationViewSet, FoodOptionsViewSet, FoodReceiptViewSet, FoodWarningsViewSet, SupplierViewSet
 from apps.logistics.views import (AmmunitionViewSet, AssetViewSet, CategoryViewSet, LogisticsSummaryViewSet, ReconciliationViewSet,
                                   StockViewSet)
 from apps.attendance.views import AttendanceViewSet
@@ -48,6 +49,11 @@ router.register("logistics/assets", AssetViewSet, basename="asset")
 router.register("logistics/ammunition", AmmunitionViewSet, basename="ammunition")
 router.register("logistics/reconciliations", ReconciliationViewSet, basename="reconciliation")
 router.register("logistics/summary", LogisticsSummaryViewSet, basename="logistics-summary")
+router.register("logistics/suppliers", SupplierViewSet, basename="food-supplier")
+router.register("logistics/food/receipts", FoodReceiptViewSet, basename="food-receipt")
+router.register("logistics/food/allocations", FoodAllocationViewSet, basename="food-allocation")
+router.register("logistics/food/warnings", FoodWarningsViewSet, basename="food-warning")
+router.register("logistics/food/options", FoodOptionsViewSet, basename="food-options")
 router.register("attendance", AttendanceViewSet, basename="attendance")
 router.register("weapons", WeaponViewSet, basename="weapons")
 router.register("vehicles", VehicleViewSet, basename="vehicle")

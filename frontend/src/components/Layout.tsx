@@ -39,6 +39,7 @@ export function Layout() {
     { to: "/payroll", icon: "list", label: "nav.payroll", show: can("payroll.view") },
     { to: "/survivors", icon: "users", label: "nav.survivors", show: can("survivor.view") },
     { to: "/attendance", icon: "check", label: "nav.attendance", show: can("attendance.view") },
+    { to: "/food", icon: "box", label: "nav.food", show: can("food.view") },
     { to: "/training", icon: "cap", label: "nav.training", show: ["training.view", "training.configure", "training.report"].some(can) },
     { to: "/analytics", icon: "activity", label: "nav.analytics", show: can("analytics.view") },
     { to: "/ranks", icon: "award", label: "nav.ranks", show: can("ranks.view") },

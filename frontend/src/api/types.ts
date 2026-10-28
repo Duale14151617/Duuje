@@ -236,3 +236,24 @@ export interface AppointmentOut {
   effective_from: string; effective_to: string | null; authority_ref: string; current: boolean; created_by: string;
   ended_at: string | null; ended_by: string; end_reason: string; has_access_link: boolean;
 }
+
+export interface FoodSupplier { id: string; name: string; phone: string; address: string; notes: string; active: boolean; version: number }
+export interface FoodBatchOut {
+  id: string; org_unit_name: string; category: string; uom: string; supplier: string; batch_ref: string; quantity: number; remaining: number;
+  received_on: string; expires_on: string | null; delivery_note_ref: string; order_ref: string; entered_by: string;
+}
+export interface FoodAllocationOut {
+  id: string; status: "issued" | "delivered" | "cancelled"; quantity: number; uom: string; category: string; from_unit_name: string;
+  to_unit_name: string; order_ref: string; issuing_officer: string; order_date: string; issue_note_ref: string; issued_by: string;
+  issued_at: string; delivered_at: string | null; received_by_name: string; receipt_note_ref: string; cancel_reason: string; version: number;
+}
+export interface FoodOptions {
+  categories: { id: string; code: string; name_en: string; name_so: string }[];
+  stores: { id: string; org_unit: string; org_unit_name: string; category: string; category_name: string; quantity: number; uom: string; reorder_level: number }[];
+}
+export interface FoodWarnings {
+  days: number; as_of: string;
+  low_stock: { stock_line: string; org_unit: string; category: string; quantity: number; reorder_level: number; uom: string }[];
+  expiring: { batch: string; org_unit: string; category: string; remaining: number; uom: string; expires_on: string; expired: boolean; batch_ref: string; supplier: string }[];
+  unbatched: { stock_line: string; org_unit: string; category: string; ledger: number; batched: number }[];
+}

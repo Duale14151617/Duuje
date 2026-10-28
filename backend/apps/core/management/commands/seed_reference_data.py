@@ -106,6 +106,8 @@ PERMISSIONS = {
     "documents.manage": "Upload and withdraw service documents on personnel files in scope",
     "reports.combined": "See combined Army + Police summaries (headquarters-wide; command authority). Aggregates only",
     "cid.access": "Reach personnel records inside restricted units such as CID (Police). Never implied by any other permission",
+    "food.view": "View food stores, suppliers, allocations and expiry warnings in scope",
+    "food.manage": "Receive food from suppliers, allocate it to units and record deliveries in scope (headquarters administrators and super administrator)",
     "system.full_access": "Maintenance override: reach every part of the system even where a module switch (for example the Police pilot being off) would hide it. Super administrator only; every action stays in the audit log",
 }
 # Never granted to administrators by default (reports.configure is not sensitive, so hq_admin keeps it).
@@ -253,6 +255,7 @@ VEHICLE_CATEGORIES = [  # code, name_en, name_so, sort. Available categories onl
 ]
 CATEGORIES = [  # code, kind, restricted, name_en, name_so  (seeded as DRAFT; weapon and ammunition categories included, no weapons or stock)
     ("general_supplies", "stock", False, "General supplies", "Saadka guud"),
+    ("food_rations", "stock", False, "Food rations", "Cuntada ciidanka"),  # draft until approved
     ("uniforms_clothing", "stock", False, "Uniforms and clothing", "Maryo iyo dharka"),
     ("vehicles", "asset", False, "Vehicles", "Gawaarida"),
     ("communications_equipment", "asset", False, "Communications equipment", "Qalabka isgaarsiinta"),
