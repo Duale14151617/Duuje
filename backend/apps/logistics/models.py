@@ -198,3 +198,102 @@ class ReconciliationLine(models.Model):
         constraints = [models.CheckConstraint(
             condition=(Q(stock_line__isnull=False, asset__isnull=True) | Q(stock_line__isnull=True, asset__isnull=False)),
             name="reconline_one_target")]
+
+
+# ------------------------------------------------------------------ food stores (suppliers, batches, allocations)
+class Supplier(models.Model):
+    """A food supplier on file. Records are never deleted; a supplier that is no longer used is switched off."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=150, unique=True)
+    phone = models.CharField(max_length=30, blank=True)
+    address = models.CharField(max_length=200, blank=True)
+    notes = models.CharField(max_length=300, blank=True)
+    active = models.BooleanField(default=True)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "food_suppliers"
+        ordering = ["name"]
+
+
+class FoodBatch(models.Model):
+    """One delivery (or one part of an allocation) of food in a store, with its expiry date.
+
+    `remaining` is reduced earliest-expiry-first when food leaves the store through the food module. The stock ledger stays the
+    source of truth for the quantity; a store whose batches do not add up to its ledger balance is flagged in the warnings."""
+
+    class Source(models.TextChoices):
+        RECEIPT = "receipt"        # received from a supplier
+        ALLOCATION = "allocation"  # received from another store
+        OPENING = "opening"        # opening balance entered by spreadsheet import (one ledger entry per store, many batches)
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    stock_line = models.ForeignKey(StockLine, on_delete=models.PROTECT, related_name="batches")
+    supplier = models.ForeignKey(Supplier, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    batch_ref = models.CharField(max_length=60, blank=True)
+    quantity = models.PositiveIntegerField()
+    remaining = models.PositiveIntegerField()
+    received_on = models.DateField()
+    expires_on = models.DateField(null=True, blank=True)
+    source = models.CharField(max_length=10, choices=Source.choices, default=Source.RECEIPT)
+    delivery_note_ref = models.CharField(max_length=60, blank=True)
+    authority_ref = models.CharField(max_length=150, blank=True)
+    txn = models.ForeignKey(StockTransaction, on_delete=models.PROTECT, related_name="+")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    created_by_username = models.CharField(max_length=150, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "food_batches"
+        ordering = ["expires_on", "received_on", "created_at"]
+        constraints = [
+            models.CheckConstraint(condition=Q(quantity__gt=0) & Q(remaining__lte=models.F("quantity")), name="foodbatch_quantities"),
+            models.UniqueConstraint(fields=["supplier", "delivery_note_ref"], condition=Q(source="receipt"),
+                                    name="foodbatch_one_receipt_per_delivery_note"),
+        ]
+
+
+class FoodAllocation(models.Model):
+    """Food sent from one store to another unit on an Army order. The stock leaves the sending store when it is issued and
+    reaches the receiving unit only when an HQ administrator records the signed delivery note (so nothing is credited that has
+    not arrived). An undelivered allocation can be cancelled, which returns the stock to the sending store."""
+
+    class Status(models.TextChoices):
+        ISSUED = "issued"
+        DELIVERED = "delivered"
+        CANCELLED = "cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    from_line = models.ForeignKey(StockLine, on_delete=models.PROTECT, related_name="+")
+    to_unit = models.ForeignKey("organization.OrganizationalUnit", on_delete=models.PROTECT, related_name="+")
+    quantity = models.PositiveIntegerField()
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.ISSUED, db_index=True)
+    order_ref = models.CharField(max_length=150)
+    issuing_officer = models.CharField(max_length=150)
+    order_date = models.DateField()
+    issue_note_ref = models.CharField(max_length=60)
+    group = models.UUIDField(default=uuid.uuid4, editable=False)
+    consumed = models.JSONField(default=list)  # [{"batch": id, "qty": n}] taken from the sending store, earliest expiry first
+    issued_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    issued_by_username = models.CharField(max_length=150, blank=True)
+    issued_at = models.DateTimeField(auto_now_add=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    received_by_name = models.CharField(max_length=150, blank=True)  # the person who signed for it
+    receipt_note_ref = models.CharField(max_length=60, blank=True)
+    acknowledged_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    acknowledged_by_username = models.CharField(max_length=150, blank=True)
+    cancel_reason = models.CharField(max_length=300, blank=True)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    version = models.PositiveIntegerField(default=1)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "food_allocations"
+        ordering = ["-issued_at", "id"]
+        constraints = [
+            models.CheckConstraint(condition=Q(quantity__gt=0), name="foodalloc_positive"),
+            models.CheckConstraint(condition=~Q(order_ref="") & ~Q(issuing_officer="") & ~Q(issue_note_ref=""), name="foodalloc_order_present"),
+        ]
