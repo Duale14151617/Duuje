@@ -78,6 +78,7 @@ class FoodReceiptViewSet(viewsets.GenericViewSet):
     """Deliveries from suppliers (one batch each). Entered directly by HQ administrators with the delivery note and Army order."""
 
     permission_classes = [ScopedPermission]
+    throttle_scope = None  # set per action for imports
     http_method_names = ["get", "post", "head", "options"]
     permission_map = {"list": (VIEW, "global"), "create": (MANAGE, "global"), "opening_import": (MANAGE, "global")}
 
@@ -120,6 +121,7 @@ class FoodReceiptViewSet(viewsets.GenericViewSet):
 
 class FoodAllocationViewSet(viewsets.GenericViewSet):
     permission_classes = [ScopedPermission]
+    throttle_scope = None  # set per action for the bulk transfer
     http_method_names = ["get", "post", "head", "options"]
     queryset = FoodAllocation.objects.select_related("from_line__org_unit", "from_line__category", "to_unit")
     permission_map = {"list": (VIEW, "global"), "retrieve": (VIEW, "global"), "create": (MANAGE, "global"),
