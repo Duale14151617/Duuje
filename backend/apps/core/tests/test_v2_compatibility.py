@@ -151,7 +151,7 @@ V2_ADDED_MIGRATIONS = {  # migrations added to existing apps after v1.4 (2.0 str
     "ranks": ["0004_add_command_ranks", "0005_police_rank_categories"],
     "personnel": ["0003_personnelprofile", "0004_disciplinary_and_documents", "0005_supervisor_and_account",
                   "0006_death_record_and_statuses", "0007_command_appointments", "0008_attendance_support_category"],
-    "logistics": ["0003_ammunition_ledger"],
+    "logistics": ["0003_ammunition_ledger", "0004_food_stores", "0005_food_batch_opening_source"],
 }
 
 
