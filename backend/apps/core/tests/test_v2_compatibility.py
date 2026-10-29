@@ -62,9 +62,9 @@ V14_MIGRATIONS = {
 }
 NEW_PERMISSIONS = {"analytics.view", "integrations.view", "integrations.manage", "org.structure_propose", "org.structure_approve", "food.view", "food.manage", "changes.propose", "changes.approve", "tasks.view", "tasks.manage"}
 ROLES_GAINING_ANALYTICS = {"hq_reporting", "regional_chief", "branch_admin"}
-NEW_ROLES = {"structure_approver", "super_admin", "cid_officer", "command_authority", "member", "unit_commander", "weapons_custodian", "regional_commander", "transport_officer", "vehicle_disposal_approver",
-             "payroll_officer", "payroll_approver", "survivor_officer", "payment_officer", "payment_reconciler"}  # cid/command: Police module; member: own record + direct subordinates
-# Police module: branch_admin holds the sensitive personnel-file records (disciplinary history, service documents).
+NEW_ROLES = {"structure_approver", "super_admin", "command_authority", "member", "unit_commander", "weapons_custodian", "regional_commander", "transport_officer", "vehicle_disposal_approver",
+             "payroll_officer", "payroll_approver", "survivor_officer", "payment_officer", "payment_reconciler"}  # command: command authority; member: own record + direct subordinates
+# branch_admin holds the sensitive personnel-file records (disciplinary history, service documents).
 BRANCH_ADMIN_RECORDS = {"disciplinary.view", "disciplinary.manage", "documents.view", "documents.manage"}
 # hq_admin receives every non-sensitive permission automatically, so it gains the integration and structure-proposal ones.
 # Death workflow: units and regions may REPORT a death; only branch_admin may CONFIRM (a different officer from the reporter).
@@ -102,7 +102,7 @@ class RoleCompatibilityTests(BaseApiTest):
         have = set(Role.objects.get(code="hq_admin").permissions.values_list("code", flat=True))
         sensitive = ("personnel.", "changes.approve", "reports.view", "reports.submit", "reports.review", "reports.summary", "logistics.view",
                      "logistics.manage", "logistics.restricted", "training.view", "training.manage", "analytics.", "org.structure_approve",
-                     "disciplinary.", "documents.", "reports.combined", "police.", "search.", "cid.")
+                     "disciplinary.", "documents.", "reports.combined", "search.", "cid.")
         self.assertFalse([c for c in have if c.startswith(sensitive)])
         self.assertTrue({"integrations.view", "integrations.manage", "org.structure_propose"} <= have)
         self.assertNotIn("org.structure_approve", have)  # approving a structure change is a separate duty
@@ -119,7 +119,7 @@ class RouteCompatibilityTests(BaseApiTest):
         added = now - {tuple(r) for r in V14_ROUTES}
         self.assertEqual(added, {("analytics", "analytics"), ("integrations/clients", "integration-client"),
                                  ("organization/structure-changes", "structure-change"), ("organization/change-requests", "change-request"), ("operations/tasks", "unit-task"), ("logistics/suppliers", "food-supplier"), ("logistics/food/receipts", "food-receipt"), ("logistics/food/allocations", "food-allocation"), ("logistics/food/warnings", "food-warning"), ("logistics/food/options", "food-options"),
-                                 ("reports/combined", "report-combined"),  # Police module: combined Army + Police report
+                                 ("reports/combined", "report-combined"),  # combined Army and Navy report
                                  ("attendance", "attendance"), ("weapons", "weapons"), ("vehicles", "vehicle"), ("logistics/ammunition", "ammunition"),
                                  ("survivor-cases", "survivor-case"), ("payroll/profiles", "payroll-profile"),
                                  ("payroll/runs", "payroll-run"), ("payroll/personnel", "payroll-personnel"),

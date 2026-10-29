@@ -10,7 +10,7 @@ import { ApiError as C } from "../api/client";
 const a = (n) => new Date(Date.now() - n * 864e5).toISOString(), g = (n) => a(n).slice(0, 10), i = (n, e = n) => ({ name_en: n, name_so: e }), c = (n, e) => {
   const t = Number(e.page_size) || 25, r = Math.max(1, Number(e.page) || 1);
   return { count: n.length, next: null, previous: null, results: n.slice((r - 1) * t, r * t) };
-}, E = [{ id: "b-army", code: "ARMY", ...i("Army", "Ciidanka Xoogga"), active: true, version: 1 }, { id: "b-navy", code: "NAVY", ...i("Navy", "Ciidanka Badda"), active: true, version: 1 }, { id: "b-police", code: "POLICE", ...i("Police", "Booliska"), active: true, version: 1 }], T = (n) => {
+}, E = [{ id: "b-army", code: "ARMY", ...i("Army", "Ciidanka Xoogga"), active: true, version: 1 }, { id: "b-navy", code: "NAVY", ...i("Navy", "Ciidanka Badda"), active: true, version: 1 }], T = (n) => {
   const e = E.find((t) => t.id === n);
   return { id: e.id, code: e.code, name_en: e.name_en, name_so: e.name_so };
 }, V = ["Dable", "Alifle", "2 Alifle", "Saddex Alifle", "Isbatoore", "Laba Xarigle", "Saddex Xarigle", "Xidigle", "Laba Xidigle", "Captain", "Gaashanle", "Gaashanle dhexe", "Gaashanle sare", "Sarreye Guuto (General)", "Sarreye Gaas", "Sarreye Guud (Marshall)", "Commander of the Puntland Defense Forces", "President / Commander-in-Chief"], m = V.map((n, e) => ({ id: `r-${e + 1}`, branch: "b-army", category: "unspecified", code: `PA-${String(e + 1).padStart(2, "0")}`, ...i(n), sort_order: e + 1, approval_status: "approved", approved_at: a(30), active: true, version: 1 })), j = [["TALISKA_GUUD", "Taliska Guud", 1, null, null, null, null, "Regional command"], ["QAYB", "Qayb", 2, "TALISKA_GUUD", null, 6e3, 7e3, ""], ["GAAS", "Gaas", 3, "QAYB", 2, 3500, 3500, ""], ["GUUTO", "Guuto", 4, "GAAS", null, 900, 1001, ""], ["URUR", "Urur", 5, "GUUTO", null, 320, 330, ""], ["HORIN", "Horin", 6, "URUR", null, 99, 99, ""], ["KOOX", "Koox", 7, "HORIN", null, 33, 33, ""], ["UNUG", "Unug", 8, "KOOX", null, 9, 9, ""]], D = j.map(([n, e, t, r, s, o, v, M]) => ({ id: `t-${n}`, code: n, ...i(e), tier: t, parent_type: r ? `t-${r}` : null, standard_per_parent: s, reference_min: o, reference_max: v, description_en: M, description_so: "", active: true, version: 1 })), F = [{ id: "d-SAHAN", code: "SAHAN", ...i("Sahan"), description_en: "Reconnaissance designation", description_so: "", active: true, version: 1 }, { id: "d-SANCO", code: "SANCO", ...i("Sanco"), description_en: "Miino baar / bomb squad designation", description_so: "", active: true, version: 1 }], W = [{ id: "dr-1", parent_type: "t-GUUTO", child_type: "t-HORIN", designation: "d-SAHAN", active: true, note: "Each Guuto has a designated Horin Sahan.", version: 1 }, { id: "dr-2", parent_type: "t-GAAS", child_type: "t-URUR", designation: "d-SAHAN", active: true, note: "Each Gaas has a designated Urur Sahan/Sanco.", version: 1 }, { id: "dr-3", parent_type: "t-GAAS", child_type: "t-URUR", designation: "d-SANCO", active: true, note: "Each Gaas has a designated Urur Sahan/Sanco.", version: 1 }], p = [];
@@ -19,7 +19,7 @@ function _(n, e, t, r, s, o, v, M = []) {
   return p.push(k), k;
 }
 _("PUNT-HQ", "Puntland Headquarters", "headquarters", null, null, null, 0);
-for (const [n, e] of [["BARI", "Bari"], ["KARKAAR", "Karkaar"], ["NUGAAL", "Nugaal"], ["MUDUG", "Mudug"]]) _(n, `${e} Region`, "region", "PUNT-HQ", null, null, 1), _(`${n}-ARMY`, `${e} Army Command`, "branch_command", n, "b-army", "TALISKA_GUUD", 2), _(`${n}-POLICE`, `${e} Police Command`, "branch_command", n, "b-police", null, 2);
+for (const [n, e] of [["BARI", "Bari"], ["KARKAAR", "Karkaar"], ["NUGAAL", "Nugaal"], ["MUDUG", "Mudug"]]) _(n, `${e} Region`, "region", "PUNT-HQ", null, null, 1), _(`${n}-ARMY`, `${e} Army Command`, "branch_command", n, "b-army", "TALISKA_GUUD", 2);
 _("BARI-NAVY", "Bari Navy Command", "branch_command", "BARI", "b-navy", null, 2);
 _("BARI-ARMY-QAYB-1", "Qayb 1", "unit", "BARI-ARMY", "b-army", "QAYB", 3);
 _("BARI-ARMY-GAAS-A", "Gaas A", "unit", "BARI-ARMY-QAYB-1", "b-army", "GAAS", 4);
@@ -59,12 +59,12 @@ function A(n, e, t = {}) {
   return n.filter((r) => Object.entries(e).every(([s, o]) => o === "" || s === "page" || s === "page_size" || s === "placeable" || s === "at" ? true : t[s] ? t[s](r, o) : s === "q" ? JSON.stringify(r).toLowerCase().includes(o.toLowerCase()) : s in r && typeof r[s] != "object" ? String(r[s]) === o : true));
 }
 const demoDisciplinary = [{ id: "dd-0", category: "written_warning", incident_date: "2025-03-02", summary: "Synthetic demo entry.", outcome: "Warned", voided: false, corrects: null, superseded: false, recorded_at: new Date().toISOString(), recorded_by_username: "demo" }];
-const demoCombined = { generated_at: new Date().toISOString(), police_module_enabled: true, excludes_restricted_units: true, totals: { total: 150, serving: 138 }, branches: [{ id: "b-army", code: "ARMY", ...i("Army", "Ciidanka Xoogga"), total: 90, serving: 84, units: 12, by_status: { active: 80, on_leave: 6, retired: 4 }, by_rank_category: { unspecified: 84 } }, { id: "b-police", code: "POLICE", ...i("Police", "Booliska"), total: 60, serving: 54, units: 36, by_status: { active: 52, suspended: 2, retired: 6 }, by_rank_category: { askari: 30, nco: 14, inspector: 10 } }], regions: [] };
+const demoCombined = { generated_at: new Date().toISOString(), excludes_restricted_units: true, totals: { total: 90, serving: 84 }, branches: [{ id: "b-army", code: "ARMY", ...i("Army", "Ciidanka Xoogga"), total: 90, serving: 84, units: 12, by_status: { active: 80, on_leave: 6, retired: 4 }, by_rank_category: { unspecified: 84 } }], regions: [] };
 const demoProfiles = {};
 const demoProfile = (id) => (demoProfiles[id] ??= { blood_type: "", gender: "", weapon_id: "", date_of_birth: null, enlistment_date: null, home_district: "", emergency_contact_name: "", emergency_contact_phone: "", has_photo: false, photo_updated_at: null });
 function ie(n, e) {
   let t;
-  // Police module (demo): sample answers for the new screens. Nothing is stored or sent anywhere.
+  // Demo: sample answers for the new screens. Nothing is stored or sent anywhere.
   if (/^\/personnel\/[^/]+\/disciplinary\/$/.test(n)) return { results: demoDisciplinary };
   if (/^\/personnel\/[^/]+\/documents\/$/.test(n)) return { results: [] };
   if (n === "/reports/combined/") return demoCombined;

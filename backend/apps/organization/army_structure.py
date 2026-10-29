@@ -1,7 +1,7 @@
 """Army organizational structure as supplied by army personnel (meeting requirements, section 3). ARMY ONLY.
 
 Everything is DATA in the existing tables (units, unit types), created through the existing placement rules, so it stays
-configurable and can be restructured later with the normal tools. Police and Navy units are never read or written here.
+configurable and can be restructured later with the normal tools. Navy units are never read or written here.
 
 Shape created:
     System HQ

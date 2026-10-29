@@ -163,7 +163,7 @@ MFA required: yes. Assigned at: headquarters.
 
 MFA required: yes. Assigned at: region, branch_command, unit; must be limited to one branch.
 
-- **CID:** `cid.access` Reach personnel records inside restricted units such as CID (Police). Never implied by any other permission
+- **CID:** `cid.access` Reach personnel records inside restricted units. Never implied by any other permission
 - **Dashboard:** `dashboard.view` See the dashboard
 - **Disciplinary:** `disciplinary.view` View a person's disciplinary history in scope (encrypted, every view is audited); `disciplinary.manage` Add disciplinary entries and corrections in scope (entries are append-only)
 - **Documents:** `documents.view` List and download service documents on personnel files in scope (every access is audited); `documents.manage` Upload and withdraw service documents on personnel files in scope
@@ -177,13 +177,12 @@ MFA required: yes. Assigned at: region, branch_command, unit; must be limited to
 MFA required: yes. Assigned at: headquarters.
 
 - **Analytics:** `analytics.view` Open analytics (each section still needs its own report/personnel/logistics/training permission)
-- **Cross-service search:** `search.cross_service` Search personnel across all services (Army and Police) within the records the user is otherwise allowed to see
+- **Cross-service search:** `search.cross_service` Search personnel across all services (Army and Navy) within the records the user is otherwise allowed to see
 - **Dashboard:** `dashboard.view` See the dashboard
 - **Organization:** `org.view` View organization structure in scope
 - **Personnel:** `personnel.view` View personnel records in scope
-- **Police:** `police.cross_access` Reach Police records from a branch-unrestricted assignment (command authority only; CID still needs cid.access)
 - **Ranks:** `ranks.view` View rank catalogue
-- **Reports:** `reports.view` View requests/reports in scope; `reports.summary` See approved regional/headquarters summaries in scope; `reports.combined` See combined Army + Police summaries (headquarters-wide; command authority). Aggregates only
+- **Reports:** `reports.view` View requests/reports in scope; `reports.summary` See approved regional/headquarters summaries in scope; `reports.combined` See combined Army and Navy summaries (headquarters-wide; command authority). Aggregates only
 
 ### Auditor (`auditor`)
 
@@ -201,8 +200,8 @@ MFA required: yes. Assigned at: headquarters.
 - **Arrears:** `arrears.manage` Record and verify arrears claims (earlier unpaid salary), kept apart from payroll and survivor benefits; `arrears.approve` Approve arrears claims (never one you recorded or verified)
 - **Attendance:** `attendance.view` View attendance and absence records and summaries for personnel in scope; `attendance.record` Record and amend daily attendance for personnel in scope (never changes personnel status)
 - **Audit log:** `audit.view` Read audit events
-- **CID:** `cid.access` Reach personnel records inside restricted units such as CID (Police). Never implied by any other permission
-- **Cross-service search:** `search.cross_service` Search personnel across all services (Army and Police) within the records the user is otherwise allowed to see
+- **CID:** `cid.access` Reach personnel records inside restricted units. Never implied by any other permission
+- **Cross-service search:** `search.cross_service` Search personnel across all services (Army and Navy) within the records the user is otherwise allowed to see
 - **Dashboard:** `dashboard.view` See the dashboard
 - **Disciplinary:** `disciplinary.view` View a person's disciplinary history in scope (encrypted, every view is audited); `disciplinary.manage` Add disciplinary entries and corrections in scope (entries are append-only)
 - **Documents:** `documents.view` List and download service documents on personnel files in scope (every access is audited); `documents.manage` Upload and withdraw service documents on personnel files in scope
@@ -212,12 +211,11 @@ MFA required: yes. Assigned at: headquarters.
 - **Payments:** `payment.prepare` Prepare Sahal / bank-transfer payment instructions against approved amounts; `payment.authorize` Authorize a prepared payment (never one you prepared); `payment.execute` Send an authorized payment outside the system and record its outcome (never one you authorized); `payment.reconcile` Reconcile paid payments with provider or bank statements (never one you executed); `payment.details` See the full recipient details (mobile number, bank account) of a payment; every reveal is audited
 - **Payroll:** `payroll.view` View salary profiles, payroll runs and payment status (headquarters finance); `payroll.manage` Propose salary profiles; prepare, submit and adjust payroll runs; `payroll.approve` Approve salary profiles and payroll runs (never your own work); `payroll.review` Record pay decisions for suspended and jailed personnel (a record only: never changes pay by itself); `payroll.decide` Approve or reject pay decisions for suspended and jailed personnel (never your own entry); `payroll.policy_confirm` Confirm or later revise a payroll or survivor policy value, with authority reference and reason (policy authority)
 - **Personnel:** `personnel.view` View personnel records in scope; `personnel.view_team` View your own personnel record and your direct subordinates' records (read-only, within the assignment's scope); `personnel.appointments_manage` Appoint and end command appointments (Taliye Qaybeed, Taliye Urur ...) for units in scope; never grants access by itself; `personnel.record_death` Report a death and attach supporting evidence for personnel in scope (does not change status by itself); `personnel.confirm_death` Confirm a reported death, which sets the status to Died (must be a different officer from the reporter); `personnel.manage` Create/edit personnel, transfers, rank and status changes in scope; `personnel.import` Import personnel from CSV in scope; `personnel.export` Export personnel to CSV in scope (also needs PERSONNEL_EXPORT_ENABLED)
-- **Police:** `police.cross_access` Reach Police records from a branch-unrestricted assignment (command authority only; CID still needs cid.access)
 - **Ranks:** `ranks.view` View rank catalogue; `ranks.manage` Edit rank catalogue entries; `ranks.approve` Approve rank catalogue entries
-- **Reports:** `reports.view` View requests/reports in scope; `reports.submit` Prepare and submit requests/reports in scope; `reports.review` Review, approve, reject or return reports in scope; `reports.summary` See approved regional/headquarters summaries in scope; `reports.export` Export summaries (also needs REPORT_EXPORT_ENABLED); `reports.configure` Configure request/report types; `reports.combined` See combined Army + Police summaries (headquarters-wide; command authority). Aggregates only
+- **Reports:** `reports.view` View requests/reports in scope; `reports.submit` Prepare and submit requests/reports in scope; `reports.review` Review, approve, reject or return reports in scope; `reports.summary` See approved regional/headquarters summaries in scope; `reports.export` Export summaries (also needs REPORT_EXPORT_ENABLED); `reports.configure` Configure request/report types; `reports.combined` See combined Army and Navy summaries (headquarters-wide; command authority). Aggregates only
 - **Roles:** `roles.assign` Assign and revoke scoped roles
 - **Survivor benefits:** `survivor.view` View survivor-benefit cases and beneficiaries; `survivor.manage` Open survivor cases, register beneficiaries, propose allocations, raise disputes; `survivor.verify` Verify or reject beneficiaries and mark a case verified; `survivor.approve` Authorize survivor allocations and close cases (never your own proposal)
-- **System:** `system.full_access` Maintenance override: reach every part of the system even where a module switch (for example the Police pilot being off) would hide it. Super administrator only; every action stays in the audit log
+- **System:** `system.full_access` Maintenance override: reach every part of the system even where a module switch (for example a module switch being off) would hide it. Super administrator only; every action stays in the audit log
 - **Training:** `training.view` View training records in scope; `training.manage` Enrol people and update training records in scope; `training.report` See training summaries in scope; `training.configure` Create and edit the course catalogue
 - **Users and roles:** `users.view` View user accounts; `users.manage` Create, edit, disable user accounts
 - **Weapons:** `weapons.view` View the weapon register (serial numbers, custody, condition, history) for units in scope; `weapons.manage` Register weapons, issue them to personnel, take them back and record condition for units in scope
@@ -338,7 +336,7 @@ MFA required: no. Assigned at: any level.
 | `attendance.record` | Record and amend daily attendance for personnel in scope (never changes personnel status) |
 | `attendance.view` | View attendance and absence records and summaries for personnel in scope |
 | `audit.view` | Read audit events |
-| `cid.access` | Reach personnel records inside restricted units such as CID (Police). Never implied by any other permission |
+| `cid.access` | Reach personnel records inside restricted units. Never implied by any other permission |
 | `dashboard.view` | See the dashboard |
 | `disciplinary.manage` | Add disciplinary entries and corrections in scope (entries are append-only) |
 | `disciplinary.view` | View a person's disciplinary history in scope (encrypted, every view is audited) |
@@ -377,11 +375,10 @@ MFA required: no. Assigned at: any level.
 | `personnel.record_death` | Report a death and attach supporting evidence for personnel in scope (does not change status by itself) |
 | `personnel.view` | View personnel records in scope |
 | `personnel.view_team` | View your own personnel record and your direct subordinates' records (read-only, within the assignment's scope) |
-| `police.cross_access` | Reach Police records from a branch-unrestricted assignment (command authority only; CID still needs cid.access) |
 | `ranks.approve` | Approve rank catalogue entries |
 | `ranks.manage` | Edit rank catalogue entries |
 | `ranks.view` | View rank catalogue |
-| `reports.combined` | See combined Army + Police summaries (headquarters-wide; command authority). Aggregates only |
+| `reports.combined` | See combined Army and Navy summaries (headquarters-wide; command authority). Aggregates only |
 | `reports.configure` | Configure request/report types |
 | `reports.export` | Export summaries (also needs REPORT_EXPORT_ENABLED) |
 | `reports.review` | Review, approve, reject or return reports in scope |
@@ -389,12 +386,12 @@ MFA required: no. Assigned at: any level.
 | `reports.summary` | See approved regional/headquarters summaries in scope |
 | `reports.view` | View requests/reports in scope |
 | `roles.assign` | Assign and revoke scoped roles |
-| `search.cross_service` | Search personnel across all services (Army and Police) within the records the user is otherwise allowed to see |
+| `search.cross_service` | Search personnel across all services (Army and Navy) within the records the user is otherwise allowed to see |
 | `survivor.approve` | Authorize survivor allocations and close cases (never your own proposal) |
 | `survivor.manage` | Open survivor cases, register beneficiaries, propose allocations, raise disputes |
 | `survivor.verify` | Verify or reject beneficiaries and mark a case verified |
 | `survivor.view` | View survivor-benefit cases and beneficiaries |
-| `system.full_access` | Maintenance override: reach every part of the system even where a module switch (for example the Police pilot being off) would hide it. Super administrator only; every action stays in the audit log |
+| `system.full_access` | Maintenance override: reach every part of the system even where a module switch (for example a module switch being off) would hide it. Super administrator only; every action stays in the audit log |
 | `training.configure` | Create and edit the course catalogue |
 | `training.manage` | Enrol people and update training records in scope |
 | `training.report` | See training summaries in scope |

@@ -16,7 +16,7 @@ python manage.py makemigrations --check   # migrations were hand-written; this m
 python manage.py migrate
 python manage.py createcachetable         # login throttling cache
 python manage.py seed_reference_data      # permissions, roles, branches, regions, DRAFT ranks (idempotent)
-python manage.py apply_police_structure --apply  # Police commands, departments, stations (only when POLICE_MODULE_ENABLED=1)
+python manage.py retire_police --apply  # only for databases created before Police was removed (switches Police off, deletes nothing)
 python manage.py apply_army_structure --apply   # Army HQ, directorates, 4 regional commands, Guuto/Urur and battalion sections (idempotent, additive)
 
 # First real administrator (prompts for a password; first login forces password change + MFA enrolment)

@@ -13,7 +13,7 @@ AREAS = {  # permission prefix -> readable area
     "dashboard": "Dashboard", "org": "Organization", "ranks": "Ranks", "personnel": "Personnel", "reports": "Reports",
     "training": "Training", "logistics": "Logistics", "analytics": "Analytics", "cid": "CID", "disciplinary": "Disciplinary",
     "documents": "Documents", "payroll": "Payroll", "survivor": "Survivor benefits", "payment": "Payments", "arrears": "Arrears",
-    "weapons": "Weapons", "attendance": "Attendance", "users": "Users and roles", "audit": "Audit log", "police": "Police",
+    "weapons": "Weapons", "attendance": "Attendance", "users": "Users and roles", "audit": "Audit log",
     "search": "Cross-service search", "integrations": "Integrations", "system": "System", "roles": "Roles",
 }
 
@@ -50,8 +50,6 @@ def notes_for(perms, a):
     out = []
     if "cid.access" in perms:
         out.append("can reach restricted CID records")
-    if "police.cross_access" in perms or (a.branch and a.branch.code == "POLICE"):
-        out.append("can reach Police records")
     if "system.full_access" in perms:
         out.append("maintenance override: not hidden by module switches")
     if a.role.is_privileged:

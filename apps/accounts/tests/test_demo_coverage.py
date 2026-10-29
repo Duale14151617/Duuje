@@ -7,5 +7,5 @@ from apps.core.testing import BaseApiTest
 class DemoCoverageTests(BaseApiTest):
     def test_every_role_has_a_demo_account(self):
         with_user = {spec[1] for spec in DEMO_USERS.values()}
-        missing = set(Role.objects.values_list("code", flat=True)) - with_user - {"cid_officer"}  # CID accounts exist only while the Police module is on
+        missing = set(Role.objects.values_list("code", flat=True)) - with_user
         self.assertEqual(missing, set())

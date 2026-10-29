@@ -62,7 +62,7 @@ class SeededReferenceTests(TemplateBase):
         tg = OU.objects.filter(unit_type__code="TALISKA_GUUD")
         self.assertEqual({u.code for u in tg}, {"BARI-ARMY", "KARKAAR-ARMY", "NUGAAL-ARMY", "MUDUG-ARMY"})
         self.assertTrue(all(u.level == "branch_command" and u.branch.code == "ARMY" for u in tg))
-        self.assertFalse(OU.objects.filter(branch__code__in=["NAVY", "POLICE"], unit_type__isnull=False).exists())
+        self.assertFalse(OU.objects.filter(branch__code__in=["NAVY"], unit_type__isnull=False).exists())
 
     def test_template_levels_and_reference_strengths(self):
         rows = [(t.code, t.tier, t.parent_type.code if t.parent_type else None, t.reference_min, t.reference_max,

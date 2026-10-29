@@ -3,7 +3,7 @@ import { useFetch } from "../api/useFetch";
 import { ErrorNotice, Loading, Notice, formatDate } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
 
-/** Army, Navy and Police strength side by side. Aggregates only; the server audits every view. */
+/** Army and Navy strength side by side. Aggregates only; the server audits every view. */
 export function CombinedReport() {
   const { t, lang, name, tr } = useI18n();
   const r = useFetch<Data>("/reports/combined/");
@@ -17,7 +17,6 @@ export function CombinedReport() {
       {d && (
         <>
           {d.excludes_restricted_units && <Notice kind="info">{t("comb.restricted")}</Notice>}
-          {!d.police_module_enabled && <Notice kind="info">{t("comb.policeOff")}</Notice>}
           <section className="card">
             <div className="stat"><span>{t("comb.total")}</span><b>{d.totals.total}</b></div>
             <div className="stat"><span>{t("comb.serving")}</span><b>{d.totals.serving}</b></div>

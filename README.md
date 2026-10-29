@@ -1,4 +1,4 @@
-# ARMY HQ: administrative platform for Puntland's Army, Navy and Police
+# ARMY HQ: administrative platform for Puntland's Army
 
 **Stack:** Django 5 + Django REST Framework, PostgreSQL, React + TypeScript (Vite), deployed on Render (Docker).
 Synthetic data only; not production-ready (see `docs/LIMITATIONS.md`). There is no XAMPP/WAMP/PHP in this project.
@@ -27,20 +27,17 @@ and the switches below. See `RENDER_DEPLOY_GUIDE.md` and `docs/DEPLOY_ROLLBACK.m
 
 | Variable | Effect |
 |---|---|
-| `POLICE_MODULE_ENABLED=1` | Turns the Police pilot on (seeds draft Police ranks and departments; Police data becomes reachable). Unset/0 hides all Police data server-side. |
-| `ARMYHQ_TEST_PERSONNEL=150` | Keeps 150 synthetic Army people (and, with the Police module on, 2/5 as many Police people). Unset/0 deletes them all. |
-| `ARMYHQ_TEST_POLICE_PERSONNEL=N` | Optional: set the Police sample size explicitly. |
-| `ARMYHQ_TEST_POLICE_DRAFT_RANKS=1` | Demo only: let Police test people use draft ranks until the real ranks are approved. |
+| `ARMYHQ_TEST_PERSONNEL=150` | Keeps 150 synthetic Army people. Unset/0 deletes them all. |
 | `PERSONNEL_EXPORT_ENABLED`, `REPORT_EXPORT_ENABLED`, `INTEGRATIONS_ENABLED` | Stay 0 until the institution approves them. |
 
-## Police module in short
-Read `docs/POLICE_MODULE.md` (switch, ranks, CID, access model, personnel-file records, duplicates, stations) and
-`docs/POLICE_LAW_1972_MAPPING.md` (what the 1972 Police law supports, and what is still open). Useful commands:
-`approve_police_ranks`, `create_command_authority`, `report_duplicate_identities`, `seed_test_personnel`.
+## Police (removed)
+This build is Army-only. The Police code was taken out and kept in `police-archive/` (see its README to put it back).
+A database that still has Police data is cleaned by `python manage.py retire_police --apply` (switches it off, deletes nothing; the Dockerfile runs it at start-up).
+Useful commands: `create_command_authority`, `report_duplicate_identities`, `seed_test_personnel`, `retire_police`.
 
 ## Release history
 
-Administrative web platform for Puntland's Army, Navy and Police (development specification,
+Administrative web platform for Puntland's Army (development specification,
 **synthetic data only**). Stack: Django + DRF, PostgreSQL, React + TypeScript.
 Not production-ready: see `docs/LIMITATIONS.md` and `docs/CHANGE_REPORT_v1.0.md`.
 
@@ -50,7 +47,7 @@ Not production-ready: see `docs/LIMITATIONS.md` and `docs/CHANGE_REPORT_v1.0.md`
 - Users, roles, permissions, scoped role assignments (subtree of the organization + optional service branch,
   validity dates). Deny by default; every check is server-side.
 - Configurable organization: HQ → region → branch command → unit. Seeded: Bari, Karkaar, Nugaal, Mudug;
-  Army, Navy, Police.
+  Army, Navy.
 - Rank catalogue (service-specific, English/Somali, draft/approved), managed in the database. The Army list is the
   16 official Puntland Army ranks (Dable ... Sarreye Guud), stored as supplied with no invented translations.
 - Organizational template for the Army: Taliska Guud (regional command), Qayb, Gaas, Guuto, Urur, Horin, Koox, Unug,

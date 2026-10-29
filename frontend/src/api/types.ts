@@ -213,7 +213,7 @@ export interface PersonnelDocument {
   uploaded_at: string; uploaded_by_username: string;
 }
 export interface CombinedReport {
-  generated_at: string; police_module_enabled: boolean; excludes_restricted_units: boolean;
+  generated_at: string; excludes_restricted_units: boolean;
   totals: { total: number; serving: number };
   branches: (Named & { id: string; code: string; total: number; serving: number; units: number;
     by_status: Record<string, number>; by_rank_category: Record<string, number> })[];

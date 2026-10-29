@@ -1,4 +1,4 @@
-"""Army organizational structure (requirements section 3). Army only: Police and Navy units are never touched."""
+"""Army organizational structure (requirements section 3). Army only: Navy units are never touched."""
 from io import StringIO
 
 from django.core.management import call_command
@@ -57,11 +57,11 @@ class ArmyStructureTests(TemplateBase):
         self.assertIn("already matches", again)
         self.assertEqual(OU.objects.count(), count)
 
-    def test_police_and_navy_are_untouched(self):
-        before = self.snapshot(["POLICE", "NAVY"])
+    def test_navy_is_untouched(self):
+        before = self.snapshot(["NAVY"])
         regions_before = OU.objects.filter(level="region").exclude(code="SANAAG").count()
         self.run_cmd(apply=True)
-        self.assertEqual(self.snapshot(["POLICE", "NAVY"]), before)
+        self.assertEqual(self.snapshot(["NAVY"]), before)
         self.assertEqual(OU.objects.filter(level="region").exclude(code="SANAAG").count(), regions_before)
 
     def test_karkaar_is_retired_only_when_empty(self):
@@ -76,9 +76,9 @@ class ArmyStructureTests(TemplateBase):
 
     def test_only_the_army_may_have_a_command_directly_under_headquarters(self):
         hq = OU.objects.get(level="headquarters")
-        army, police = ServiceBranch.objects.get(code="ARMY"), ServiceBranch.objects.get(code="POLICE")
+        army = ServiceBranch.objects.get(code="ARMY")
         self.assertEqual(check_placement("branch_command", hq, army), army)
-        for branch in (police, ServiceBranch.objects.get(code="NAVY")):
+        for branch in (ServiceBranch.objects.get(code="NAVY"),):
             with self.assertRaises(PlacementError) as cm:
                 check_placement("branch_command", hq, branch)
             self.assertEqual(cm.exception.code, "branch_parent_must_be_region")
