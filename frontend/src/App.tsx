@@ -31,6 +31,9 @@ import { Ranks } from "./pages/Ranks";
 import { Analytics } from "./pages/Analytics";
 import { Integrations } from "./pages/Integrations";
 import { FoodStores } from "./pages/FoodStores";
+import { UnitOverview, UnitsHome } from "./pages/UnitOverview";
+import { ChangeRequests } from "./pages/ChangeRequests";
+import { Tasks } from "./pages/Tasks";
 import { OrgTree } from "./pages/OrgTree";
 import { StructureChanges } from "./pages/StructureChanges";
 import { UserDetail, Users } from "./pages/Users";
@@ -48,6 +51,10 @@ export default function App() {
         <Route index element={<Dashboard />} />
         <Route path="organization" element={<Organization />} />
         <Route path="structure" element={<Structure />} />
+        <Route path="units" element={<UnitsHome />} />
+        <Route path="units/:id" element={<UnitOverview />} />
+        <Route path="change-requests" element={<ChangeRequests />} />
+        <Route path="tasks" element={<Tasks />} />
         <Route path="food" element={<FoodStores />} />
         <Route path="institutions" element={<Institutions />} />
         <Route path="tree" element={<OrgTree />} />

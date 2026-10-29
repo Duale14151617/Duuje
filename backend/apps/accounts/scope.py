@@ -57,7 +57,7 @@ def covers(a, unit):
 #     `police.cross_access` (command authority: President / Commander of the Puntland Defense Forces, and super_admin).
 #     Army roles and any branch-less regional/HQ role therefore never reach Police records by default.
 #  3. Restricted units (CID) need `cid.access` in the same assignment - belonging to the Police branch is not enough.
-GATED_PREFIXES = ("personnel.", "reports.", "training.", "logistics.", "analytics.", "cid.", "disciplinary.", "documents.", "payroll.", "survivor.", "payment.", "arrears.", "vehicles.", "food.")
+GATED_PREFIXES = ("personnel.", "reports.", "training.", "logistics.", "analytics.", "cid.", "disciplinary.", "documents.", "payroll.", "survivor.", "payment.", "arrears.", "vehicles.", "changes.", "food.", "tasks.")
 
 
 def _gates(user):

@@ -9,6 +9,7 @@ from apps.audit.views import AuditEventViewSet
 from apps.dashboard.views import DashboardView
 from apps.personnel.combined import CombinedReportViewSet
 from apps.personnel.views import PersonnelViewSet
+from apps.personnel.task_views import UnitTaskViewSet
 from apps.logistics.food_views import FoodAllocationViewSet, FoodOptionsViewSet, FoodReceiptViewSet, FoodWarningsViewSet, SupplierViewSet
 from apps.logistics.views import (AmmunitionViewSet, AssetViewSet, CategoryViewSet, LogisticsSummaryViewSet, ReconciliationViewSet,
                                   StockViewSet)
@@ -19,7 +20,7 @@ from apps.payroll.views import PayrollRunViewSet, SalaryProfileViewSet, Survivor
 from apps.payroll.views_ext import ArrearsViewSet, PayrollPersonnelViewSet, PaymentViewSet, PolicyViewSet
 from apps.training.views import CourseViewSet, TrainingPeopleViewSet, TrainingRecordViewSet, TrainingSummaryViewSet
 from apps.workflows.views import NotificationViewSet, ReportTypeViewSet, SubmissionViewSet, SummaryViewSet
-from apps.organization.views import (DesignationViewSet, RuleViewSet, ServiceBranchViewSet, StructureChangeViewSet,
+from apps.organization.views import (ChangeRequestViewSet, DesignationViewSet, RuleViewSet, ServiceBranchViewSet, StructureChangeViewSet,
                                      StructureViewSet, UnitTypeViewSet, UnitViewSet)
 from apps.ranks.views import RankViewSet
 from apps.analytics.views import AnalyticsViewSet
@@ -49,6 +50,8 @@ router.register("logistics/assets", AssetViewSet, basename="asset")
 router.register("logistics/ammunition", AmmunitionViewSet, basename="ammunition")
 router.register("logistics/reconciliations", ReconciliationViewSet, basename="reconciliation")
 router.register("logistics/summary", LogisticsSummaryViewSet, basename="logistics-summary")
+router.register("organization/change-requests", ChangeRequestViewSet, basename="change-request")
+router.register("operations/tasks", UnitTaskViewSet, basename="unit-task")
 router.register("logistics/suppliers", SupplierViewSet, basename="food-supplier")
 router.register("logistics/food/receipts", FoodReceiptViewSet, basename="food-receipt")
 router.register("logistics/food/allocations", FoodAllocationViewSet, basename="food-allocation")

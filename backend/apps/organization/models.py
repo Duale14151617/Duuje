@@ -243,3 +243,53 @@ class StructureChange(models.Model):
     class Meta:
         db_table = "structure_changes"
         ordering = ["-created_at", "id"]
+
+
+class ChangeRequest(models.Model):
+    """A hierarchy-affecting action proposed by an HQ administrator and decided by the super administrator.
+
+    Nothing in a request touches live data until it is approved; approval re-validates and applies it in one transaction.
+    Every request carries the Army order that authorizes it (reference, issuing officer, date). `payload` is plain data
+    (validated by the handler for `kind`, never executed). A super administrator's own proposal is applied at once and
+    flagged `self_approved`, so the audit trail still shows the order behind it."""
+
+    class Kind(models.TextChoices):
+        TRANSFER = "transfer"
+        APPOINTMENT_ADD = "appointment_add"
+        APPOINTMENT_END = "appointment_end"
+
+    class Status(models.TextChoices):
+        PENDING = "pending"
+        IN_REVIEW = "in_review"   # the super administrator opened it: the proposer can no longer withdraw it
+        APPROVED = "approved"     # approved and applied atomically
+        REJECTED = "rejected"
+        WITHDRAWN = "withdrawn"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    kind = models.CharField(max_length=20, choices=Kind.choices, db_index=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING, db_index=True)
+    summary = models.CharField(max_length=300)
+    payload = models.JSONField(default=dict)
+    unit = models.ForeignKey(OrganizationalUnit, on_delete=models.PROTECT, related_name="+")  # unit the change lands in
+    order_ref = models.CharField(max_length=150)
+    issuing_officer = models.CharField(max_length=150)
+    order_date = models.DateField()
+    proposed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    proposed_by_username = models.CharField(max_length=150, blank=True)
+    review_started_at = models.DateTimeField(null=True, blank=True)
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    decided_by_username = models.CharField(max_length=150, blank=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decision_note = models.CharField(max_length=500, blank=True)
+    self_approved = models.BooleanField(default=False)
+    batch_id = models.UUIDField(null=True, blank=True, db_index=True)  # requests entered together on one order are decided together
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "change_requests"
+        ordering = ["-created_at", "id"]
+        constraints = [
+            models.CheckConstraint(condition=~Q(order_ref="") & ~Q(issuing_officer=""), name="change_request_order_present"),
+        ]

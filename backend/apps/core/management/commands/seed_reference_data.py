@@ -106,6 +106,10 @@ PERMISSIONS = {
     "documents.manage": "Upload and withdraw service documents on personnel files in scope",
     "reports.combined": "See combined Army + Police summaries (headquarters-wide; command authority). Aggregates only",
     "cid.access": "Reach personnel records inside restricted units such as CID (Police). Never implied by any other permission",
+    "tasks.view": "View administrative tasks of units in scope",
+    "tasks.manage": "Record, assign, start, complete and cancel administrative tasks of units in scope (headquarters administrators and super administrator)",
+    "changes.propose": "Propose hierarchy-affecting changes (personnel transfers) with the Army order that authorizes them (headquarters); nothing applies until the super administrator approves",
+    "changes.approve": "Approve, reject or start review of proposed hierarchy changes (super administrator); cannot approve one's own request except as the super administrator's own immediate entry",
     "food.view": "View food stores, suppliers, allocations and expiry warnings in scope",
     "food.manage": "Receive food from suppliers, allocate it to units and record deliveries in scope (headquarters administrators and super administrator)",
     "system.full_access": "Maintenance override: reach every part of the system even where a module switch (for example the Police pilot being off) would hide it. Super administrator only; every action stays in the audit log",
@@ -114,7 +118,7 @@ PERMISSIONS = {
 SENSITIVE_PREFIXES = ("personnel.", "reports.view", "reports.submit", "reports.review", "reports.summary", "reports.export",
                       "logistics.view", "logistics.manage", "logistics.restricted", "logistics.reconcile",
                       "logistics.report", "logistics.approve", "training.view", "training.manage", "training.report", "analytics.",
-                      "org.structure_approve", "cid.", "police.", "search.", "disciplinary.", "documents.", "reports.combined", "attendance.", "weapons.", "vehicles.", "payroll.", "survivor.", "payment.", "arrears.", "system.")
+                      "org.structure_approve", "cid.", "police.", "search.", "disciplinary.", "documents.", "reports.combined", "attendance.", "weapons.", "vehicles.", "payroll.", "survivor.", "payment.", "arrears.", "changes.approve", "system.")
 REPORT_TYPES = [  # code, kind, name_en, name_so, figure keys
     ("monthly_admin_report", "report", "Monthly administrative report", "Warbixinta maamul ee bishii",
      ["personnel_strength", "personnel_on_leave", "personnel_in_training"]),

@@ -271,3 +271,61 @@ class ImportBatch(models.Model):
 
     class Meta:
         db_table = "personnel_import_batches"
+
+
+# ------------------------------------------------------------------ administrative tasks (Operations and other sections)
+class UnitTask(models.Model):
+    """An authorized administrative task or activity recorded against a unit (a section, Urur or Guuto): what, who is
+    responsible, when assigned and due, current status, and a completion report with a document reference. It records
+    accountability only; it does not define operational procedure."""
+
+    class Status(models.TextChoices):
+        OPEN = "open"
+        IN_PROGRESS = "in_progress"
+        COMPLETED = "completed"
+        CANCELLED = "cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    org_unit = models.ForeignKey("organization.OrganizationalUnit", on_delete=models.PROTECT, related_name="+")
+    title = models.CharField(max_length=200)
+    description = models.CharField(max_length=1000, blank=True)
+    authority_ref = models.CharField(max_length=150)  # the order or instruction that authorizes the task
+    assigned_on = models.DateField()
+    due_on = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.OPEN, db_index=True)
+    responsible = models.ForeignKey(Personnel, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    completion_report = models.CharField(max_length=2000, blank=True)
+    document_ref = models.CharField(max_length=150, blank=True)  # reference to a supporting document, kept as text
+    cancel_reason = models.CharField(max_length=300, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    created_by_username = models.CharField(max_length=150, blank=True)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "unit_tasks"
+        ordering = ["due_on", "-created_at", "id"]
+        constraints = [
+            models.CheckConstraint(condition=~Q(title="") & ~Q(authority_ref=""), name="unittask_title_authority_present"),
+            models.CheckConstraint(condition=Q(due_on__isnull=True) | Q(due_on__gte=models.F("assigned_on")), name="unittask_due_after_assigned"),
+        ]
+
+
+class TaskEvent(AppendOnlyModel):
+    """What happened to a task and who did it. Written only by the service layer; never changed afterwards."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    task = models.ForeignKey(UnitTask, on_delete=models.PROTECT, related_name="events")
+    kind = models.CharField(max_length=12)  # created, updated, started, completed, cancelled
+    from_status = models.CharField(max_length=12, blank=True)
+    to_status = models.CharField(max_length=12, blank=True)
+    note = models.CharField(max_length=300, blank=True)
+    actor_id = models.UUIDField(null=True, blank=True)
+    actor_username = models.CharField(max_length=150, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "unit_task_events"
+        ordering = ["created_at", "id"]

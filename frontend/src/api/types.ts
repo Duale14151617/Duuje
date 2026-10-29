@@ -257,3 +257,37 @@ export interface FoodWarnings {
   expiring: { batch: string; org_unit: string; category: string; remaining: number; uom: string; expires_on: string; expired: boolean; batch_ref: string; supplier: string }[];
   unbatched: { stock_line: string; org_unit: string; category: string; ledger: number; batched: number }[];
 }
+
+export interface UnitOverview {
+  unit: { id: string; code: string; name_en: string; name_so: string; level: string; unit_type: string | null };
+  breadcrumb: { id: string; code: string; name_en: string; name_so: string }[];
+  strength: { direct: number; total: number; by_status: Record<string, number> };
+  children: { id: string; code: string; name_en: string; name_so: string; level: string; unit_type: string | null; direct: number; total: number }[];
+  commanders: { appointment: string; type: string; type_en: string; type_so: string; unit_id: string; unit_code: string;
+                holder: { id: string; full_name: string; rank: string; service_number: string | null } | null }[];
+  members: { id: string; full_name: string; rank: string; service_number: string | null; status: string }[];
+  counts_complete: boolean;
+}
+
+export type ChangeKind = "transfer" | "appointment_add" | "appointment_end";
+export type ChangeStatus = "pending" | "in_review" | "approved" | "rejected" | "withdrawn";
+export interface ChangeRequest {
+  id: string; kind: ChangeKind; status: ChangeStatus; summary: string; payload: Record<string, unknown>; unit: string;
+  order_ref: string; issuing_officer: string; order_date: string; batch: string | null; proposed_by: string; created_at: string;
+  review_started_at: string | null; decided_by: string; decided_at: string | null; decision_note: string;
+  self_approved: boolean; version: number;
+}
+export interface PersonLookup {
+  id: string; full_name: string; service_number: string | null; rank: string; unit: string; unit_id: string; status: string;
+  open_appointments: { id: string; type: string; unit: string }[];
+}
+
+export type TaskStatus = "open" | "in_progress" | "completed" | "cancelled";
+export interface UnitTaskOut {
+  id: string; org_unit: string; org_unit_name: string; title: string; description: string; authority_ref: string;
+  assigned_on: string; due_on: string | null; status: TaskStatus; overdue: boolean;
+  responsible: { id: string; full_name: string; service_number: string | null; rank: string } | null;
+  completion_report: string; document_ref: string; cancel_reason: string; completed_at: string | null; created_by: string; version: number;
+  events?: { kind: string; from_status: string; to_status: string; note: string; actor: string; at: string }[];
+}
+export interface TaskMember { id: string; full_name: string; service_number: string | null; rank: string; unit: string }

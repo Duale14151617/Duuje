@@ -60,7 +60,7 @@ V14_MIGRATIONS = {
     "training": ["0001_initial"],
     "workflows": ["0001_initial", "0002_append_only_triggers"],
 }
-NEW_PERMISSIONS = {"analytics.view", "integrations.view", "integrations.manage", "org.structure_propose", "org.structure_approve", "food.view", "food.manage"}
+NEW_PERMISSIONS = {"analytics.view", "integrations.view", "integrations.manage", "org.structure_propose", "org.structure_approve", "food.view", "food.manage", "changes.propose", "changes.approve", "tasks.view", "tasks.manage"}
 ROLES_GAINING_ANALYTICS = {"hq_reporting", "regional_chief", "branch_admin"}
 NEW_ROLES = {"structure_approver", "super_admin", "cid_officer", "command_authority", "member", "unit_commander", "weapons_custodian", "regional_commander", "transport_officer", "vehicle_disposal_approver",
              "payroll_officer", "payroll_approver", "survivor_officer", "payment_officer", "payment_reconciler"}  # cid/command: Police module; member: own record + direct subordinates
@@ -70,7 +70,7 @@ BRANCH_ADMIN_RECORDS = {"disciplinary.view", "disciplinary.manage", "documents.v
 # Death workflow: units and regions may REPORT a death; only branch_admin may CONFIRM (a different officer from the reporter).
 DEATH_GAINS = {"unit_admin": {"personnel.record_death"}, "regional_chief": {"personnel.record_death"},
                "branch_admin": {"personnel.record_death", "personnel.confirm_death", "personnel.appointments_manage"}}
-HQ_ADMIN_GAINS = {"integrations.view", "integrations.manage", "org.structure_propose", "food.view", "food.manage"}
+HQ_ADMIN_GAINS = {"integrations.view", "integrations.manage", "org.structure_propose", "food.view", "food.manage", "changes.propose", "tasks.view", "tasks.manage"}
 
 
 class RoleCompatibilityTests(BaseApiTest):
@@ -100,7 +100,7 @@ class RoleCompatibilityTests(BaseApiTest):
 
     def test_administrators_still_hold_no_data_permissions(self):
         have = set(Role.objects.get(code="hq_admin").permissions.values_list("code", flat=True))
-        sensitive = ("personnel.", "reports.view", "reports.submit", "reports.review", "reports.summary", "logistics.view",
+        sensitive = ("personnel.", "changes.approve", "reports.view", "reports.submit", "reports.review", "reports.summary", "logistics.view",
                      "logistics.manage", "logistics.restricted", "training.view", "training.manage", "analytics.", "org.structure_approve",
                      "disciplinary.", "documents.", "reports.combined", "police.", "search.", "cid.")
         self.assertFalse([c for c in have if c.startswith(sensitive)])
@@ -118,7 +118,7 @@ class RouteCompatibilityTests(BaseApiTest):
         now = {(prefix, basename) for prefix, _, basename in router.registry}
         added = now - {tuple(r) for r in V14_ROUTES}
         self.assertEqual(added, {("analytics", "analytics"), ("integrations/clients", "integration-client"),
-                                 ("organization/structure-changes", "structure-change"), ("logistics/suppliers", "food-supplier"), ("logistics/food/receipts", "food-receipt"), ("logistics/food/allocations", "food-allocation"), ("logistics/food/warnings", "food-warning"), ("logistics/food/options", "food-options"),
+                                 ("organization/structure-changes", "structure-change"), ("organization/change-requests", "change-request"), ("operations/tasks", "unit-task"), ("logistics/suppliers", "food-supplier"), ("logistics/food/receipts", "food-receipt"), ("logistics/food/allocations", "food-allocation"), ("logistics/food/warnings", "food-warning"), ("logistics/food/options", "food-options"),
                                  ("reports/combined", "report-combined"),  # Police module: combined Army + Police report
                                  ("attendance", "attendance"), ("weapons", "weapons"), ("vehicles", "vehicle"), ("logistics/ammunition", "ammunition"),
                                  ("survivor-cases", "survivor-case"), ("payroll/profiles", "payroll-profile"),

@@ -4,7 +4,7 @@ from rest_framework import mixins, viewsets
 
 from apps.accounts import scope
 from apps.accounts.permissions import ScopedPermission
-from apps.audit.services import record
+from apps.audit.services import record, record_read
 from apps.core.params import uuid_param
 
 from rest_framework.decorators import action
@@ -17,8 +17,8 @@ from rest_framework.exceptions import PermissionDenied
 from apps.core.concurrency import require_version, versioned_update
 from apps.core.errors import field_error
 
-from . import structure, structure_changes
-from .models import DesignationRule, ServiceBranch, SpecialistDesignation, StructureChange, UnitType
+from . import change_requests, structure, structure_changes
+from .models import ChangeRequest, DesignationRule, ServiceBranch, SpecialistDesignation, StructureChange, UnitType
 from .serializers import (BranchSerializer, DesignationSerializer, RuleSerializer, StructureChangeSerializer,
                           UnitSerializer, UnitTypeSerializer)
 
@@ -31,7 +31,7 @@ class UnitViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
     permission_map = {
         "list": ("org.view", "unit"), "retrieve": ("org.view", "unit"),
         "create": ("org.manage", "any"), "partial_update": ("org.manage", "unit"),
-        "tree": ("org.view", "any"),
+        "tree": ("org.view", "any"), "overview": ("org.view", "unit"),
     }
 
     def scope_unit(self, obj):
@@ -61,6 +61,63 @@ class UnitViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         return qs.select_related("parent", "branch").prefetch_related("designations")
 
     TREE_LIMIT = 2000
+
+    @action(detail=True, methods=["get"])
+    def overview(self, request, pk=None):
+        """Read-only picture of one unit (Guuto, Urur, section...): strength counted once, sub-unit totals, commanders.
+
+        Every person has exactly one unit, so `total` = `direct` + the sum of the sub-units' totals: nobody is counted twice.
+        Only people the caller may count are included (personnel.view or changes.propose, with the Police/CID gates applied).
+        Aggregates only; names appear only for callers who may see personnel (or HQ administrators preparing a request)."""
+        from collections import Counter
+
+        from apps.personnel.models import CommandAppointment, Personnel
+        from apps.personnel.services import NOT_SERVING
+
+        unit = self.get_object()
+        q = None
+        for code in ("personnel.view", "changes.propose"):
+            part = scope.unit_scope_q(request.user, code, "org_unit__")
+            if part is not None:
+                q = part if q is None else (q | part)
+        base = Personnel.objects.filter(q).exclude(status__in=NOT_SERVING) if q is not None else Personnel.objects.none()
+        below = base.filter(org_unit__path__startswith=unit.path)
+        by_unit = Counter(below.values_list("org_unit__path", flat=True))
+        by_status = dict(Counter(below.values_list("status", flat=True)))
+        kids = list(scope.scoped_units(request.user, "org.view").filter(parent=unit, active=True)
+                    .select_related("unit_type").order_by("code"))
+        children = [{"id": str(k.pk), "code": k.code, "name_en": k.name_en, "name_so": k.name_so, "level": k.level,
+                     "unit_type": k.unit_type.code if k.unit_type_id else None,
+                     "direct": by_unit.get(k.path, 0),
+                     "total": sum(n for p, n in by_unit.items() if p.startswith(k.path))} for k in kids]
+        names_ok = scope.can(request.user, "personnel.view", unit=unit) or scope.can(request.user, "changes.propose", unit=unit)
+        appts = CommandAppointment.objects.filter(ended_at__isnull=True, org_unit__in=[unit] + kids).select_related(
+            "appointment_type", "org_unit", "personnel__rank")
+        commanders = [{"appointment": str(a.pk), "type": a.appointment_type.code, "type_en": a.appointment_type.name_en,
+                       "type_so": a.appointment_type.name_so, "unit_id": str(a.org_unit_id), "unit_code": a.org_unit.code,
+                       "holder": ({"id": str(a.personnel_id), "full_name": a.personnel.full_name,
+                                   "rank": a.personnel.rank.name_en, "service_number": a.personnel.service_number}
+                                  if names_ok else None)} for a in appts]
+        members = []
+        if names_ok:  # the section's own personnel: name, rank, service number (the unit's strength is counted from the same rows)
+            members = [{"id": str(m.pk), "full_name": m.full_name, "rank": m.rank.name_en, "service_number": m.service_number,
+                        "status": m.status} for m in base.filter(org_unit=unit).select_related("rank").order_by("full_name")[:300]]
+        chain = [{"id": str(u.pk), "code": u.code, "name_en": u.name_en, "name_so": u.name_so}
+                 for u in scope.scoped_units(request.user, "org.view").filter(path__in=self._ancestors(unit)).order_by("path")]
+        direct = by_unit.get(unit.path, 0)
+        total = sum(by_unit.values())
+        record_read(request, "org_unit.overview_view", entity_type="organizational_unit", entity_id=unit.pk, org_unit=unit, count=total)
+        return Response({
+            "unit": {"id": str(unit.pk), "code": unit.code, "name_en": unit.name_en, "name_so": unit.name_so, "level": unit.level,
+                     "unit_type": unit.unit_type.code if unit.unit_type_id else None},
+            "breadcrumb": chain, "strength": {"direct": direct, "total": total, "by_status": by_status},
+            "children": children, "commanders": commanders, "members": members, "counts_complete": q is not None})
+
+    @staticmethod
+    def _ancestors(unit):
+        parts = [p for p in unit.path.split("/") if p]
+        return ["/" + "/".join(parts[:i]) + "/" for i in range(1, len(parts))] if unit.path.startswith("/") else \
+            ["/".join(parts[:i]) + "/" for i in range(1, len(parts))]
 
     @action(detail=False, methods=["get"])
     def tree(self, request):
@@ -316,3 +373,131 @@ class StructureChangeViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, m
                                          "decided_at": timezone.now(), "decision_note": note}, expected)
             record("structure_change.reject", request=request, entity_type="structure_change", entity_id=obj.pk, metadata=self._meta(obj))
         return Response(self.get_serializer(obj).data)
+
+
+def _change_request_out(obj):
+    return {"id": str(obj.pk), "kind": obj.kind, "status": obj.status, "summary": obj.summary, "payload": obj.payload,
+            "unit": str(obj.unit_id), "order_ref": obj.order_ref, "issuing_officer": obj.issuing_officer,
+            "order_date": obj.order_date.isoformat(), "batch": str(obj.batch_id) if obj.batch_id else None, "proposed_by": obj.proposed_by_username,
+            "created_at": obj.created_at.isoformat(), "review_started_at": obj.review_started_at and obj.review_started_at.isoformat(),
+            "decided_by": obj.decided_by_username, "decided_at": obj.decided_at and obj.decided_at.isoformat(),
+            "decision_note": obj.decision_note, "self_approved": obj.self_approved, "version": obj.version}
+
+
+class ChangeRequestViewSet(viewsets.GenericViewSet):
+    """Hierarchy-affecting actions: HQ administrators propose (with the Army order), the super administrator decides.
+    Nothing is live before approval. Permissions are enforced here on the server; the user interface only mirrors them."""
+
+    permission_classes = [ScopedPermission]
+    http_method_names = ["get", "post", "head", "options"]
+    queryset = ChangeRequest.objects.all()
+    _both = ("changes.propose", "changes.approve")
+    permission_map = {
+        "list": (_both, "global"), "retrieve": (_both, "global"),
+        "create": ("changes.propose", "global"), "withdraw": ("changes.propose", "global"),
+        "start_review": ("changes.approve", "global"), "approve": ("changes.approve", "global"),
+        "bulk_transfer": ("changes.propose", "global"), "batch": (_both, "global"),
+        "reject": ("changes.approve", "global"), "people": ("changes.propose", "global"), "appointment_types": ("changes.propose", "global"),
+    }
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        for key in ("status", "kind"):
+            if self.request.query_params.get(key):
+                qs = qs.filter(**{key: self.request.query_params[key]})
+        if uuid_param(self.request, "batch"):
+            qs = qs.filter(batch_id=uuid_param(self.request, "batch"))
+        return qs
+
+    def list(self, request):
+        rows = list(self.get_queryset()[:200])
+        record("change_request.list", request=request, entity_type="change_request", metadata={"count": len(rows)})
+        return Response({"results": [_change_request_out(r) for r in rows]})
+
+    def retrieve(self, request, pk=None):
+        obj = self.get_object()
+        record("change_request.view", request=request, entity_type="change_request", entity_id=obj.pk)
+        return Response(_change_request_out(obj))
+
+    def create(self, request):
+        d = request.data
+        obj = change_requests.propose(
+            request.user, request, kind=d.get("kind"), payload=d.get("payload"), order_ref=d.get("order_ref"),
+            issuing_officer=d.get("issuing_officer"), order_date=d.get("order_date"))
+        return Response(_change_request_out(obj), status=201)
+
+    @action(detail=True, methods=["post"])
+    def withdraw(self, request, pk=None):
+        obj = change_requests.withdraw(self.get_object(), request.user, request, require_version(request.data))
+        return Response(_change_request_out(obj))
+
+    @action(detail=True, methods=["post"], url_path="start-review")
+    def start_review(self, request, pk=None):
+        obj = change_requests.start_review(self.get_object(), request.user, request, require_version(request.data))
+        return Response(_change_request_out(obj))
+
+    @action(detail=True, methods=["post"])
+    def approve(self, request, pk=None):
+        obj = change_requests.approve(self.get_object(), request.user, request, require_version(request.data),
+                                      str(request.data.get("note", "")))
+        return Response(_change_request_out(obj))
+
+    @action(detail=True, methods=["post"])
+    def reject(self, request, pk=None):
+        obj = change_requests.reject(self.get_object(), request.user, request, require_version(request.data),
+                                     str(request.data.get("note", "")))
+        return Response(_change_request_out(obj))
+
+    @action(detail=False, methods=["get"])
+    def people(self, request):
+        """Narrow lookup so an HQ administrator can name the person in a request: name, service number, rank, unit and current
+        appointments only (no phone, profile, documents or history). Needs >= 3 characters, returns at most 20, and is audited."""
+        from apps.personnel.models import CommandAppointment, Personnel
+
+        text = (request.query_params.get("q") or "").strip()
+        if len(text) < 3:
+            raise field_error("q", "query_too_short", "Type at least 3 characters.")
+        q = scope.unit_scope_q(request.user, "changes.propose", "org_unit__")
+        rows = []
+        if q is not None:
+            people = list(Personnel.objects.filter(q).filter(Q(full_name__icontains=text) | Q(service_number__iexact=text))
+                          .select_related("rank", "org_unit")[:20])
+            open_by = {}
+            for a in CommandAppointment.objects.filter(personnel__in=people, ended_at__isnull=True).select_related("appointment_type", "org_unit"):
+                open_by.setdefault(a.personnel_id, []).append({"id": str(a.pk), "type": a.appointment_type.name_en, "unit": a.org_unit.name_en})
+            rows = [{"id": str(p.pk), "full_name": p.full_name, "service_number": p.service_number, "rank": p.rank.name_en,
+                     "unit": p.org_unit.name_en, "unit_id": str(p.org_unit_id), "status": p.status,
+                     "open_appointments": open_by.get(p.pk, [])} for p in people]
+        record("change_request.people_lookup", request=request, entity_type="personnel", metadata={"count": len(rows)})
+        return Response({"results": rows})
+
+    @action(detail=False, methods=["get"], url_path="appointment-types")
+    def appointment_types(self, request):
+        """The command post catalogue, so an HQ administrator can choose the post in a request (it holds no personal data)."""
+        from apps.personnel.models import AppointmentType
+
+        return Response({"results": [{"id": str(t.pk), "code": t.code, "name_en": t.name_en, "name_so": t.name_so,
+                                      "unit_type": str(t.unit_type_id) if t.unit_type_id else None, "exclusive": t.exclusive}
+                                     for t in AppointmentType.objects.filter(active=True).order_by("code")]})
+
+    @action(detail=False, methods=["post"], url_path="bulk-transfer")
+    def bulk_transfer(self, request):
+        """One Army order moving many people. All rows are checked first; if any is wrong nothing is created and every
+        problem row is reported. `items` is a list of {service_number | personnel, org_unit?}; `org_unit` is the default
+        destination. The requests are decided together (see `batch`)."""
+        d = request.data
+        try:
+            rows = change_requests.propose_bulk_transfer(
+                request.user, request, items=d.get("items"), order_ref=d.get("order_ref"), issuing_officer=d.get("issuing_officer"),
+                order_date=d.get("order_date"), org_unit=d.get("org_unit"), effective_date=d.get("effective_date"), reason=str(d.get("reason") or ""))
+        except change_requests.BulkInvalid as exc:
+            return Response({"code": "bulk_invalid", "detail": "Some rows cannot be used. Nothing was created.", "rows": exc.rows}, status=400)
+        return Response({"batch": str(rows[0].batch_id), "count": len(rows), "results": [_change_request_out(r) for r in rows]}, status=201)
+
+    @action(detail=False, methods=["post"])
+    def batch(self, request):
+        """Decide or withdraw a whole batch atomically: {batch, action: approve|reject|start_review|withdraw, count, note}."""
+        d = request.data
+        rows = change_requests.decide_batch(request.user, request, batch=d.get("batch"), action=d.get("action"),
+                                            expected_count=d.get("count"), note=str(d.get("note") or ""))
+        return Response({"batch": str(rows[0].batch_id), "count": len(rows), "results": [_change_request_out(r) for r in rows]})
