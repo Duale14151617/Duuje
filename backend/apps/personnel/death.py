@@ -17,6 +17,8 @@ from apps.accounts.models import User
 from apps.accounts.services import revoke_user_sessions
 from apps.core.concurrency import versioned_update
 
+from apps.payroll import breakglass as bg
+
 from . import appointments, records
 from .models import DeathRecord, Personnel, PersonnelDocument
 from .services import RuleError, add_history
@@ -48,7 +50,7 @@ def confirm(actor, person, rec, expected_version):
     """Confirm a reported death. Caller wraps this in a transaction. Returns (updated person, account_closed)."""
     if rec.state != DeathRecord.State.REPORTED:
         raise RuleError("death_not_pending", "state")
-    if rec.reported_by_id == actor.pk:
+    if rec.reported_by_id == actor.pk and not bg.bypass(actor, "death_confirmer", "death_record", rec.pk):
         raise RuleError("confirmer_must_differ", "state")  # separation of duties: the reporter cannot confirm
     if not evidence(person).exists():
         raise RuleError("death_evidence_required", "state")

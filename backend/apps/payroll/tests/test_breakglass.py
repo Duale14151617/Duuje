@@ -47,3 +47,12 @@ class BreakGlassTests(PayrollBase):
         self.assertEqual(self.approve(HTTP_X_OVERRIDE_REASON=REASON).status_code, 200)
         # already approved: the state rule is not overridden
         self.assertEqual(self.approve(HTTP_X_OVERRIDE_REASON=REASON).status_code, 409)
+
+
+class AuditorPayrollAccessTests(PayrollBase):
+    def test_auditor_can_read_payroll_but_never_act(self):
+        aud = self.client_for(self.make_user("aud2", "auditor"))
+        pid = self.profile().json()["id"]
+        self.assertEqual(aud.get(f"{P}profiles/").status_code, 200)
+        self.assertEqual(aud.post(f"{P}profiles/{pid}/approve/", {}, format="json").status_code, 403)
+        self.assertEqual(aud.post(f"{P}profiles/", {}, format="json").status_code, 403)

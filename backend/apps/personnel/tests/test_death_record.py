@@ -79,6 +79,38 @@ class DeathWorkflowTests(DeathBase):
         self.evidence(c=boss)
         self.assertEqual(self.codes(self.confirm(c=boss), "state"), ["confirmer_must_differ"])
 
+    def test_super_admin_can_confirm_own_report_only_with_a_written_reason(self):
+        boss = self.client_for(self.make_user("boss", "super_admin"))
+        self.report(c=boss)
+        self.evidence(c=boss)
+        self.p.refresh_from_db()
+        url, body = self.d(tail="confirm/"), {"version": self.p.version}
+        self.assertEqual(self.codes(boss.post(url, body, format="json"), "state"), ["confirmer_must_differ"])
+        self.assertEqual(boss.post(url, body, format="json", HTTP_X_OVERRIDE_REASON="urgent").status_code, 400)
+        r = boss.post(url, body, format="json", HTTP_X_OVERRIDE_REASON="Second officer unreachable, family needs the certificate")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(Personnel.objects.get(pk=self.p.pk).status, "died")
+        ev = AuditEvent.objects.get(action="breakglass.override")
+        self.assertEqual((ev.actor_username, ev.metadata["check"]), ("boss", "death_confirmer"))
+
+    def test_override_does_not_waive_the_evidence_rule_or_help_other_roles(self):
+        boss = self.client_for(self.make_user("boss", "super_admin"))
+        self.report(c=boss)  # no evidence attached
+        self.p.refresh_from_db()
+        r = boss.post(self.d(tail="confirm/"), {"version": self.p.version}, format="json",
+                      HTTP_X_OVERRIDE_REASON="Second officer unreachable, family needs the certificate")
+        self.assertEqual(self.codes(r, "state"), ["death_evidence_required"])
+
+    def test_override_header_does_not_help_a_branch_administrator(self):
+        solo = self.client_for(self.make_user("solo2", "branch_admin", unit="BARI", branch="ARMY"))
+        self.report(c=solo)
+        self.evidence(c=solo)
+        self.p.refresh_from_db()
+        r = solo.post(self.d(tail="confirm/"), {"version": self.p.version}, format="json",
+                      HTTP_X_OVERRIDE_REASON="Second officer unreachable, family needs the certificate")
+        self.assertEqual(self.codes(r, "state"), ["confirmer_must_differ"])
+        self.assertFalse(AuditEvent.objects.filter(action="breakglass.override").exists())
+
     def test_unit_admin_cannot_confirm(self):
         self.report()
         self.evidence()

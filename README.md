@@ -31,7 +31,7 @@ and the switches below. See `RENDER_DEPLOY_GUIDE.md` and `docs/DEPLOY_ROLLBACK.m
 | `PERSONNEL_EXPORT_ENABLED`, `REPORT_EXPORT_ENABLED`, `INTEGRATIONS_ENABLED` | Stay 0 until the institution approves them. |
 
 ## Police (removed)
-This build is Army-only. The Police code was taken out and kept in `police-archive/` (see its README to put it back).
+This build is Army-only. The Police code was taken out and is kept in `police-archive.zip`, delivered separately from this repo (see its README to put it back).
 A database that still has Police data is cleaned by `python manage.py retire_police --apply` (switches it off, deletes nothing; the Dockerfile runs it at start-up).
 Useful commands: `create_command_authority`, `report_duplicate_identities`, `seed_test_personnel`, `retire_police`.
 

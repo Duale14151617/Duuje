@@ -13,9 +13,10 @@ from apps.core.params import json_body
 from apps.personnel.models import Personnel
 
 from . import payments as pay
+from . import regional as reg
 from . import review
 from . import services as svc
-from .models import ArrearsClaim, PaymentInstruction, PolicySetting, SalaryProfile, StatusPayDecision, SurvivorCase
+from .models import ArrearsClaim, PayrollLine, PaymentInstruction, PolicySetting, SalaryProfile, StatusPayDecision, SurvivorCase
 from .views import _404, _date, _get, _valid
 
 PAY_VIEW = ("payroll.view", "payment.prepare", "payment.authorize", "payment.execute", "payment.reconcile")
@@ -47,15 +48,26 @@ def _inst_detail(i):
 class PaymentViewSet(viewsets.ViewSet):
     permission_classes = [ScopedPermission]
     permission_map = {
-        "list": (PAY_VIEW, "global"), "retrieve": (PAY_VIEW, "global"), "methods": (PAY_VIEW, "global"),
-        "create": ("payment.prepare", "global"), "authorize": ("payment.authorize", "global"),
-        "cancel": (("payment.prepare", "payment.authorize"), "global"),
-        "process": ("payment.execute", "global"), "mark_pending": ("payment.execute", "global"), "fail": ("payment.execute", "global"),
-        "complete": ("payment.execute", "global"), "reconcile": ("payment.reconcile", "global"), "reveal": ("payment.details", "global"),
+        "list": (PAY_VIEW, "any"), "retrieve": (PAY_VIEW, "any"), "methods": (PAY_VIEW, "any"),
+        "create": ("payment.prepare", "any"), "authorize": ("payment.authorize", "any"),
+        "cancel": (("payment.prepare", "payment.authorize"), "any"),
+        "process": ("payment.execute", "any"), "mark_pending": ("payment.execute", "any"), "fail": ("payment.execute", "any"),
+        "complete": ("payment.execute", "any"), "reconcile": ("payment.reconcile", "any"), "reveal": ("payment.details", "any"),
     }
 
+    def _codes(self):
+        rule = self.permission_map[self.action][0]
+        return (rule,) if isinstance(rule, str) else tuple(rule)
+
+    def _rows(self):
+        """Headquarters: every payment, as before. Regional finance: only SALARY payments of personnel inside its own command."""
+        codes, user = self._codes(), self.request.user
+        if reg.is_hq(user, codes):
+            return PaymentInstruction.objects.all()
+        return reg.narrow(user, codes, PaymentInstruction.objects.filter(kind="salary"), "personnel__org_unit__")
+
     def _i(self, pk):
-        return _404(_get(PaymentInstruction, pk))
+        return _404(_get(self._rows(), pk))
 
     @action(detail=False, methods=["get"])
     def methods(self, request):
@@ -63,7 +75,7 @@ class PaymentViewSet(viewsets.ViewSet):
                                      for c, m in pay.METHODS.items()], "integration_note": pay.INTEGRATION_NOTE})
 
     def list(self, request):
-        qs = PaymentInstruction.objects.select_related("personnel")
+        qs = self._rows().select_related("personnel")
         q = request.query_params
         for key, field in (("status", "status"), ("method", "method"), ("kind", "kind"), ("reconciliation", "recon_status")):
             if q.get(key):
@@ -81,7 +93,13 @@ class PaymentViewSet(viewsets.ViewSet):
 
     @transaction.atomic
     def create(self, request):
-        return Response(_inst_out(pay.prepare_payment(request.user, json_body(request))), status=201)
+        data = json_body(request)
+        if not reg.is_hq(request.user, ("payment.prepare",)):
+            # Regional finance prepares SALARY payments only, for approved lines of people inside its own command.
+            line = _get(PayrollLine.objects.select_related("personnel__org_unit"), data.get("line"))
+            if data.get("kind") != "salary" or line is None or not reg.in_scope(request.user, ("payment.prepare",), line.personnel.org_unit):
+                _404(None)
+        return Response(_inst_out(pay.prepare_payment(request.user, data)), status=201)
 
     @action(detail=True, methods=["post"])
     def authorize(self, request, pk=None):
