@@ -10,7 +10,10 @@ jobs:
       - name: Unzip into repo root
         run: |
           set -e
-          Z=$(ls *.zip | head -n1)
+          ls -la *.zip || { echo "No zip on this branch"; exit 1; }
+          Z=$(ls -S *.zip | head -n1)
+          echo "Using $Z"
+          unzip -tq "$Z" || { echo "Zip is corrupt or truncated, re-upload it"; exit 1; }
           mkdir /tmp/x && unzip -q "$Z" -d /tmp/x
           D=$(find /tmp/x -maxdepth 1 -mindepth 1 -type d | head -n1)
           rm -rf "$D/.github"
