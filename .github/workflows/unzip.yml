@@ -11,6 +11,7 @@ jobs:
         run: |
           set -e
           ls -la *.zip || { echo "No zip on this branch"; exit 1; }
+          sha256sum *.zip
           Z=$(ls -S *.zip | head -n1)
           echo "Using $Z"
           unzip -tq "$Z" || { echo "Zip is corrupt or truncated, re-upload it"; exit 1; }
