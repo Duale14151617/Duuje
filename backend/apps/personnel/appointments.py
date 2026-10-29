@@ -12,7 +12,6 @@ from django.utils import timezone
 
 from apps.accounts.services import revoke_user_sessions
 
-from . import police_appointments as police
 from .models import AppointmentType, CommandAppointment, Personnel
 from .services import NOT_SERVING, RuleError, outranks
 
@@ -29,11 +28,6 @@ def create(actor, person, org_unit, atype, effective_from, effective_to=None, au
         raise RuleError("appointment_inactive", "appointment_type")
     if atype.unit_type_id and org_unit.unit_type_id != atype.unit_type_id:
         raise RuleError("appointment_unit_mismatch", "org_unit")  # e.g. a Taliye Urur belongs to an Urur
-    if atype.code in police.LEVEL_FOR:  # Chief of Police / Station Commander: Police unit of the right kind, Police officer
-        if not police.unit_fits(atype.code, org_unit):
-            raise RuleError("appointment_unit_mismatch", "org_unit")
-        if person.branch.code != "POLICE":
-            raise RuleError("appointment_person_not_police", "personnel")
     if effective_to is not None and effective_to < effective_from:
         raise RuleError("appointment_dates", "effective_to")
     if assignment is not None:
@@ -48,32 +42,9 @@ def create(actor, person, org_unit, atype, effective_from, effective_to=None, au
                 personnel=person, org_unit=org_unit, appointment_type=atype, exclusive=atype.exclusive,
                 effective_from=effective_from, effective_to=effective_to, authority_ref=(authority_ref or "")[:150],
                 role_assignment=assignment, created_by_id=actor.pk, created_by_username=actor.username)
-            _link_police_chain(atype.code, org_unit, person)
             return appt
     except IntegrityError:  # two officers appointing at the same moment: the database refuses the second
         raise RuleError("appointment_exists", "appointment_type")
-
-
-def _set_supervisor(person, sup):
-    from django.db.models import F
-    Personnel.objects.filter(pk=person.pk, supervisor__isnull=True).update(
-        supervisor=sup, version=F("version") + 1, updated_at=timezone.now())
-
-
-def _link_police_chain(code, unit, person):
-    """Station Commanders report to the Chief of Police of their region. Only fills an EMPTY reporting line, only when the chief
-    strictly outranks the commander (the same rule as every reporting line), and never replaces a line someone set by hand."""
-    if code == police.CHIEF:
-        open_leads = CommandAppointment.objects.filter(
-            org_unit__parent=unit, appointment_type__code=police.STATION_LEAD, ended_at__isnull=True).select_related("personnel__rank")
-        for a in open_leads:
-            if a.personnel.supervisor_id is None and outranks(person.rank, a.personnel.rank):
-                _set_supervisor(a.personnel, person)
-    elif code == police.STATION_LEAD and unit.parent_id:
-        chief = CommandAppointment.objects.filter(
-            org_unit_id=unit.parent_id, appointment_type__code=police.CHIEF, ended_at__isnull=True).select_related("personnel__rank").first()
-        if chief is not None and person.supervisor_id is None and outranks(chief.personnel.rank, person.rank):
-            _set_supervisor(person, chief.personnel)
 
 
 def end(actor, appt, reason):

@@ -1,5 +1,5 @@
 """Create an account holding the command_authority role (the President / Commander-in-Chief or the Commander of the
-Puntland Defense Forces). Access is by role, not by rank. Read-only, HQ-wide, Army and Police, never CID.
+Puntland Defense Forces). Access is by role, not by rank. Read-only, HQ-wide, all services, never CID.
 
   python manage.py create_command_authority --username president --full-name "Name"
 

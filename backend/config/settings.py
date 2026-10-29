@@ -194,9 +194,9 @@ ENABLE_API_DOCS = env_bool("ENABLE_API_DOCS", DEBUG)
 # Personnel exports stay off until the institution approves them (see docs/LIMITATIONS.md).
 PERSONNEL_EXPORT_ENABLED = env_bool("PERSONNEL_EXPORT_ENABLED", False)
 
-# Puntland Police module. OFF until the institution approves the pilot. When off: no Police ranks/departments are seeded and
-# every personnel/report/training/logistics/analytics scope excludes Police units (enforced in apps/accounts/scope.py).
-POLICE_MODULE_ENABLED = env_bool("POLICE_MODULE_ENABLED", False)
+# The Police module was removed from this build (archived in police-archive/). This constant stays fixed at False on purpose:
+# apps/accounts/scope.py uses it as a safety net, so any Police rows left in an old database stay hidden from every scope.
+POLICE_MODULE_ENABLED = False
 # Emergency override of the different-person payroll rules, super admin only, written reason required, always audited (see apps/payroll/breakglass.py).
 BREAK_GLASS_ENABLED = env_bool("ARMYHQ_BREAK_GLASS", True)
 

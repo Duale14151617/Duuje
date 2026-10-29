@@ -44,10 +44,6 @@ DEMO_USERS.setdefault("payment.officer", ("Payment Execution Officer", "payment_
 DEMO_USERS.setdefault("payment.reconciler", ("Payment Reconciliation Officer", "payment_reconciler", "HQ", None))
 DEMO_USERS.setdefault("president", ("President / Commander-in-Chief", "command_authority", "HQ", None))
 DEMO_USERS.setdefault("commander", ("Commander of the Puntland Defense Forces", "command_authority", "HQ", None))
-if settings.POLICE_MODULE_ENABLED:  # Police pilot demo accounts; each is limited to the POLICE branch
-    DEMO_USERS.setdefault("bari.policeadmin", ("Bari Police Admin", "branch_admin", "BARI", "POLICE"))
-    DEMO_USERS.setdefault("bari.policepers", ("Bari Police Personnel Admin", "unit_admin", "BARI-POLICE-PERS", "POLICE"))
-    DEMO_USERS.setdefault("bari.cid", ("Bari CID Officer", "cid_officer", "BARI-POLICE-CID", "POLICE"))
 
 # The other regions get the same regional set Bari has (chief, branch admin, unit admin, reporter, custodians, trainer).
 OTHER_REGIONS = ("Karkaar", "Nugaal", "Mudug")
@@ -93,13 +89,6 @@ for _name in ("Bari", "Nugaal", "Mudug", "Sanaag"):
 for _name in ("Bari", "Nugaal", "Mudug", "Sanaag"):
     DEMO_USERS.setdefault(f"{_name.lower()}.weapons", (f"{_name} Weapons Custodian", "weapons_custodian", f"{_name.upper()}-ARMY", None))
 
-if settings.POLICE_MODULE_ENABLED:  # one CID officer per region, limited to that region's CID unit
-    for _name in OTHER_REGIONS:
-        DEMO_USERS.setdefault(f"{_name.lower()}.cid", (f"{_name} CID Officer", "cid_officer", f"{_name.upper()}-POLICE-CID", "POLICE"))
-    # HQ CID officer: one assignment per regional CID unit, so it reaches CID records in every region and nothing else
-    # (no other Police units, no Army). A tuple of unit codes means "one assignment per unit".
-    DEMO_USERS.setdefault("hq.cid", ("HQ CID Officer", "cid_officer",
-                                     tuple(f"{_r.upper()}-POLICE-CID" for _r in ("Bari",) + OTHER_REGIONS), "POLICE"))
 
 
 class Command(BaseCommand):

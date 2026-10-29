@@ -179,6 +179,12 @@ class ServiceBranchViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mix
         "create": ("org.manage", "global"), "partial_update": ("org.manage", "global"),
     }
 
+    def get_queryset(self):
+        qs = ServiceBranch.objects.all()
+        if self.action == "list" and self.request.query_params.get("include_inactive") != "1":
+            qs = qs.filter(active=True)  # a retired service (for example Police) no longer appears in lists or drop-downs
+        return qs
+
     @transaction.atomic
     def perform_create(self, serializer):
         obj = serializer.save()

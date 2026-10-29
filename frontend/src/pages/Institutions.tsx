@@ -4,8 +4,6 @@ import { useI18n, type Key } from "../i18n";
 const INSTITUTIONS: { img: string; name: string; alt: string; note: Key }[] = [
   { img: "/defence-force.jpg", name: "Puntland Defence Force", alt: "Puntland Defence Force emblem", note: "inst.defence" },
   { img: "/ministry.jpg", name: "Ministry of Security Puntland", alt: "Ministry of Security Puntland emblem", note: "inst.ministry" },
-  { img: "/puntland-police.jpg", name: "Puntland Police", alt: "Puntland Police emblem", note: "inst.police" },
-  { img: "/pmpf.jpg", name: "Puntland Maritime Police Force (PMPF)", alt: "Puntland Maritime Police Force emblem", note: "inst.pmpf" },
 ];
 
 export function Institutions() {

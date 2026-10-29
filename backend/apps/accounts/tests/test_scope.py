@@ -11,7 +11,7 @@ class ScopeTests(BaseApiTest):
     def test_global_user_sees_whole_tree(self):
         c = self.client_for(self.make_user("hqr", "hq_reporting"))
         r = c.get("/api/v1/organization/units/?page_size=100")
-        self.assertEqual(r.data["count"], 1 + 4 + 12)
+        self.assertEqual(r.data["count"], 1 + 4 + 8)  # headquarters, 4 regions, Army and Navy command in each
 
     def test_regional_chief_is_confined_to_own_region(self):
         c = self.client_for(self.make_user("bari", "regional_chief", unit="BARI"))
@@ -99,4 +99,4 @@ class ScopeTests(BaseApiTest):
         admin = self.client_for(self.make_user("adm", "hq_admin"))
         data = admin.get("/api/v1/dashboard/").data
         self.assertIn("accounts", data)
-        self.assertEqual(data["scope"]["units_in_scope"], 17)
+        self.assertEqual(data["scope"]["units_in_scope"], 13)

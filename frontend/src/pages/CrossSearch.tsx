@@ -7,7 +7,7 @@ import { useI18n, type Key } from "../i18n";
 
 interface SearchResult { counts: Record<string, number>; total: number; truncated: boolean; results: Person[] }
 
-/** One query over every service the user is authorised for (Army and Police). The server applies the same scope as the personnel list. */
+/** One query over every service the user is authorised for (every service). The server applies the same scope as the personnel list. */
 export function CrossSearch() {
   const { t, name } = useI18n();
   const [q, setQ] = useState("");

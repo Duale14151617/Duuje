@@ -3,7 +3,6 @@
 Safe to re-run. Roles/permissions are system-defined and are re-synced; organization units
 and ranks are only created if missing, so administrator edits and rank approvals are kept.
 """
-from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
@@ -17,9 +16,6 @@ from apps.attendance.models import AbsenceReason
 from apps.attendance.situation import FIGURE_KEYS
 from apps.personnel.models import AppointmentType, Personnel
 from apps.ranks.catalogue import apply_official_ranks
-from apps.personnel.police_appointments import ensure_types as ensure_police_appointment_types
-from apps.ranks.police_catalogue import apply_police_ranks
-from apps.organization.police import ensure_police_module
 from apps.organization.models import ServiceBranch
 from apps.ranks.models import Rank
 from apps.logistics.models import InventoryCategory
@@ -90,21 +86,20 @@ PERMISSIONS = {
     "integrations.manage": "Create, change, rotate and revoke integration clients (headquarters)",
     "org.structure_propose": "Propose and submit changes to organizational levels and strength standards (headquarters)",
     "org.structure_approve": "Approve or reject proposed structure changes (headquarters); cannot approve one's own proposal",
-    "police.cross_access": "Reach Police records from a branch-unrestricted assignment (command authority only; CID still needs cid.access)",
-    "search.cross_service": "Search personnel across all services (Army and Police) within the records the user is otherwise allowed to see",
+    "search.cross_service": "Search personnel across all services (Army and Navy) within the records the user is otherwise allowed to see",
     "disciplinary.view": "View a person's disciplinary history in scope (encrypted, every view is audited)",
     "disciplinary.manage": "Add disciplinary entries and corrections in scope (entries are append-only)",
     "documents.view": "List and download service documents on personnel files in scope (every access is audited)",
     "documents.manage": "Upload and withdraw service documents on personnel files in scope",
-    "reports.combined": "See combined Army + Police summaries (headquarters-wide; command authority). Aggregates only",
-    "cid.access": "Reach personnel records inside restricted units such as CID (Police). Never implied by any other permission",
-    "system.full_access": "Maintenance override: reach every part of the system even where a module switch (for example the Police pilot being off) would hide it. Super administrator only; every action stays in the audit log",
+    "reports.combined": "See combined Army and Navy summaries (headquarters-wide; command authority). Aggregates only",
+    "cid.access": "Reach personnel records inside restricted units. Never implied by any other permission",
+    "system.full_access": "Maintenance override: reach every part of the system even where a module switch (for example a module switch being off) would hide it. Super administrator only; every action stays in the audit log",
 }
 # Never granted to administrators by default (reports.configure is not sensitive, so hq_admin keeps it).
 SENSITIVE_PREFIXES = ("personnel.", "reports.view", "reports.submit", "reports.review", "reports.summary", "reports.export",
                       "logistics.view", "logistics.manage", "logistics.restricted", "logistics.reconcile",
                       "logistics.report", "logistics.approve", "training.view", "training.manage", "training.report", "analytics.",
-                      "org.structure_approve", "cid.", "police.", "search.", "disciplinary.", "documents.", "reports.combined", "attendance.", "weapons.", "payroll.", "survivor.", "payment.", "arrears.", "system.")
+                      "org.structure_approve", "cid.", "search.", "disciplinary.", "documents.", "reports.combined", "attendance.", "weapons.", "payroll.", "survivor.", "payment.", "arrears.", "system.")
 REPORT_TYPES = [  # code, kind, name_en, name_so, figure keys
     ("monthly_admin_report", "report", "Monthly administrative report", "Warbixinta maamul ee bishii",
      ["personnel_strength", "personnel_on_leave", "personnel_in_training"]),
@@ -144,14 +139,11 @@ ROLES = {
                                               "logistics.restricted_approve"]),
     "structure_approver": ("Structure approver", "Ansixiyaha qaab-dhismeedka", True, False, ["headquarters"],
                            ["dashboard.view", "org.view", "org.structure_approve"]),
-    # Police CID: must be assigned at a CID unit (or above) AND limited to the POLICE branch; carries cid.access.
-    "cid_officer": ("CID officer", "Sarkaalka CID", True, True, ["region", "branch_command", "unit"],
-                    BASIC + ["personnel.view", "personnel.manage", "reports.view", "reports.submit", "cid.access"]),
     # The two highest command appointments (President / Commander-in-Chief; Commander of the Puntland Defense Forces) are
     # ranks in the Army catalogue; ACCESS is by role, so assign this role to those two people. Read-only oversight, HQ-wide,
-    # across Army and Police. Deliberately has no cid.access.
+    # across the services. Deliberately has no cid.access.
     "command_authority": ("Command authority", "Awoodda taliska", True, False, ["headquarters"],
-                          BASIC + ["personnel.view", "reports.view", "reports.summary", "analytics.view", "police.cross_access",
+                          BASIC + ["personnel.view", "reports.view", "reports.summary", "analytics.view",
                           "search.cross_service"]),
     # Regional finance: the four payment roles may also be assigned at a regional command, where they handle only that command's SALARY payments
     # (headquarters still prepares and approves the monthly run). An auditor may be assigned at a regional command or a battalion (Urur), read-only.
@@ -206,12 +198,7 @@ APPOINTMENT_TYPES = [
     ("TALIYE_URUR", "Taliye Urur", "Urur commander (Taliye Urur)", "URUR", True),
     ("ABAANDUULE", "Abaanduule", "Abaanduule (Battalion Executive Officer / Second-in-Command)", "URUR", False),
 ]
-# Puntland Police command appointments (2026-10-23): one Chief of Police in each region's Police command, and under him one lead for each\n# station of that region. Names are plain English working labels, no Somali wording was supplied, so none is invented. Only created while the\n# Police pilot switch is on. Where each may be held is enforced in apps/personnel/appointments.py (LEVEL_RULES).
-POLICE_APPOINTMENT_TYPES = [
-    ("POLICE_CHIEF", "Chief of Police", "Chief of Police (regional Police command)", True),
-    ("POLICE_STATION_LEAD", "Station Lead", "Station Lead (Police station)", True),
-]
-BRANCHES = [("ARMY", "Army", "Ciidanka Dhulka"), ("NAVY", "Navy", "Ciidanka Badda"), ("POLICE", "Police", "Booliska")]
+BRANCHES = [("ARMY", "Army", "Ciidanka Dhulka"), ("NAVY", "Navy", "Ciidanka Badda")]
 REGIONS = ["Bari", "Karkaar", "Nugaal", "Mudug"]
 
 # Army ranks live in apps/ranks/catalogue.py (the 16 official Puntland Army ranks, as supplied).
@@ -225,12 +212,11 @@ EXTRA = {
     "regional_chief": ["weapons.view", "logistics.view", "logistics.report", "training.view", "training.report", "analytics.view",
                        "personnel.record_death"],
     # Disciplinary history and service documents are sensitive: only these privileged (MFA) roles hold them by default
-    # (branch_admin, cid_officer), plus super_admin. Adjust here if the institution decides otherwise; the next seed run
-    # re-syncs roles. Combined Army + Police summaries go to command_authority only (and super_admin).
+    # (branch_admin), plus super_admin. Adjust here if the institution decides otherwise; the next seed run
+    # re-syncs roles. Combined summaries go to command_authority only (and super_admin).
     "branch_admin": ["logistics.view", "logistics.report", "training.view", "training.report", "analytics.view",
                      "disciplinary.view", "disciplinary.manage", "documents.view", "documents.manage",
                      "personnel.record_death", "personnel.confirm_death", "personnel.appointments_manage"],
-    "cid_officer": ["disciplinary.view", "disciplinary.manage", "documents.view", "documents.manage"],
     "command_authority": ["reports.combined"],
     "unit_admin": ["logistics.view", "training.view", "personnel.record_death"],
     "logistics_custodian": ["logistics.view", "logistics.manage", "logistics.reconcile", "logistics.report"],
@@ -309,14 +295,6 @@ class Command(BaseCommand):
         for code, so, en, utype, exclusive in APPOINTMENT_TYPES:  # created once; administrator edits are never overwritten
             AppointmentType.objects.get_or_create(code=code, defaults={
                 "name_so": so, "name_en": en, "unit_type": types.get(utype), "exclusive": exclusive})
-        police_created = depts_created = 0
-        if settings.POLICE_MODULE_ENABLED:  # pilot switch: nothing Police-specific is created while it is off
-            police_created = apply_police_ranks(Rank, branches["POLICE"], timezone.now())
-            ensure_police_appointment_types(AppointmentType)  # Chief of Police, Station Commander
-            depts_created = ensure_police_module(OU, [r.upper() for r in REGIONS])
-            for code, so, en, exclusive in POLICE_APPOINTMENT_TYPES:  # created once; administrator edits are never overwritten
-                AppointmentType.objects.get_or_create(code=code, defaults={
-                    "name_so": so, "name_en": en, "unit_type": None, "exclusive": exclusive})
         for code, kind, en, so, keys in REPORT_TYPES:  # created once; admin edits are never overwritten
             rt, _ = ReportType.objects.get_or_create(code=code, defaults={
                 "kind": kind, "name_en": en, "name_so": so, "figure_keys": keys})
@@ -330,4 +308,4 @@ class Command(BaseCommand):
         for code, en, so, days in COURSES:
             Course.objects.get_or_create(code=code, defaults={"name_en": en, "name_so": so, "duration_days": days})
         self.stdout.write(self.style.SUCCESS(
-            f"Reference data ready. Official Army ranks created this run: {created}; provisional ranks removed: {removed}, retired: {deactivated}. Police module: {'ON' if settings.POLICE_MODULE_ENABLED else 'off'} (draft ranks created {police_created}, departments created {depts_created})."))
+            f"Reference data ready. Official Army ranks created this run: {created}; provisional ranks removed: {removed}, retired: {deactivated}."))

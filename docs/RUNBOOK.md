@@ -81,6 +81,6 @@ Notification duties, contacts and legal obligations: **[to be defined by the ins
 1. CI green on PostgreSQL (tests, `makemigrations --check`, `check --deploy`, `pip-audit`, `npm audit`, build).
 2. Fresh backup taken and restore test less than 100 days old.
 3. `ops/migration_roundtrip.sh` run on a copy of production-shaped data.
-4. Deploy, `migrate`, `seed_reference_data`, `apply_army_structure --apply` and `apply_police_structure --apply` (dry run first without `--apply`), `check --deploy`.
+4. Deploy, `migrate`, `seed_reference_data`, `apply_army_structure --apply` and `retire_police --apply` (dry run first without `--apply`), `check --deploy`.
 5. Smoke test: sign in (with MFA), one screen per module, audit events appear, `/ready/` green.
 6. Tag the release; record who approved it.

@@ -1,8 +1,8 @@
-"""Combined cross-service report: Army, Navy and Police strength side by side, aggregates only.
+"""Combined cross-service report: Army and Navy strength side by side, aggregates only.
 
 Needs `reports.combined` (headquarters-wide: command authority, super_admin). It is computed with exactly the same scope
 rules as every other personnel-data report, so:
-  * Police counts appear only while POLICE_MODULE_ENABLED is on and only for roles holding `police.cross_access`;
+  * the retired Police service is never shown;
   * restricted units (CID) are left out unless the caller also holds `cid.access`, and the response says so.
 No person-level rows are ever returned.
 """
@@ -68,7 +68,7 @@ def build(user) -> dict:
     out_branches = []
     for bid, b in sorted(per_branch.items(), key=lambda kv: branches[kv[0]].code):
         info = branches[bid]
-        if b["total"] == 0 and info.code == "POLICE" and not settings.POLICE_MODULE_ENABLED:
+        if info.code == "POLICE":  # retired service: never shown
             continue
         out_branches.append({**_named(info), "total": b["total"], "serving": b["serving"],
                              "by_status": dict(b["by_status"]), "by_rank_category": dict(b["by_rank_category"]),
@@ -80,7 +80,6 @@ def build(user) -> dict:
     totals = {"total": sum(b["total"] for b in out_branches), "serving": sum(b["serving"] for b in out_branches)}
     return {
         "generated_at": timezone.now().isoformat(),
-        "police_module_enabled": settings.POLICE_MODULE_ENABLED,
         # True when restricted units (CID) exist but this caller may not see inside them, so the totals leave them out.
         "excludes_restricted_units": "cid.access" not in scope.permission_codes(user)
         and OrganizationalUnit.objects.filter(restricted=True).exists(),
@@ -89,7 +88,7 @@ def build(user) -> dict:
 
 
 class CombinedReportViewSet(viewsets.GenericViewSet):
-    """Army + Police (+ Navy) strength in one view. Read-only, aggregates only, audited on every view."""
+    """Army and Navy strength in one view. Read-only, aggregates only, audited on every view."""
 
     permission_classes = [ScopedPermission]
     pagination_class = None
