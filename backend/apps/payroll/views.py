@@ -15,6 +15,7 @@ from apps.core.params import json_body
 from apps.personnel.models import Personnel
 
 from . import payments as pay_svc
+from . import regional as reg
 from . import review
 from . import services as svc
 from .models import (AllocationDecision, ArrearsClaim, BenefitAllocation, Beneficiary, PayrollLine, PayrollRun, PaymentInstruction,
@@ -62,24 +63,26 @@ def _line_out(l):
             "status_flag_note": review.FLAG_TEXT if l.status_flag else ""}
 
 
-def _run_out(r, lines=False):
+def _run_out(r, lines=False, lines_qs=None, regional=False):
+    """`regional`: a regional finance reader gets the run's status only (no exceptions list, which can name people elsewhere), and
+    `lines_qs` limits the lines to their own region."""
     out = {"id": str(r.pk), "year": r.period.year, "month": r.period.month, "kind": r.kind, "status": r.status,
-           "prepared_by": r.prepared_by_username, "exceptions": r.exceptions, "version": r.version,
-           "actions": [{"action": a.action, "from": a.from_status, "to": a.to_status, "actor": a.actor_username,
-                        "comment": a.comment, "at": a.created_at} for a in r.actions.all()]}
+           "prepared_by": r.prepared_by_username, "exceptions": [] if regional else r.exceptions, "version": r.version,
+           "actions": [] if regional else [{"action": a.action, "from": a.from_status, "to": a.to_status, "actor": a.actor_username,
+                                            "comment": a.comment, "at": a.created_at} for a in r.actions.all()]}
     if lines:
-        out["lines"] = [_line_out(l) for l in r.lines.all()]
+        out["lines"] = [_line_out(l) for l in (lines_qs if lines_qs is not None else r.lines.all())]
     return out
 
 
 class SalaryProfileViewSet(viewsets.ViewSet):
     permission_classes = [ScopedPermission]
-    permission_map = {"list": ("payroll.view", "global"), "create": ("payroll.manage", "global"),
+    permission_map = {"list": ("payroll.view", "any"), "create": ("payroll.manage", "global"),
                       "approve": ("payroll.approve", "global"), "reject": ("payroll.approve", "global"),
                       "scales": ("payroll.view", "global"), "people": ("payroll.manage", "global")}
 
     def list(self, request):
-        qs = SalaryProfile.objects.all()
+        qs = reg.narrow(request.user, ("payroll.view",), SalaryProfile.objects.all(), "personnel__org_unit__")
         pid = request.query_params.get("personnel")
         if pid:
             qs = qs.filter(personnel_id=pid) if _valid(pid) else qs.none()
@@ -138,19 +141,28 @@ def _valid(value):
 class PayrollRunViewSet(viewsets.ViewSet):
     permission_classes = [ScopedPermission]
     permission_map = {
-        "list": ("payroll.view", "global"), "retrieve": ("payroll.view", "global"), "prepare": ("payroll.manage", "global"),
+        "list": ("payroll.view", "any"), "retrieve": ("payroll.view", "any"), "prepare": ("payroll.manage", "global"),
         "submit": ("payroll.manage", "global"), "cancel": ("payroll.manage", "global"), "return_run": ("payroll.approve", "global"),
         "approve": ("payroll.approve", "global"), "adjust": ("payroll.manage", "global"),
-        "summary": ("payroll.view", "global"),
+        "summary": ("payroll.view", "any"),
     }
+    LIVE = ("approved", "paid")  # a regional finance reader only sees runs that are ready to be paid
 
     def list(self, request):
-        return Response({"results": [_run_out(r) for r in PayrollRun.objects.select_related("period")[:60]]})
+        hq = reg.is_hq(request.user, ("payroll.view",))
+        qs = PayrollRun.objects.select_related("period")
+        if not hq:
+            qs = qs.filter(status__in=self.LIVE)
+        return Response({"results": [_run_out(r, regional=not hq) for r in qs[:60]]})
 
     def retrieve(self, request, pk=None):
+        hq = reg.is_hq(request.user, ("payroll.view",))
         r = _404(_get(PayrollRun.objects.select_related("period"), pk))
-        record_read(request, "payroll.read_run", entity_type="payroll_run", entity_id=r.pk, count=r.lines.count())
-        return Response(_run_out(r, lines=True))
+        if not hq and r.status not in self.LIVE:
+            _404(None)
+        lines = r.lines.all() if hq else reg.narrow(request.user, ("payroll.view",), r.lines.all(), "org_unit__")
+        record_read(request, "payroll.read_run", entity_type="payroll_run", entity_id=r.pk, count=lines.count())
+        return Response(_run_out(r, lines=True, lines_qs=lines, regional=not hq))
 
     @action(detail=False, methods=["post"])
     def prepare(self, request):
@@ -187,11 +199,35 @@ class PayrollRunViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=["get"])
     def summary(self, request):
-        return Response(payroll_summary())
+        return Response(payroll_summary(request.user))
 
 
-def payroll_summary():
+PAYMENT_CODES = ("payroll.view", "payment.prepare", "payment.authorize", "payment.execute", "payment.reconcile")
+
+
+def _regional_summary(user):
+    """Counts for a regional finance account: its own region's salary payments and people only. Headquarters-only items read zero."""
+    pays = reg.narrow(user, PAYMENT_CODES, PaymentInstruction.objects.filter(kind="salary"), "personnel__org_unit__")
+    serving = reg.narrow(user, ("payroll.view",), Personnel.objects.exclude(status__in=("retired", "discharged", "died")), "org_unit__")
+    with_profile = serving.filter(salary_profiles__status="approved").distinct().count()
+    runs = PayrollRun.objects.filter(status__in=("approved", "paid"))
+    return {"runs_by_status": dict(runs.values_list("status").annotate(n=Count("pk"))), "awaiting_approval": 0,
+            "profiles_pending": reg.narrow(user, ("payroll.view",), SalaryProfile.objects.filter(status="pending"),
+                                           "personnel__org_unit__").count(),
+            "serving_total": serving.count(), "serving_with_approved_profile": with_profile,
+            "serving_missing_profile": serving.count() - with_profile, "survivor_cases": {},
+            "beneficiaries_awaiting_verification": 0, "allocations_awaiting_authorization": 0,
+            "payments_by_status": dict(pays.values_list("status").annotate(n=Count("pk"))),
+            "payments_unreconciled": pays.filter(status="paid", recon_status="unreconciled").count(),
+            "payments_with_discrepancy": pays.filter(recon_status="discrepancy").count(),
+            "flagged_suspended_or_jailed": 0, "arrears_awaiting_decision": 0, "pay_decisions_awaiting_approval": 0,
+            "policy_items_unconfirmed": 0}
+
+
+def payroll_summary(user=None):
     """Dashboard figures calculated from the underlying records (counts and totals only, no individual salaries)."""
+    if user is not None and not reg.is_hq(user, ("payroll.view",)):
+        return _regional_summary(user)
     runs = PayrollRun.objects.exclude(status="cancelled")
     by_status = dict(runs.values_list("status").annotate(n=Count("pk")))
     serving = Personnel.objects.exclude(status__in=("retired", "discharged", "died"))

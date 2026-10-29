@@ -7,19 +7,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Unzip into repo root
+      - name: Replace repo contents with the zip
         run: |
           set -e
-          Z=$(ls *.zip | head -n1)
+          ls -la *.zip || { echo "No zip on this branch"; exit 1; }
+          Z=$(ls -S *.zip | head -n1)
+          sha256sum "$Z"
+          unzip -tq "$Z" || { echo "Zip is corrupt"; exit 1; }
           mkdir /tmp/x && unzip -q "$Z" -d /tmp/x
           D=$(find /tmp/x -maxdepth 1 -mindepth 1 -type d | head -n1)
           rm -rf "$D/.github"
+          find . -mindepth 1 -maxdepth 1 ! -name .git ! -name .github -exec rm -rf {} +
           cp -a "$D"/. .
-          rm -f "$Z"
       - name: Commit
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add -A
-          git commit -m "Unzip project"
+          git commit -m "Replace project with merged version"
           git push

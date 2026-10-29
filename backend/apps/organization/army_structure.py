@@ -13,6 +13,9 @@ Shape created:
         default, raised later with `apply_army_structure --apply --guuto-per-command N --urur-per-guuto M` (additive: it only ever
         creates what is missing, never deletes or renames), or by authorized users with the normal unit tools.
       Urur offices (unit types only): Howlgelin, Xafiiska Ururka, Maamulka Lacagta, Saadka, Xubinta Caafimaadka.
+      Finance: a Finance Department "Waaxda Maaliyadda" under every regional command ({REGION}-ARMY-FIN).
+      Health (medics): a Health Department "Waaxda Caafimaadka" under every regional command ({REGION}-ARMY-HEALTH), a Medical Unit
+        in every Urur (Xubinta Caafimaadka, above) and a Medical team "Koox Caafimaad" ({KOOX}-MED) in every existing Koox.
 
 Assumptions to confirm with the army (also listed in the implementation report): the English labels are working
 translations; Taliye Qaybeed / Taliye Urur / Abaanduule are command appointments (see personnel appointments), not units;
@@ -62,6 +65,9 @@ NEW_TYPES = [
     ("URUR_LACAG", "Maamulka Lacagta", "Finance administration (Maamulka Lacagta)", 6, "URUR"),
     ("URUR_SAAD", "Saadka", "Supplies (Saadka)", 6, "URUR"),
     ("URUR_CAAFIMAAD", "Xubinta Caafimaadka", "Medical member (Xubinta Caafimaadka)", 6, "URUR"),
+    ("HEALTH_DEPT", "Waaxda Caafimaadka", "Health Department (Waaxda Caafimaadka)", 3, "QAYB"),
+    ("FINANCE_DEPT", "Waaxda Maaliyadda", "Finance Department (Waaxda Maaliyadda)", 3, "QAYB"),
+    ("KOOX_MED", "Koox Caafimaad", "Medical team (Koox Caafimaad)", 8, "KOOX"),
 ]
 
 
@@ -158,6 +164,36 @@ def apply(OU, UnitType, ServiceBranch, Personnel, dry_run=True, guuto_per_comman
                     if not dry_run and urur is not None:
                         OU.objects.create(code=ocode, name_so=f"{so} (Urur {u}, Guuto {g}, {place})",
                                           name_en=f"{en}, Urur {u}, Guuto {g}, {place}", level="unit", parent=urur, unit_type=types[tcode])
+
+    # Health (medics). One Health Department under every regional command, and a Medical team in every Koox that exists. Kooxes are
+    # raised by authorized users, so the teams are added the next time this runs (every deploy), never deleted or renamed here.
+    for region_code in FIELD_FORCE_REGIONS:
+        cmd = OU.objects.filter(code=f"{region_code}-ARMY", branch=army).first()
+        so_region, _ = REGION_NAMES[region_code]
+        hcode = f"{region_code}-ARMY-HEALTH"
+        if not OU.objects.filter(code=hcode).exists():
+            out.append(("create_unit", hcode))
+            if not dry_run and cmd is not None:
+                OU.objects.create(code=hcode, name_so=f"Waaxda Caafimaadka ({so_region})",
+                                  name_en=f"Health Department (Waaxda Caafimaadka), {region_code.title()}", level="unit", parent=cmd,
+                                  unit_type=types.get("HEALTH_DEPT"))
+        fcode = f"{region_code}-ARMY-FIN"  # regional finance staff belong here; their payment roles are assigned at the command
+        if not OU.objects.filter(code=fcode).exists():
+            out.append(("create_unit", fcode))
+            if not dry_run and cmd is not None:
+                OU.objects.create(code=fcode, name_so=f"Waaxda Maaliyadda ({so_region})",
+                                  name_en=f"Finance Department (Waaxda Maaliyadda), {region_code.title()}", level="unit", parent=cmd,
+                                  unit_type=types.get("FINANCE_DEPT"))
+        if cmd is None:
+            continue
+        for koox in OU.objects.filter(unit_type__code="KOOX", active=True, path__startswith=cmd.path).order_by("code"):
+            mcode = f"{koox.code}-MED"
+            if OU.objects.filter(code=mcode).exists():
+                continue
+            out.append(("create_unit", mcode))
+            if not dry_run:
+                OU.objects.create(code=mcode, name_so=f"Koox Caafimaad ({koox.name_so})", name_en=f"Medical team (Koox Caafimaad), {koox.name_en}",
+                                  level="unit", parent=koox, unit_type=types.get("KOOX_MED"))
 
     # Karkaar is within Bari: the Army has no separate Karkaar command. Retired only when nothing is left in it.
     karkaar = OU.objects.filter(code="KARKAAR-ARMY", branch=army, active=True).first()

@@ -153,3 +153,37 @@ class ArmyStructureTests(TemplateBase):
             guuto = OU.objects.get(code=f"{region}-ARMY-G1", parent=cmd)
             urur = OU.objects.get(code=f"{region}-ARMY-G1-U1", parent=guuto)
             self.assertEqual(OU.objects.filter(parent=urur).count(), len(AS.URUR_OFFICES), region)
+
+
+class HealthStructureTests(TemplateBase):
+    """Health (medics): a department per region, a medical unit per Urur, a medical team per Koox."""
+    def run_cmd(self, apply=False, *extra):
+        out = StringIO()
+        call_command("apply_army_structure", *(["--apply"] if apply else []), *extra, stdout=out)
+        return out.getvalue()
+
+    def test_every_region_gets_a_health_department_and_every_urur_a_medical_unit(self):
+        self.run_cmd(apply=True)
+        for region, _, _ in AS.COMMANDS:
+            dept = OU.objects.get(code=f"{region}-ARMY-HEALTH")
+            self.assertEqual((dept.parent.code, dept.level, dept.unit_type.code, dept.name_so[:18]),
+                             (f"{region}-ARMY", "unit", "HEALTH_DEPT", "Waaxda Caafimaadka"))
+            self.assertTrue(OU.objects.filter(code=f"{region}-ARMY-G1-U1-MED", unit_type__code="URUR_CAAFIMAAD").exists())
+
+    def test_every_koox_gets_a_medical_team_and_a_new_koox_gets_one_on_the_next_run(self):
+        self.run_cmd(apply=True)
+        from apps.organization.models import UnitType
+        urur = OU.objects.get(code="BARI-ARMY-G1-U1")
+        horin = OU.objects.create(code="BARI-H1", name_so="Horin 1", name_en="Horin 1", level="unit", parent=urur, unit_type=UnitType.objects.get(code="HORIN"))
+        koox = OU.objects.create(code="BARI-K1", name_so="Koox 1", name_en="Koox 1", level="unit", parent=horin, unit_type=UnitType.objects.get(code="KOOX"))
+        self.assertFalse(OU.objects.filter(code="BARI-K1-MED").exists())
+        self.run_cmd(apply=True)
+        med = OU.objects.get(code="BARI-K1-MED")
+        self.assertEqual((med.parent_id, med.unit_type.code), (koox.pk, "KOOX_MED"))
+        count = OU.objects.count()
+        self.run_cmd(apply=True)
+        self.assertEqual(OU.objects.count(), count)  # idempotent
+
+    def test_navy_and_police_get_no_health_units(self):
+        self.run_cmd(apply=True)
+        self.assertFalse(OU.objects.filter(code__contains="HEALTH").exclude(code__endswith="-ARMY-HEALTH").exists())
