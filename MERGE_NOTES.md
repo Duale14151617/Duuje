@@ -18,3 +18,11 @@ Removed (archived in police-archive.zip): police.py, police_structure.py, police
 Kept on purpose: retire_police.py (the Dockerfile runs it at start-up), the POLICE_MODULE_ENABLED=False gate in scope.py and settings.py, migrations, the "station" unit level, and two i18n error keys. Removing any of these would need a migration or would expose old Police rows in existing databases.
 Added: accounts/tests/test_retired_police_gate.py (two tests that keep guarding the gate; builds its own minimal Police fixture).
 Still NOT RUN (no Django here): run the test suite and makemigrations --check.
+
+## CI fixes after the first test run (723 tests, 7 failures)
+- test_v2_compatibility: organization migrations 0007-0009 added to the documented list; auditor's payroll.view allowed.
+- test_army_structure: name slice [:18] (was [:19], which kept a trailing space).
+- seed_demo_data: added transport.officer and vehicle.approver demo accounts (every role needs one).
+- test_regional_finance: reconcile uses the statement reference that matches the payment (TX-R1); a mismatch needs a note.
+- change_requests: rejecting a batch with an empty note now returns 400 (checked before the loop). The history test picks the transfer row by label, because the record-creation row has today's date and sorts first.
+Still not run locally (no Django here): CI is the check.

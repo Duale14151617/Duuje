@@ -166,7 +166,7 @@ class HealthStructureTests(TemplateBase):
         self.run_cmd(apply=True)
         for region, _, _ in AS.COMMANDS:
             dept = OU.objects.get(code=f"{region}-ARMY-HEALTH")
-            self.assertEqual((dept.parent.code, dept.level, dept.unit_type.code, dept.name_so[:19]),
+            self.assertEqual((dept.parent.code, dept.level, dept.unit_type.code, dept.name_so[:18]),
                              (f"{region}-ARMY", "unit", "HEALTH_DEPT", "Waaxda Caafimaadka"))
             self.assertTrue(OU.objects.filter(code=f"{region}-ARMY-G1-U1-MED", unit_type__code="URUR_CAAFIMAAD").exists())
 

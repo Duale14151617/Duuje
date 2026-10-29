@@ -70,7 +70,7 @@ class DecisionTests(Base):
         self.assertEqual(r.json()["status"], "approved")
         self.person_a.refresh_from_db()
         self.assertEqual(self.person_a.org_unit.code, "BARI-ARMY-B")
-        hist = self.person_a.history.filter(field="org_unit").first()
+        hist = self.person_a.history.filter(field="org_unit", new_label="Bari-Army-B").first()  # not the creation row (its date is today)
         self.assertEqual((hist.old_label, hist.new_label), ("Bari-Army-A", "Bari-Army-B"))
         self.assertIn("Order 41/2026", hist.reason)
         self.assertEqual(Personnel.objects.filter(org_unit__code="BARI-ARMY-A", pk=self.person_a.pk).count(), 0)  # counted once
