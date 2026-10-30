@@ -70,6 +70,7 @@ class AccessReportTests(BaseApiTest):
         for text in (json.dumps(r), ar.to_csv(r), ar.to_markdown(r)):
             self.assertNotIn("SECRET-TOTP-VALUE", text)
             self.assertNotIn("pbkdf2", text)
+            self.assertNotIn(User.objects.get(pk=self.sup.pk).password, text)  # holds whichever hasher is configured
 
     def test_csv_has_one_row_per_assignment_and_markdown_lists_role_capabilities(self):
         r = ar.build()
