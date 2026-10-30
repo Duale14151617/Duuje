@@ -89,13 +89,14 @@ function AttendanceCard({ unitId, unitName }: { unitId: string; unitName: string
 function QuickActions() {
   const { t } = useI18n();
   const { can } = useAuth();
-  const items: { to: string; icon: IconName; label: string; show: boolean }[] = [
+  const all: { to: string; icon: IconName; label: string; show: boolean }[] = [
     { to: "/personnel/new", icon: "plus", label: t("pers.add"), show: can("personnel.manage") },
     { to: "/attendance", icon: "calendar", label: t("dash.qaAttendance"), show: can("attendance.record") },
     { to: "/reports/new", icon: "file", label: t("dash.qaReport"), show: can("reports.submit") },
     { to: "/personnel", icon: "users", label: t("nav.personnel"), show: can("personnel.view") || can("personnel.view_team") },
     { to: "/logistics", icon: "box", label: t("nav.logistics"), show: ["logistics.view", "logistics.restricted", "logistics.manage"].some(can) },
-  ].filter((x) => x.show);
+  ];
+  const items = all.filter((x) => x.show);
   if (items.length === 0) return null;
   return (
     <section className="panel" aria-labelledby="dash-quick">
