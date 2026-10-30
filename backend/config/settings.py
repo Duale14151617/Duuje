@@ -2,6 +2,7 @@
 import base64
 import hashlib
 import os
+import sys
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
@@ -132,6 +133,11 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
+
+# The production hasher is slow on purpose. The test suite creates hundreds of users, so under `manage.py test` only, a fast hasher is
+# used. It is never active when the server runs (sys.argv[1] is then not "test").
+if len(sys.argv) > 1 and sys.argv[1] == "test":
+    PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 
 # Sessions and cookies
 SESSION_ENGINE = "django.contrib.sessions.backends.db"
