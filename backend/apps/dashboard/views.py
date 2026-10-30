@@ -140,3 +140,23 @@ class DashboardView(APIView):
             data["payroll"] = full if scope.can(user, "payroll.view") else {
                 k: full[k] for k in ("survivor_cases", "beneficiaries_awaiting_verification", "allocations_awaiting_authorization")}
         return Response(data)
+
+
+class DashboardActivityView(APIView):
+    """Audit activity per day for the dashboard chart's range switch: the last 7 (default) or 30 days.
+    Same permission as the audit block on the dashboard itself."""
+
+    ALLOWED_DAYS = (7, 30)
+
+    def get(self, request):
+        if not scope.can(request.user, "audit.view"):
+            record("access.denied", request=request, outcome="denied", entity_type="dashboard",
+                   metadata={"permission": "audit.view"})
+            raise PermissionDenied()
+        try:
+            days = int(request.query_params.get("days", 7))
+        except (TypeError, ValueError):
+            days = 7
+        if days not in self.ALLOWED_DAYS:
+            days = 7
+        return Response({"daily": activity_series(days)})

@@ -6,7 +6,7 @@ from rest_framework.routers import DefaultRouter
 from apps.accounts import views as acc
 from apps.core.views import LiveView, ReadyView
 from apps.audit.views import AuditEventViewSet
-from apps.dashboard.views import DashboardView
+from apps.dashboard.views import DashboardActivityView, DashboardView
 from apps.personnel.combined import CombinedReportViewSet
 from apps.personnel.views import PersonnelViewSet
 from apps.personnel.task_views import UnitTaskViewSet
@@ -85,6 +85,7 @@ urlpatterns = [
     path("auth/mfa/setup/", acc.MfaSetupView.as_view()),
     path("auth/mfa/confirm/", acc.MfaConfirmView.as_view()),
     path("dashboard/", DashboardView.as_view()),
+    path("dashboard/activity/", DashboardActivityView.as_view()),
     path("health/live/", LiveView.as_view()),
     path("health/ready/", ReadyView.as_view()),
     # External (machine-client) API, 2.0: bearer-key auth, read-only, aggregate analytics only.

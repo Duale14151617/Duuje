@@ -10,6 +10,20 @@ import { InstallButton } from "../pwa/install";
 import { ThemeToggle } from "../theme/ThemeToggle";
 
 const SIDEBAR_KEY = "armyhq.sidebar";
+const GROUPS_KEY = "armyhq.navgroups"; // names of the sidebar sections the user has folded away
+
+type NavItem = { to: string; label: Key; icon: IconName; show: boolean };
+
+/** Which section each page sits in; sections with no visible page are not drawn. `title` is absent for the top block. */
+const NAV_SECTIONS: { key: string; title?: Key; to: string[] }[] = [
+  { key: "top", to: ["/", "/notifications"] },
+  { key: "units", title: "nav.group.units", to: ["/organization", "/institutions", "/structure", "/tree", "/structure-changes", "/units", "/change-requests"] },
+  { key: "people", title: "nav.group.people", to: ["/personnel", "/search", "/attendance", "/training", "/ranks"] },
+  { key: "pay", title: "nav.group.pay", to: ["/payroll", "/survivors"] },
+  { key: "reporting", title: "nav.group.reporting", to: ["/combined", "/reports", "/summary", "/analytics", "/tasks"] },
+  { key: "logistics", title: "nav.group.logistics", to: ["/logistics", "/ammunition", "/weapons", "/vehicles", "/holdings", "/accountability", "/food"] },
+  { key: "admin", title: "nav.group.admin", to: ["/users", "/integrations", "/audit"] },
+];
 
 export function Layout() {
   const { me, can, logout } = useAuth();
@@ -18,7 +32,7 @@ export function Layout() {
   const location = useLocation();
   const unread = useFetch<{ count: number }>("/notifications/unread-count/", { at: location.pathname });
   const count = unread.data?.count ?? 0;
-  const items: { to: string; label: Key; icon: IconName; show: boolean }[] = [
+  const items: NavItem[] = [
     { to: "/", icon: "grid", label: "nav.dashboard", show: can("dashboard.view") },
     { to: "/organization", icon: "building", label: "nav.organization", show: can("org.view") },
     { to: "/institutions", icon: "map", label: "nav.institutions", show: true },
@@ -60,6 +74,13 @@ export function Layout() {
   });
   const collapsed = isTablet || pref === "collapsed"; // below 960px always the icon rail; from 960px the full sidebar unless the user collapsed it
   const [open, setOpen] = useState(false);
+  const [folded, setFolded] = useState<string[]>(() => {
+    try { const v: unknown = JSON.parse(localStorage.getItem(GROUPS_KEY) ?? "[]"); return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []; } catch { return []; }
+  });
+  const saveFolded = (next: string[]) => {
+    setFolded(next);
+    try { localStorage.setItem(GROUPS_KEY, JSON.stringify(next)); } catch { /* preference only */ }
+  };
   const drawerOpen = open && isMobile;
   const menuBtn = useRef<HTMLButtonElement>(null);
   const closeBtn = useRef<HTMLButtonElement>(null);
@@ -90,7 +111,7 @@ export function Layout() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") { e.preventDefault(); closeDrawer(true); return; }
       if (e.key !== "Tab" || !sidebar.current) return;
-      const f = Array.from(sidebar.current.querySelectorAll<HTMLElement>("a[href], button:not([disabled])"));
+      const f = Array.from(sidebar.current.querySelectorAll<HTMLElement>("a[href], button:not([disabled])")).filter((el) => !el.closest("[hidden]")); // links inside a folded section cannot take focus
       if (f.length === 0) return;
       const first = f[0], last = f[f.length - 1];
       if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
@@ -105,6 +126,22 @@ export function Layout() {
     const r = e.currentTarget.getBoundingClientRect();
     setTip({ text, top: r.top + r.height / 2 });
   };
+
+  // the icon rail has no room for section headings, so it shows every page with a thin divider between sections
+  const rail = collapsed && !isMobile;
+  const isHere = (to: string) => (to === "/" ? location.pathname === "/" : location.pathname === to || location.pathname.startsWith(`${to}/`));
+  const placed = new Set(NAV_SECTIONS.flatMap((sec) => sec.to));
+  const sections = [
+    ...NAV_SECTIONS.map((sec) => ({ ...sec, items: sec.to.map((to) => items.find((i) => i.to === to)).filter((i): i is NavItem => !!i && i.show) })),
+    // a page added to `items` but not yet to a section still appears, in a heading-less block at the end
+    { key: "other", title: undefined, to: [] as string[], items: items.filter((i) => i.show && !placed.has(i.to)) },
+  ].filter((sec) => sec.items.length > 0);
+  const hereKey = sections.find((sec) => sec.items.some((i) => isHere(i.to)))?.key;
+  // arriving at a page inside a folded section (a dashboard link, the back button) opens that section
+  useEffect(() => {
+    if (hereKey && folded.includes(hereKey)) saveFolded(folded.filter((k) => k !== hereKey));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hereKey, location.pathname]);
 
   async function switchLang() {
     const next = lang === "en" ? "so" : "en";
@@ -170,16 +207,32 @@ export function Layout() {
           </button>
         </div>
         <nav id="app-nav" className="nav" aria-label={t("nav.label")}>
-          {items.filter((i) => i.show).map((i) => {
-            const label = `${t(i.label)}${i.to === "/notifications" && count > 0 ? ` (${count})` : ""}`;
+          {sections.map((sec) => {
+            const isOpen = rail || !sec.title || !folded.includes(sec.key);
             return (
-              <NavLink key={i.to} to={i.to} end={i.to === "/"} className={({ isActive }) => (isActive ? "active" : "")}
-                       data-unread={i.to === "/notifications" && count > 0 ? "" : undefined}
-                       onClick={() => setOpen(false)}
-                       onMouseEnter={showTip(label)} onMouseLeave={() => setTip(null)} onFocus={showTip(label)} onBlur={() => setTip(null)}>
-                <Icon name={i.icon} size={20} />
-                <span className="nav-label">{label}</span>
-              </NavLink>
+              <div className="nav-group" key={sec.key}>
+                {sec.title && !rail && (
+                  <button type="button" className="nav-group-head" aria-expanded={isOpen} aria-controls={`nav-g-${sec.key}`}
+                          onClick={() => saveFolded(isOpen ? [...folded, sec.key] : folded.filter((k) => k !== sec.key))}>
+                    <span>{t(sec.title)}</span>
+                    <Icon name="arrow" size={14} />
+                  </button>
+                )}
+                <div id={`nav-g-${sec.key}`} hidden={!isOpen}>
+                  {sec.items.map((i) => {
+                    const label = `${t(i.label)}${i.to === "/notifications" && count > 0 ? ` (${count})` : ""}`;
+                    return (
+                      <NavLink key={i.to} to={i.to} end={i.to === "/"} className={({ isActive }) => (isActive ? "active" : "")}
+                               data-unread={i.to === "/notifications" && count > 0 ? "" : undefined}
+                               onClick={() => setOpen(false)}
+                               onMouseEnter={showTip(label)} onMouseLeave={() => setTip(null)} onFocus={showTip(label)} onBlur={() => setTip(null)}>
+                        <Icon name={i.icon} size={20} />
+                        <span className="nav-label">{label}</span>
+                      </NavLink>
+                    );
+                  })}
+                </div>
+              </div>
             );
           })}
         </nav>

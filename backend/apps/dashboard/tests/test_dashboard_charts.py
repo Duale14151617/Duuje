@@ -78,3 +78,33 @@ class DashboardChartSeries(BaseApiTest):
         data = self.client_for(self.make_user("reader2", "read_only", unit="BARI")).get(URL).data
         self.assertNotIn("audit", data)
         self.assertIn("by_region", data["personnel"])  # headcount follows personnel.view, not the audit permission
+
+
+class DashboardActivityRange(BaseApiTest):
+    URL = "/api/v1/dashboard/activity/"
+
+    def get(self, user, **params):
+        return self.client_for(user).get(self.URL, params)
+
+    def test_thirty_day_range_is_zero_filled_and_ends_today(self):
+        now = timezone.now()
+        AuditEvent.objects.create(action="t.a", outcome="success", occurred_at=now - timedelta(days=20))
+        AuditEvent.objects.create(action="t.b", outcome="denied", occurred_at=now - timedelta(days=20))
+        resp = self.get(self.make_user("adm4", "hq_admin"), days=30)
+        self.assertEqual(resp.status_code, 200)
+        daily = resp.data["daily"]
+        self.assertEqual(len(daily), 30)
+        self.assertEqual(daily[-1]["date"], timezone.localdate().isoformat())
+        day = (timezone.localtime(now) - timedelta(days=20)).date().isoformat()
+        by = {d["date"]: d for d in daily}
+        self.assertEqual((by[day]["events"], by[day]["issues"]), (2, 1))
+
+    def test_default_is_seven_days_and_other_values_fall_back_to_seven(self):
+        user = self.make_user("adm5", "hq_admin")
+        self.assertEqual(len(self.get(user).data["daily"]), 7)
+        self.assertEqual(len(self.get(user, days=90).data["daily"]), 7)
+        self.assertEqual(len(self.get(user, days="abc").data["daily"]), 7)
+
+    def test_only_people_who_may_view_the_audit_log_can_read_it(self):
+        resp = self.get(self.make_user("reader3", "read_only", unit="BARI"), days=30)
+        self.assertEqual(resp.status_code, 403)
