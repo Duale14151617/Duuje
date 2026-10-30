@@ -90,10 +90,6 @@ for _name in ("Bari", "Nugaal", "Mudug", "Sanaag"):
     DEMO_USERS.setdefault(f"{_name.lower()}.weapons", (f"{_name} Weapons Custodian", "weapons_custodian", f"{_name.upper()}-ARMY", None))
 
 
-# Vehicle register: the transport officer keeps it, a different person approves disposals.
-DEMO_USERS.setdefault("transport.officer", ("Transport Officer", "transport_officer", "BARI", None))
-DEMO_USERS.setdefault("vehicle.approver", ("Vehicle Disposal Approver", "vehicle_disposal_approver", "HQ", None))
-
 
 class Command(BaseCommand):
     help = "Create synthetic demo accounts. Password from ARMYHQ_DEMO_PASSWORD (min 12 chars)."

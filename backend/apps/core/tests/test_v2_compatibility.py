@@ -89,7 +89,6 @@ class RoleCompatibilityTests(BaseApiTest):
             allowed |= {"weapons.view"} if role == "regional_chief" else set()  # regional chief views its region's weapon register
             allowed |= {"vehicles.view"} if role in ("regional_chief", "branch_admin") else set()  # vehicle register: oversight roles read it
             allowed |= {"vehicles.configure"} if role == "hq_admin" else set()  # HQ admin maintains the vehicle categories
-            allowed |= {"payroll.view"} if role == "auditor" else set()  # the auditor reads payroll (regional finance), never acts on it
             self.assertEqual(gained, allowed, role)
 
     def test_only_the_documented_role_was_added_and_none_removed(self):
@@ -148,8 +147,7 @@ class RouteCompatibilityTests(BaseApiTest):
 
 
 V2_ADDED_MIGRATIONS = {  # migrations added to existing apps after v1.4 (2.0 structure changes, then the Police module)
-    "organization": ["0004_structure_change", "0005_unit_restricted", "0006_station_level",
-                     "0007_change_request", "0008_change_request_kinds", "0009_change_request_batch"],
+    "organization": ["0004_structure_change", "0005_unit_restricted", "0006_station_level"],
     "ranks": ["0004_add_command_ranks", "0005_police_rank_categories"],
     "personnel": ["0003_personnelprofile", "0004_disciplinary_and_documents", "0005_supervisor_and_account",
                   "0006_death_record_and_statuses", "0007_command_appointments", "0008_attendance_support_category"],

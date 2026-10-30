@@ -48,7 +48,7 @@ class RegionalFinanceTests(RegionalBase):
         self.assertEqual(self.post(self.r_pay, f"{PAY}{inst}/process/").status_code, 200)
         done = self.post(self.r_pay, f"{PAY}{inst}/complete/", {"transaction_reference": "TX-R1", "paid_on": TODAY})
         self.assertEqual(done.status_code, 200, done.content)
-        rec = self.post(self.r_rec, f"{PAY}{inst}/reconcile/", {"statement_ref": "TX-R1", "statement_amount": "115.00", "statement_date": TODAY})
+        rec = self.post(self.r_rec, f"{PAY}{inst}/reconcile/", {"statement_ref": "ST-1", "statement_amount": "115.00", "statement_date": TODAY})
         self.assertEqual(rec.status_code, 200, rec.content)
 
     def test_regional_finance_cannot_touch_another_regions_payment(self):

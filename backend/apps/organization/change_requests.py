@@ -465,8 +465,6 @@ def _decide_batch(actor, request, *, batch, action, expected_count, note=""):
             raise StaleRequest("The batch changed. Reload and check it again.")
     except (TypeError, ValueError):
         raise field_error("count", "count_required", "Send the number of requests you reviewed.")
-    if action == "reject" and not (note or "").strip():
-        raise field_error("note", "note_required", "Say why the request is rejected.")  # a plain 400, not a per-item failure
     for r in todo:
         try:
             if action == "approve":
