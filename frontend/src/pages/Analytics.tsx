@@ -4,36 +4,30 @@ import type {
   TrainingAnalytics, Unit,
 } from "../api/types";
 import { useFetch } from "../api/useFetch";
-import { ErrorNotice, Field, Loading, Notice, Tabs } from "../components/ui";
+import { ErrorNotice, Field, Loading, Notice, PageHeader, Tabs } from "../components/ui";
+import { DataTable, type Column } from "../components/DataTable";
 import { useI18n, type Key } from "../i18n";
 
 type Section = "personnel" | "reports" | "logistics" | "training";
 
-/** One distribution as a table with a proportional bar. Withheld cells (null) are shown as a dash. */
+/** One distribution as a sortable table with a proportional bar. Withheld cells (null) are shown as a dash. */
 function Distribution<R extends DistRow>({ title, dist, label }: { title: string; dist: Dist<R> | undefined; label: (r: R) => string }) {
   const { t } = useI18n();
   if (!dist) return null;
   const max = Math.max(1, ...dist.rows.map((r) => r.count ?? 0));
+  const rows = dist.rows.map((r, i) => ({ r, i }));
+  const columns: Column<{ r: R; i: number }>[] = [
+    { id: "item", header: t("an.col.item"), width: 280, locked: true, sort: (x) => label(x.r), cell: (x) => label(x.r) },
+    { id: "count", header: t("an.col.count"), width: 100, align: "right", sort: (x) => x.r.count, cell: (x) => (x.r.count === null ? "–" : x.r.count) },
+    { id: "bar", header: "", width: 220, cell: (x) => (
+      <span className="bar" aria-hidden="true" style={{ width: `${x.r.count === null ? 0 : Math.round((x.r.count / max) * 100)}%` }} />
+    ) },
+  ];
   return (
     <section className="card">
       <h2>{title}</h2>
-      {dist.rows.length === 0 ? <p className="muted">{t("an.empty")}</p> : (
-        <div className="table-wrap">
-          <table>
-            <tbody>
-              {dist.rows.map((r, i) => (
-                <tr key={i}>
-                  <td>{label(r)}</td>
-                  <td className="num">{r.count === null ? "–" : r.count}</td>
-                  <td className="barcell" aria-hidden="true">
-                    <span className="bar" style={{ width: `${r.count === null ? 0 : Math.round((r.count / max) * 100)}%` }} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <DataTable id={`an-${title}`} caption={title} columns={columns} rows={rows} rowKey={(x) => String(x.i)}
+                 empty={{ icon: "activity", title: t("an.empty") }} clientPageSize={100} />
       {dist.total !== null && <p className="muted">{t("an.total", { n: dist.total })}</p>}
       {dist.suppressed && <p className="muted">{t("an.withheld")}</p>}
     </section>
@@ -59,7 +53,7 @@ export function Analytics() {
 
   return (
     <>
-      <h1>{t("an.title")}</h1>
+      <PageHeader title={t("an.title")} />
       <Notice>{t("an.note")}</Notice>
       <ErrorNotice error={index.error} />
       {index.loading && !index.data ? <Loading /> : null}

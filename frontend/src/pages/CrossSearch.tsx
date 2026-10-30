@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import type { Person } from "../api/types";
 import { useFetch } from "../api/useFetch";
 import { Chip, ErrorNotice, Loading } from "../components/ui";
@@ -10,7 +10,8 @@ interface SearchResult { counts: Record<string, number>; total: number; truncate
 /** One query over every service the user is authorised for (every service). The server applies the same scope as the personnel list. */
 export function CrossSearch() {
   const { t, name } = useI18n();
-  const [q, setQ] = useState("");
+  const [sp] = useSearchParams();
+  const [q, setQ] = useState(sp.get("q") ?? "");
   const term = q.trim();
   const found = useFetch<SearchResult>(term.length >= 2 ? "/personnel/search/" : null, { q: term });
   const data = term.length >= 2 ? found.data : null;

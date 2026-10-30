@@ -5,6 +5,9 @@ import type { Asset, AssetEvt, InvCategory, LogisticsSummary, Page, Recon, Stock
 import { useFetch } from "../api/useFetch";
 import { useAuth } from "../auth/AuthContext";
 import { usePlaceableUnits } from "../components/hooks";
+import { DataTable, type Column } from "../components/DataTable";
+import { FilterBar } from "../components/FilterBar";
+import { statusTone } from "../components/status";
 import { Chip, ErrorNotice, Field, formatDate, Loading, Notice, Pager, Tabs } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
 
@@ -47,15 +50,21 @@ function StockTab() {
       list.reload();
     } catch (err) { setError(err); }
   }
+  const columns: Column<StockLine>[] = [
+    { id: "category", header: t("log.category"), width: 240, locked: true, sort: (r) => name(r.category),
+      cell: (r) => <><Link to={`/logistics/stock/${r.id}`}>{name(r.category)}</Link>{r.category.restricted && <> <Restricted /></>}</> },
+    { id: "unit", header: t("log.unit"), width: 220, sort: (r) => name(r.org_unit), cell: (r) => name(r.org_unit) },
+    { id: "qty", header: t("log.quantity"), width: 130, align: "right", sort: (r) => Number(r.quantity), cell: (r) => <b>{r.quantity}</b> },
+    { id: "uom", header: t("log.uom"), width: 130, sort: (r) => r.uom, cell: (r) => r.uom },
+    { id: "state", header: t("log.status"), width: 190, cell: (r) => (r.below_reorder ? <Chip tone="warn">{t("log.belowReorder")}</Chip> : <span className="muted">—</span>) },
+  ];
   return (
     <>
-      <div className="row" style={{ justifyContent: "space-between", marginBottom: ".75rem" }}>
-        <label className="row">
-          <input type="checkbox" style={{ width: "auto", minHeight: 0 }} checked={below} onChange={(e) => { setBelow(e.target.checked); setPage(1); }} />
-          <span>{t("log.belowOnly")}</span>
-        </label>
-        {can("logistics.manage") && !adding && <button onClick={() => setAdding(true)}>{t("log.addLine")}</button>}
-      </div>
+      <FilterBar
+        advancedExtra={<label className="check"><input type="checkbox" checked={below} onChange={(e) => { setBelow(e.target.checked); setPage(1); }} /><span>{t("log.belowOnly")}</span></label>}
+        custom={[{ id: "below", label: t("log.belowOnly"), active: below, onClear: () => { setBelow(false); setPage(1); } }]}
+        onReset={() => { setBelow(false); setPage(1); }} />
+      {can("logistics.manage") && !adding && <button style={{ marginBottom: ".75rem" }} onClick={() => setAdding(true)}>{t("log.addLine")}</button>}
       {adding && (
         <form className="card" onSubmit={(e) => void add(e)}>
           <ErrorNotice error={error} />
@@ -80,23 +89,9 @@ function StockTab() {
         </form>
       )}
       <ErrorNotice error={list.error} />
-      {list.loading && !list.data ? <Loading /> : null}
-      {list.data && list.data.results.length === 0 && <p>{t("log.noItems")}</p>}
-      <ul className="list">
-        {list.data?.results.map((s) => (
-          <li key={s.id} className="item">
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <Link to={`/logistics/stock/${s.id}`}><h2>{name(s.category)}</h2></Link>
-              <div className="row">
-                {s.category.restricted && <Restricted />}
-                {s.below_reorder && <Chip tone="draft">{t("log.belowReorder")}</Chip>}
-              </div>
-            </div>
-            <span className="muted">{name(s.org_unit)} · <b>{s.quantity}</b> {s.uom}</span>
-          </li>
-        ))}
-      </ul>
-      {list.data && <Pager page={page} count={list.data.count} pageSize={25} onPage={setPage} />}
+      <DataTable id="logistics-stock" caption={t("log.category")} columns={columns} rows={list.data?.results} rowKey={(s) => s.id} loading={list.loading}
+                 filtered={below} onReset={() => { setBelow(false); setPage(1); }} empty={{ icon: "box", title: t("log.noItems") }}
+                 page={page} count={list.data?.count} pageSize={25} onPage={setPage} />
     </>
   );
 }
@@ -213,18 +208,20 @@ function AssetsTab() {
     try { await api("/logistics/assets/", { method: "POST", body: f }); setAdding(false); list.reload(); }
     catch (err) { setError(err); }
   }
+  const columns: Column<Asset>[] = [
+    { id: "id", header: t("log.identifier"), width: 200, locked: true, sort: (r) => r.identifier,
+      cell: (r) => <><Link to={`/logistics/assets/${r.id}`}>{r.identifier}</Link>{r.category.restricted && <> <Restricted /></>}</> },
+    { id: "category", header: t("log.category"), width: 200, sort: (r) => name(r.category), cell: (r) => name(r.category) },
+    { id: "unit", header: t("log.unit"), width: 260, sort: (r) => name(r.org_unit), cell: (r) => <>{name(r.org_unit)}{r.issued_to_unit ? ` → ${name(r.issued_to_unit)}` : ""}</> },
+    { id: "status", header: t("log.status"), width: 150, sort: (r) => r.status, cell: (r) => <Chip tone={statusTone(r.status)}>{t(`astatus.${r.status}` as Key)}</Chip> },
+  ];
   return (
     <>
       <Notice>{t("log.restrictedNote")}</Notice>
-      <div className="grid">
-        <Field label={t("common.search")}><input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} /></Field>
-        <Field label={t("log.status")}>
-          <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
-            <option value="">{t("common.all")}</option>
-            {Object.keys(ASSET_STATUS).map((s) => <option key={s} value={s}>{t(`astatus.${s}` as Key)}</option>)}
-          </select>
-        </Field>
-      </div>
+      <FilterBar
+        search={{ value: q, label: t("common.search"), onChange: (v) => { setQ(v); setPage(1); } }}
+        filters={[{ id: "status", label: t("log.status"), value: status, onChange: (v) => { setStatus(v); setPage(1); }, options: Object.keys(ASSET_STATUS).map((s) => ({ value: s, label: t(`astatus.${s}` as Key) })) }]}
+        onReset={() => { setQ(""); setStatus(""); setPage(1); }} />
       {can("logistics.manage") && !adding && <button style={{ marginBottom: ".75rem" }} onClick={() => setAdding(true)}>{t("log.addAsset")}</button>}
       {adding && (
         <form className="card" onSubmit={(e) => void add(e)}>
@@ -248,23 +245,9 @@ function AssetsTab() {
         </form>
       )}
       <ErrorNotice error={list.error} />
-      {list.loading && !list.data ? <Loading /> : null}
-      {list.data && list.data.results.length === 0 && <p>{t("log.noItems")}</p>}
-      <ul className="list">
-        {list.data?.results.map((a) => (
-          <li key={a.id} className="item">
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <Link to={`/logistics/assets/${a.id}`}><h2>{a.identifier}</h2></Link>
-              <div className="row">
-                {a.category.restricted && <Restricted />}
-                <Chip tone={a.status === "in_stock" ? "approved" : "draft"}>{t(`astatus.${a.status}` as Key)}</Chip>
-              </div>
-            </div>
-            <span className="muted">{name(a.category)} · {name(a.org_unit)}{a.issued_to_unit ? ` → ${name(a.issued_to_unit)}` : ""}</span>
-          </li>
-        ))}
-      </ul>
-      {list.data && <Pager page={page} count={list.data.count} pageSize={25} onPage={setPage} />}
+      <DataTable id="logistics-assets" caption={t("log.addAsset")} columns={columns} rows={list.data?.results} rowKey={(a) => a.id} loading={list.loading}
+                 filtered={!!(q || status)} onReset={() => { setQ(""); setStatus(""); setPage(1); }} empty={{ icon: "box", title: t("log.noItems") }}
+                 page={page} count={list.data?.count} pageSize={25} onPage={setPage} />
     </>
   );
 }

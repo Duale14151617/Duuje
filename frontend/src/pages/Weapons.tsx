@@ -3,7 +3,8 @@ import { api } from "../api/client";
 import type { Page } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { useFetch } from "../api/useFetch";
-import { Chip, ErrorNotice, Field, Notice } from "../components/ui";
+import { FilterBar } from "../components/FilterBar";
+import { Chip, ErrorNotice, Field, Notice, PageHeader } from "../components/ui";
 import { UnitPicker } from "../components/UnitPicker";
 import { useI18n, type Key } from "../i18n";
 
@@ -41,7 +42,7 @@ export function Weapons() {
 
   return (
     <>
-      <h1>{t("weap.title")}</h1>
+      <PageHeader title={t("weap.title")} actions={canManage && !registering ? <button type="button" onClick={() => setRegistering(true)}>{t("weap.register")}</button> : undefined} />
       <ErrorNotice error={summary.error ?? list.error} />
       {summary.data && (
         <section className="card">
@@ -51,17 +52,13 @@ export function Weapons() {
           {Object.entries(summary.data.by_type).map(([k, n]) => <div className="stat" key={k}><span>{k}</span><b>{n}</b></div>)}
         </section>
       )}
-      <section className="card">
-        <input type="search" value={q} maxLength={60} placeholder={t("weap.search")} aria-label={t("weap.search")} onChange={(e) => { setQ(e.target.value); setPage(1); }} />
-        <div className="grid">
-          <select value={status} aria-label={t("pers.status")} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
-            <option value="">{t("common.all")}</option>
-            {["in_stock", "issued", "maintenance", "missing", "lost", "retired"].map((s) => <option key={s} value={s}>{t(`astatus.${s}` as Key)}</option>)}
-          </select>
-          <label className="row"><input type="checkbox" style={{ width: "auto", minHeight: 0 }} checked={inCustody} onChange={(e) => { setInCustody(e.target.checked); setPage(1); }} /><span>{t("weap.onlyInCustody")}</span></label>
-        </div>
-        {canManage && !registering && <div className="row"><button type="button" className="secondary" onClick={() => setRegistering(true)}>{t("weap.register")}</button></div>}
-      </section>
+      <FilterBar
+        search={{ value: q, label: t("weap.search"), onChange: (v) => { setQ(v); setPage(1); } }}
+        filters={[{ id: "status", label: t("pers.status"), value: status, onChange: (v) => { setStatus(v); setPage(1); },
+                    options: ["in_stock", "issued", "maintenance", "missing", "lost", "retired"].map((s) => ({ value: s, label: t(`astatus.${s}` as Key) })) }]}
+        advancedExtra={<label className="check"><input type="checkbox" checked={inCustody} onChange={(e) => { setInCustody(e.target.checked); setPage(1); }} /><span>{t("weap.onlyInCustody")}</span></label>}
+        custom={[{ id: "custody", label: t("weap.onlyInCustody"), active: inCustody, onClear: () => { setInCustody(false); setPage(1); } }]}
+        onReset={() => { setQ(""); setStatus(""); setInCustody(false); setPage(1); }} />
       {registering && <RegisterForm onDone={() => { setRegistering(false); reloadAll(); }} onCancel={() => setRegistering(false)} />}
       <ul className="list">
         {(list.data?.results ?? []).map((w) => (

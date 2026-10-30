@@ -51,7 +51,7 @@ const L = {
 
 /** Photo + sensitive profile (blood type, weapon ID, emergency contact...). Readable/editable by personnel managers only;
  *  everyone who can view a person sees the photo. */
-export function PersonnelProfile({ personId, canManage }: { personId: string; canManage: boolean }) {
+export function PersonnelProfile({ personId, canManage, onPhotoChanged }: { personId: string; canManage: boolean; onPhotoChanged?: () => void }) {
   const { lang } = useI18n();
   const s = L[lang === "so" ? "so" : "en"];
   const profile = useFetch<Profile>(canManage ? `/personnel/${personId}/profile/` : null);
@@ -92,7 +92,7 @@ export function PersonnelProfile({ personId, canManage }: { personId: string; ca
     setBusy(true); setErr(null);
     try {
       await upload(`/personnel/${personId}/photo/upload/`, "photo", await shrink(f));
-      setBroken(false); setPhotoV((v) => v + 1); profile.reload();
+      setBroken(false); setPhotoV((v) => v + 1); profile.reload(); onPhotoChanged?.();
     } catch (x) { setErr(x); } finally { setBusy(false); }
   }
 

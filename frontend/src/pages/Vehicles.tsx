@@ -4,7 +4,10 @@ import { api, uploadForm } from "../api/client";
 import type { Page } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { useFetch } from "../api/useFetch";
-import { Chip, ErrorNotice, Field, Loading, Notice } from "../components/ui";
+import { Chip, ErrorNotice, Field, Loading, Notice, PageHeader } from "../components/ui";
+import { DataTable, type Column } from "../components/DataTable";
+import { FilterBar } from "../components/FilterBar";
+import { Icon } from "../components/Icon";
 import { UnitPicker } from "../components/UnitPicker";
 import { useI18n, type Key } from "../i18n";
 
@@ -52,7 +55,7 @@ export function Vehicles() {
   const { can } = useAuth();
   const [sp, setSp] = useSearchParams();
   const unit = sp.get("unit") ?? "";
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(sp.get("q") ?? "");
   const [status, setStatus] = useState("");
   const [category, setCategory] = useState("");
   const [overdue, setOverdue] = useState(false);
@@ -60,65 +63,69 @@ export function Vehicles() {
   const [withDecom, setWithDecom] = useState(false);
   const [direct, setDirect] = useState(false);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [registering, setRegistering] = useState(false);
   const cats = useFetch<{ results: Cat[] }>("/vehicles/categories/");
   const st = useStatuses();
   const summary = useFetch<Summary>(unit ? "/vehicles/summary/" : null, { org_unit: unit });
   const list = useFetch<Page<VehicleRow>>("/vehicles/", {
-    q, status, category, org_unit: unit || undefined, direct: direct ? 1 : undefined, page,
+    q, status, category, org_unit: unit || undefined, direct: direct ? 1 : undefined, page, page_size: pageSize === 25 ? undefined : pageSize,
     overdue: overdue ? 1 : undefined, no_driver: noDriver ? 1 : undefined, include_decommissioned: withDecom ? 1 : undefined,
   });
   const reset = <T,>(set: (v: T) => void) => (v: T) => { set(v); setPage(1); };
+  const filtered = !!(q || status || category || unit || overdue || noDriver || withDecom || direct);
+  const resetAll = () => { setQ(""); setStatus(""); setCategory(""); setOverdue(false); setNoDriver(false); setWithDecom(false); setDirect(false); setSp({}); setPage(1); };
+  const flags: [string, boolean, (v: boolean) => void][] = [["veh.onlyOverdue", overdue, setOverdue], ["veh.onlyNoDriver", noDriver, setNoDriver], ["veh.showDecommissioned", withDecom, setWithDecom]];
+
+  const columns: Column<VehicleRow>[] = [
+    { id: "id", header: t("veh.col.vehicle"), width: 140, locked: true, sort: (v) => v.vehicle_id, cell: (v) => <Link to={`/vehicles/${v.id}`}>{v.vehicle_id}</Link> },
+    { id: "category", header: t("veh.category"), width: 150, sort: (v) => name(v.category), cell: (v) => name(v.category) },
+    { id: "plate", header: t("veh.col.plate"), width: 130, sort: (v) => v.plate, cell: (v) => v.plate || t(v.plate_status === "none" ? "veh.plateNone" : "veh.plateUnknown") },
+    { id: "status", header: t("veh.status"), width: 170, sort: (v) => st.label(v.status),
+      cell: (v) => <><Chip tone={tone(v.status)}>{st.label(v.status)}</Chip>{v.maintenance_overdue && <> <Chip tone="bad">{t("veh.overdue")}</Chip></>}</> },
+    { id: "unit", header: t("veh.unit"), width: 200, sort: (v) => name(v.org_unit), cell: (v) => name(v.org_unit) },
+    { id: "driver", header: t("veh.col.driver"), width: 220, sort: (v) => v.driver?.full_name ?? null,
+      cell: (v) => (v.driver ? `${v.driver.rank.code} ${v.driver.full_name} (${v.driver.service_number ?? "—"})` : <span className="muted">{t("veh.noDriver")}</span>) },
+    { id: "location", header: t("veh.col.location"), width: 160, sort: (v) => v.location, cell: (v) => v.location || "—" },
+    { id: "model", header: t("veh.col.model"), width: 170, hidden: true, sort: (v) => `${v.make} ${v.model}`, cell: (v) => `${v.make} ${v.model}`.trim() || "—" },
+    { id: "year", header: t("veh.col.year"), width: 90, hidden: true, align: "right", sort: (v) => v.year, cell: (v) => v.year ?? "—" },
+    { id: "condition", header: t("veh.col.condition"), width: 130, hidden: true, sort: (v) => v.condition, cell: (v) => v.condition },
+    { id: "due", header: t("veh.col.nextDue"), width: 130, hidden: true, sort: (v) => v.next_due_date, cell: (v) => v.next_due_date ?? "—" },
+  ];
 
   return (
     <>
-      <h1>{t("veh.title")}</h1>
+      <PageHeader title={t("veh.title")} actions={can("vehicles.create") && !registering ? <button type="button" onClick={() => setRegistering(true)}><Icon name="plus" size={16} /><span>{t("veh.register")}</span></button> : undefined} />
       <ErrorNotice error={list.error ?? summary.error} />
-      <section className="card">
-        <UnitPicker label={t("veh.unit")} value={unit} allowAll params={{ placeable: undefined }}
-                    onChange={(id) => { setSp(id ? { unit: id } : {}); setPage(1); }} />
-        <input type="search" value={q} maxLength={60} placeholder={t("veh.search")} aria-label={t("veh.search")} onChange={(e) => reset(setQ)(e.target.value)} />
-        <div className="grid">
-          <select value={category} aria-label={t("veh.category")} onChange={(e) => reset(setCategory)(e.target.value)}>
-            <option value="">{t("veh.category")}: {t("common.all")}</option>
-            {(cats.data?.results ?? []).map((c) => <option key={c.id} value={c.code}>{name(c)}</option>)}
-          </select>
-          <select value={status} aria-label={t("veh.status")} onChange={(e) => reset(setStatus)(e.target.value)}>
-            <option value="">{t("veh.status")}: {t("common.all")}</option>
-            {st.list.map((x) => <option key={x.code} value={x.code}>{name(x)}</option>)}
-          </select>
-        </div>
-        {([["veh.onlyOverdue", overdue, setOverdue], ["veh.onlyNoDriver", noDriver, setNoDriver], ["veh.showDecommissioned", withDecom, setWithDecom]] as const).map(([k, v, set]) => (
-          <label className="row" key={k}><input type="checkbox" style={{ width: "auto", minHeight: 0 }} checked={v} onChange={(e) => reset(set)(e.target.checked)} /><span>{t(k)}</span></label>
-        ))}
-        {unit && <label className="row"><input type="checkbox" style={{ width: "auto", minHeight: 0 }} checked={direct} onChange={(e) => reset(setDirect)(e.target.checked)} /><span>{t("veh.direct")}</span></label>}
-        {can("vehicles.create") && !registering && <div className="row"><button type="button" className="secondary" onClick={() => setRegistering(true)}>{t("veh.register")}</button></div>}
-      </section>
+      <FilterBar
+        search={{ value: q, label: t("veh.search"), onChange: reset(setQ) }}
+        filters={[
+          { id: "category", label: t("veh.category"), value: category, onChange: reset(setCategory), options: (cats.data?.results ?? []).map((c) => ({ value: c.code, label: name(c) })) },
+          { id: "status", label: t("veh.status"), value: status, onChange: reset(setStatus), options: st.list.map((x) => ({ value: x.code, label: name(x) })) },
+        ]}
+        advancedExtra={<>
+          <div className="fb-unit">
+            <UnitPicker label={t("veh.unit")} value={unit} allowAll params={{ placeable: undefined }}
+                        onChange={(id) => { setSp(id ? { unit: id } : {}); setPage(1); }} />
+          </div>
+          {flags.map(([k, v, set]) => (
+            <label className="check" key={k}><input type="checkbox" checked={v} onChange={(e) => reset(set)(e.target.checked)} /><span>{t(k as Key)}</span></label>
+          ))}
+          {unit && <label className="check"><input type="checkbox" checked={direct} onChange={(e) => reset(setDirect)(e.target.checked)} /><span>{t("veh.direct")}</span></label>}
+        </>}
+        custom={[
+          { id: "unit", label: `${t("veh.unit")}: ${summary.data ? name(summary.data.unit) : unit}`, active: !!unit, onClear: () => { setSp({}); setPage(1); } },
+          ...flags.map(([k, v, set]) => ({ id: k, label: t(k as Key), active: v, onClear: () => reset(set)(false) })),
+          { id: "direct", label: t("veh.direct"), active: direct && !!unit, onClear: () => reset(setDirect)(false) },
+        ]}
+        onReset={resetAll} />
       {can("vehicles.configure") && <CategoryManager cats={cats.data?.results ?? []} onDone={cats.reload} />}
       {registering && <RegisterForm unit={unit} cats={cats.data?.results ?? []} onDone={() => { setRegistering(false); list.reload(); summary.reload(); }} onCancel={() => setRegistering(false)} />}
       {can("vehicles.configure") && <StatusManager list={st.list} onDone={st.reload} />}
       {summary.data && <SummaryCards s={summary.data} onOpen={(id) => { setSp({ unit: id }); setPage(1); }} />}
-      <ul className="list">
-        {(list.data?.results ?? []).map((v) => (
-          <li key={v.id} className="item">
-            <Link to={`/vehicles/${v.id}`}><b>{v.vehicle_id}</b> · {name(v.category)} · {v.plate || t(v.plate_status === "none" ? "veh.plateNone" : "veh.plateUnknown")}</Link>
-            <div className="row">
-              <Chip tone={tone(v.status)}>{st.label(v.status)}</Chip>
-              {v.maintenance_overdue && <Chip tone="bad">{t("veh.overdue")}</Chip>}
-              <span className="muted">{name(v.org_unit)}</span>
-            </div>
-            <p className="muted">{v.driver ? `${v.driver.rank.code} ${v.driver.full_name} (${v.driver.service_number ?? "—"})` : t("veh.noDriver")} · {v.location || "—"}</p>
-          </li>
-        ))}
-      </ul>
-      {!list.data && !list.error && <Loading />}
-      {list.data && list.data.results.length === 0 && <p className="muted">{t("veh.none")}</p>}
-      {list.data && (list.data.next || list.data.previous) && (
-        <div className="row">
-          <button type="button" className="secondary" disabled={!list.data.previous} onClick={() => setPage(page - 1)}>{t("common.previous")}</button>
-          <button type="button" className="secondary" disabled={!list.data.next} onClick={() => setPage(page + 1)}>{t("common.next")}</button>
-        </div>
-      )}
+      <DataTable id="vehicles" caption={t("veh.title")} columns={columns} rows={list.data?.results} rowKey={(v) => v.id}
+                 loading={list.loading} filtered={filtered} onReset={resetAll} empty={{ icon: "truck", title: t("veh.none") }}
+                 page={page} count={list.data?.count} pageSize={pageSize} onPage={setPage} onPageSize={(n) => { setPageSize(n); setPage(1); }} />
     </>
   );
 }

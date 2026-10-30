@@ -4,12 +4,14 @@ import { api } from "../api/client";
 import type { Course, Page, PersonBrief, TrainingRec, TrainingSummary } from "../api/types";
 import { useFetch } from "../api/useFetch";
 import { useAuth } from "../auth/AuthContext";
-import { Chip, ErrorNotice, Field, Loading, Pager, Tabs } from "../components/ui";
+import { DataTable, type Column } from "../components/DataTable";
+import { FilterBar } from "../components/FilterBar";
+import { statusTone } from "../components/status";
+import { Chip, ErrorNotice, Field, Loading, Tabs } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
 
 type Tab = "records" | "courses" | "summary";
 const STATUSES = ["enrolled", "in_progress", "completed", "failed", "withdrawn"];
-const tone = (s: string) => (s === "completed" ? "approved" : s === "failed" ? "bad" : "draft");
 const today = () => new Date().toISOString().slice(0, 10);
 
 function Enrol({ courses, onDone }: { courses: Course[]; onDone: (id: string) => void }) {
@@ -71,39 +73,31 @@ function RecordsTab() {
   const courses = useFetch<Course[]>("/training/courses/");
   const list = useFetch<Page<TrainingRec>>("/training/records/", { status, course, page });
 
+  const columns: Column<TrainingRec>[] = [
+    { id: "person", header: t("tr.person"), width: 230, locked: true, sort: (r) => r.personnel.full_name, cell: (r) => <Link to={`/training/records/${r.id}`}>{r.personnel.full_name}</Link> },
+    { id: "course", header: t("tr.course"), width: 220, sort: (r) => name(r.course), cell: (r) => name(r.course) },
+    { id: "unit", header: t("pers.unit"), width: 200, sort: (r) => name(r.personnel.org_unit), cell: (r) => name(r.personnel.org_unit) },
+    { id: "status", header: t("tr.status"), width: 140, sort: (r) => r.status, cell: (r) => <Chip tone={statusTone(r.status)}>{t(`tstatus.${r.status}` as Key)}</Chip> },
+    { id: "start", header: t("tr.start"), width: 130, sort: (r) => r.start_date, cell: (r) => r.start_date },
+    { id: "end", header: t("tr.end"), width: 130, hidden: true, sort: (r) => r.end_date, cell: (r) => r.end_date ?? "-" },
+    { id: "done", header: t("tr.completedOn"), width: 140, hidden: true, sort: (r) => r.completed_on, cell: (r) => r.completed_on ?? "-" },
+  ];
+  const resetAll = () => { setStatus(""); setCourse(""); setPage(1); };
+
   return (
     <>
-      <div className="grid">
-        <Field label={t("tr.status")}>
-          <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
-            <option value="">{t("common.all")}</option>
-            {STATUSES.map((s) => <option key={s} value={s}>{t(`tstatus.${s}` as Key)}</option>)}
-          </select>
-        </Field>
-        <Field label={t("tr.course")}>
-          <select value={course} onChange={(e) => { setCourse(e.target.value); setPage(1); }}>
-            <option value="">{t("common.all")}</option>
-            {courses.data?.map((c) => <option key={c.id} value={c.id}>{name(c)}</option>)}
-          </select>
-        </Field>
-      </div>
+      <FilterBar
+        filters={[
+          { id: "status", label: t("tr.status"), value: status, onChange: (v) => { setStatus(v); setPage(1); }, options: STATUSES.map((s) => ({ value: s, label: t(`tstatus.${s}` as Key) })) },
+          { id: "course", label: t("tr.course"), value: course, onChange: (v) => { setCourse(v); setPage(1); }, options: (courses.data ?? []).map((c) => ({ value: c.id, label: name(c) })) },
+        ]}
+        onReset={resetAll} />
       {can("training.manage") && !adding && <button style={{ marginBottom: ".75rem" }} onClick={() => setAdding(true)}>{t("tr.enrol")}</button>}
       {adding && <Enrol courses={courses.data ?? []} onDone={(id) => navigate(`/training/records/${id}`)} />}
       <ErrorNotice error={list.error} />
-      {list.loading && !list.data ? <Loading /> : null}
-      {list.data && list.data.results.length === 0 && <p>{t("tr.noRecords")}</p>}
-      <ul className="list">
-        {list.data?.results.map((r) => (
-          <li key={r.id} className="item">
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <Link to={`/training/records/${r.id}`}><h2>{r.personnel.full_name}</h2></Link>
-              <Chip tone={tone(r.status)}>{t(`tstatus.${r.status}` as Key)}</Chip>
-            </div>
-            <span className="muted">{name(r.course)} · {name(r.personnel.org_unit)} · {r.start_date}</span>
-          </li>
-        ))}
-      </ul>
-      {list.data && <Pager page={page} count={list.data.count} pageSize={25} onPage={setPage} />}
+      <DataTable id="training-records" caption={t("tr.title")} columns={columns} rows={list.data?.results} rowKey={(r) => r.id} loading={list.loading}
+                 filtered={!!(status || course)} onReset={resetAll} empty={{ icon: "cap", title: t("tr.noRecords") }}
+                 page={page} count={list.data?.count} pageSize={25} onPage={setPage} />
     </>
   );
 }
@@ -246,7 +240,7 @@ export function TrainingRecordDetail() {
         <section className="card">
           <div className="row" style={{ justifyContent: "space-between" }}>
             <h1 style={{ margin: 0 }}>{r.personnel.full_name}</h1>
-            <Chip tone={tone(r.status)}>{t(`tstatus.${r.status}` as Key)}</Chip>
+            <Chip tone={statusTone(r.status)}>{t(`tstatus.${r.status}` as Key)}</Chip>
           </div>
           <p className="muted">{name(r.personnel.org_unit)}</p>
           <div className="stat"><span>{t("tr.course")}</span><b>{name(r.course)}</b></div>

@@ -5,10 +5,10 @@ import type { Page, ReportType, SubmissionDetail, SubmissionRow, Unit } from "..
 import { useFetch } from "../api/useFetch";
 import { useAuth } from "../auth/AuthContext";
 import { ExportPdfButton } from "../components/ExportPdfButton";
-import { Chip, ErrorNotice, Field, formatDate, Loading, Notice, Pager } from "../components/ui";
+import { DataTable, type Column } from "../components/DataTable";
+import { Chip, ErrorNotice, Field, formatDate, Loading, Notice, PageHeader } from "../components/ui";
+import { statusTone } from "../components/status";
 import { useI18n, type Key } from "../i18n";
-
-const statusTone = (s: string) => (s === "approved" ? "approved" : s === "rejected" ? "bad" : "draft");
 
 export function ReportList() {
   const { t, name } = useI18n();
@@ -38,35 +38,29 @@ export function ReportList() {
     };
   }
 
+  const columns: Column<SubmissionRow>[] = [
+    { id: "title", header: t("rep.titleField"), width: 280, locked: true, sort: (r) => r.title, cell: (r) => <Link to={`/reports/${r.id}`}>{r.title}</Link> },
+    { id: "type", header: t("rep.type"), width: 190, sort: (r) => name(r.report_type), cell: (r) => name(r.report_type) },
+    { id: "unit", header: t("rep.unit"), width: 200, sort: (r) => name(r.org_unit), cell: (r) => name(r.org_unit) },
+    { id: "period", header: `${t("rep.periodStart")} – ${t("rep.periodEnd")}`, width: 210, sort: (r) => r.period_start, cell: (r) => `${r.period_start} – ${r.period_end}` },
+    { id: "by", header: t("rep.submitter"), width: 150, sort: (r) => r.submitter_username, cell: (r) => r.submitter_username },
+    { id: "status", header: t("pers.status"), width: 140, sort: (r) => r.status, cell: (r) => <Chip tone={statusTone(r.status)}>{t(`rstatus.${r.status}` as Key)}</Chip> },
+  ];
+
   return (
     <>
-      <div className="row" style={{ justifyContent: "space-between", marginBottom: "1rem" }}>
-        <h1 style={{ margin: 0 }}>{t("rep.title")}</h1>
-        <div className="row">
-          {canExport && <ExportPdfButton filename="reports.pdf" build={buildPdf} onError={setExportError} />}
-          {can("reports.submit") && <Link className="btn" to="/reports/new">{t("rep.new")}</Link>}
-        </div>
-      </div>
+      <PageHeader title={t("rep.title")} actions={<>
+        {canExport && <ExportPdfButton filename="reports.pdf" build={buildPdf} onError={setExportError} />}
+        {can("reports.submit") && <Link className="btn" to="/reports/new">{t("rep.new")}</Link>}
+      </>} />
       <div className="row" style={{ marginBottom: "1rem" }}>
         {tabs.filter(([, , show]) => show).map(([v, label]) => (
-          <button key={v} className={view === v ? "" : "secondary"} onClick={() => { setView(v); setPage(1); }}>{t(label)}</button>
+          <button key={v} className={view === v ? "" : "secondary"} aria-pressed={view === v} onClick={() => { setView(v); setPage(1); }}>{t(label)}</button>
         ))}
       </div>
       <ErrorNotice error={list.error ?? exportError} />
-      {list.loading && !list.data ? <Loading /> : null}
-      {list.data && list.data.results.length === 0 && <p>{t("rep.noItems")}</p>}
-      <ul className="list">
-        {list.data?.results.map((s) => (
-          <li key={s.id} className="item">
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <Link to={`/reports/${s.id}`}><h2>{s.title}</h2></Link>
-              <Chip tone={statusTone(s.status)}>{t(`rstatus.${s.status}` as Key)}</Chip>
-            </div>
-            <span className="muted">{name(s.report_type)} · {name(s.org_unit)} · {s.period_start} – {s.period_end} · {s.submitter_username}</span>
-          </li>
-        ))}
-      </ul>
-      {list.data && <Pager page={page} count={list.data.count} pageSize={25} onPage={setPage} />}
+      <DataTable id="reports" caption={t("rep.title")} columns={columns} rows={list.data?.results} rowKey={(r) => r.id} loading={list.loading}
+                 empty={{ icon: "file", title: t("rep.noItems") }} page={page} count={list.data?.count} pageSize={25} onPage={setPage} />
     </>
   );
 }

@@ -3,7 +3,10 @@ import { fetchAll } from "../api/client";
 import type { AuditEvent, Page } from "../api/types";
 import { useFetch } from "../api/useFetch";
 import { ExportPdfButton } from "../components/ExportPdfButton";
-import { Chip, ErrorNotice, Field, formatDate, Loading, Pager } from "../components/ui";
+import { Chip, ErrorNotice, formatDate, PageHeader } from "../components/ui";
+import { DataTable, type Column } from "../components/DataTable";
+import { FilterBar } from "../components/FilterBar";
+import { statusTone } from "../components/status";
 import { useI18n } from "../i18n";
 
 export function AuditLog() {
@@ -28,49 +31,29 @@ export function AuditLog() {
     };
   }
 
+  const reset = () => { setAction(""); setOutcome(""); setPage(1); };
+  const columns: Column<AuditEvent>[] = [
+    { id: "when", header: t("audit.when"), width: 180, locked: true, sort: (e) => e.occurred_at, cell: (e) => formatDate(e.occurred_at, lang) },
+    { id: "who", header: t("audit.who"), width: 150, sort: (e) => e.actor_username, cell: (e) => e.actor_username || "-" },
+    { id: "action", header: t("audit.action"), width: 200, sort: (e) => e.action, cell: (e) => <span className="mono">{e.action}</span> },
+    { id: "outcome", header: t("audit.outcome"), width: 120, sort: (e) => e.outcome, cell: (e) => <Chip tone={statusTone(e.outcome)}>{e.outcome}</Chip> },
+    { id: "entity", header: t("audit.entity"), width: 200, sort: (e) => e.entity_type, cell: (e) => <span className="mono">{e.entity_type}{e.entity_id ? ` ${e.entity_id.slice(0, 8)}` : ""}</span> },
+    { id: "corr", header: t("audit.correlation"), width: 160, hidden: true, cell: (e) => <span className="mono">{e.correlation_id.slice(0, 12)}</span> },
+  ];
+
   return (
     <>
-      <div className="row" style={{ justifyContent: "space-between", marginBottom: "1rem" }}>
-        <h1 style={{ margin: 0 }}>{t("audit.title")}</h1>
-        <ExportPdfButton filename="audit-log.pdf" build={buildPdf} onError={setExportError} />
-      </div>
-      <div className="grid">
-        <Field label={t("audit.filterAction")}>
-          <input value={action} onChange={(e) => { setAction(e.target.value); setPage(1); }} placeholder="auth.login" />
-        </Field>
-        <Field label={t("audit.outcome")}>
-          <select value={outcome} onChange={(e) => { setOutcome(e.target.value); setPage(1); }}>
-            <option value="">{t("common.all")}</option>
-            <option value="success">success</option><option value="failure">failure</option><option value="denied">denied</option>
-          </select>
-        </Field>
-      </div>
+      <PageHeader title={t("audit.title")} actions={<ExportPdfButton filename="audit-log.pdf" build={buildPdf} onError={setExportError} />} />
+      <FilterBar
+        search={{ value: action, label: t("audit.filterAction"), onChange: (v) => { setAction(v); setPage(1); } }}
+        filters={[{ id: "outcome", label: t("audit.outcome"), value: outcome, onChange: (v) => { setOutcome(v); setPage(1); },
+          options: ["success", "failure", "denied"].map((o) => ({ value: o, label: o })) }]}
+        onReset={reset} />
       <ErrorNotice error={events.error ?? exportError} />
-      {events.loading && !events.data ? <Loading /> : null}
-      {events.data && events.data.results.length === 0 && <p>{t("audit.noEvents")}</p>}
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>{t("audit.when")}</th><th>{t("audit.who")}</th><th>{t("audit.action")}</th>
-              <th>{t("audit.outcome")}</th><th>{t("audit.entity")}</th><th>{t("audit.correlation")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {events.data?.results.map((e) => (
-              <tr key={e.id}>
-                <td>{formatDate(e.occurred_at, lang)}</td>
-                <td>{e.actor_username || "-"}</td>
-                <td className="mono">{e.action}</td>
-                <td><Chip tone={e.outcome}>{e.outcome}</Chip></td>
-                <td className="mono">{e.entity_type}{e.entity_id ? ` ${e.entity_id.slice(0, 8)}` : ""}</td>
-                <td className="mono">{e.correlation_id.slice(0, 12)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {events.data && <Pager page={page} count={events.data.count} pageSize={25} onPage={setPage} />}
+      <DataTable id="audit" caption={t("audit.title")} columns={columns} rows={events.data?.results} rowKey={(e) => e.id}
+                 loading={events.loading} filtered={!!(action || outcome)} onReset={reset}
+                 empty={{ icon: "activity", title: t("audit.noEvents") }}
+                 page={page} count={events.data?.count} pageSize={25} onPage={setPage} />
     </>
   );
 }

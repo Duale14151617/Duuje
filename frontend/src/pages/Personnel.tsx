@@ -1,10 +1,15 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import { ApiError, api, downloadCsv, fetchAll, upload } from "../api/client";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { ApiError, api, downloadCsv, fetchAll, photoUrl, upload } from "../api/client";
 import type { HistoryEntry, ImportPreview, Page, Person, Rank, Unit } from "../api/types";
 import { useFetch } from "../api/useFetch";
 import { useAuth } from "../auth/AuthContext";
-import { Chip, ErrorNotice, Field, formatDate, Loading, Notice, Pager, useErrorText } from "../components/ui";
+import { Chip, ErrorNotice, Field, Loading, Notice, PageHeader, TabPanel, Tabs, useErrorText } from "../components/ui";
+import { DataTable, type Column } from "../components/DataTable";
+import { FilterBar } from "../components/FilterBar";
+import { Icon, type IconName } from "../components/Icon";
+import { AttendanceTab, HistoryTimeline, ServiceRecordTab, TrainingTab } from "../components/PersonnelTabs";
+import { statusTone } from "../components/status";
 import { ExportPdfButton } from "../components/ExportPdfButton";
 import { PersonnelProfile } from "../components/PersonnelProfile";
 import { AppointmentsPanel } from "../components/AppointmentsPanel";
@@ -28,16 +33,20 @@ function useApprovedRanks() {
 export function PersonnelList() {
   const { t, name } = useI18n();
   const { me, can } = useAuth();
-  const [q, setQ] = useState("");
+  const [params] = useSearchParams();
+  const [q, setQ] = useState(params.get("q") ?? "");
   const [status, setStatus] = useState("");
   const [unit, setUnit] = useState("");
   const [unitLabel, setUnitLabel] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [noSup, setNoSup] = useState(false);
   const [exportError, setExportError] = useState<unknown>(null);
   const cat = useUnitTypes();
-  const list = useFetch<Page<Person>>("/personnel/", { q, status, org_unit: unit, page, no_supervisor: noSup ? 1 : undefined });
+  const list = useFetch<Page<Person>>("/personnel/", { q, status, org_unit: unit, page, page_size: pageSize === 25 ? undefined : pageSize, no_supervisor: noSup ? 1 : undefined });
   const canExport = can("personnel.export") && !!me?.features.personnel_export;
+  const filtered = !!(q || status || unit || noSup);
+  const reset = () => { setQ(""); setStatus(""); setUnit(""); setUnitLabel(""); setNoSup(false); setPage(1); };
 
   async function exportCsv() {
     setExportError(null);
@@ -61,51 +70,55 @@ export function PersonnelList() {
     };
   }
 
+  const unitType = (p: Person) => (p.org_unit.unit_type && cat.typeById.get(p.org_unit.unit_type) ? name(cat.typeById.get(p.org_unit.unit_type)!) : "");
+  const columns: Column<Person>[] = [
+    { id: "name", header: t("pers.fullName"), width: 240, locked: true, sort: (p) => p.full_name,
+      cell: (p) => <Link to={`/personnel/${p.id}`}>{p.full_name}</Link> },
+    { id: "service", header: t("pers.serviceNumber"), width: 140, sort: (p) => p.service_number, cell: (p) => p.service_number ?? "-" },
+    { id: "rank", header: t("pers.rank"), width: 190, sort: (p) => p.rank.code, cell: (p) => `${p.rank.code} ${name(p.rank)}` },
+    { id: "unit", header: t("pers.unit"), width: 230, sort: (p) => name(p.org_unit),
+      cell: (p) => <>{name(p.org_unit)}{unitType(p) ? <span className="cell-sub">{unitType(p)}</span> : null}</> },
+    { id: "branch", header: t("pers.branch"), width: 150, hidden: true, sort: (p) => name(p.branch), cell: (p) => name(p.branch) },
+    { id: "phone", header: t("pers.phone"), width: 150, hidden: true, cell: (p) => p.phone || "-" },
+    { id: "status", header: t("pers.status"), width: 130, sort: (p) => t(`pstatus.${p.status}` as Key), cell: (p) => <Chip tone={statusTone(p.status)}>{t(`pstatus.${p.status}` as Key)}</Chip> },
+  ];
+
   return (
     <>
-      <div className="row" style={{ justifyContent: "space-between", marginBottom: "1rem" }}>
-        <h1 style={{ margin: 0 }}>{t("pers.title")}</h1>
-        <div className="row">
-          {can("personnel.manage") && <Link className="btn" to="/personnel/new">{t("pers.add")}</Link>}
-          {can("personnel.import") && <Link className="btn secondary" to="/personnel/import">{t("pers.import")}</Link>}
-          {can("personnel.manage") && <Link className="btn secondary" to="/personnel/reporting-lines">{t("replines.title")}</Link>}
-          {canExport && <button className="secondary" onClick={() => void exportCsv()}>{t("pers.export")}</button>}
-          {canExport && <ExportPdfButton filename="personnel.pdf" build={buildPdf} onError={setExportError} />}
-        </div>
-      </div>
-      <div className="grid">
-        <Field label={t("pers.search")}>
-          <input type="search" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} />
-        </Field>
-        <Field label={t("pers.status")}>
-          <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
-            <option value="">{t("common.all")}</option>
-            {STATUSES.map((s) => <option key={s} value={s}>{t(`pstatus.${s}` as Key)}</option>)}
-          </select>
-        </Field>
-        <UnitPicker label={t("pers.unit")} value={unit} allowAll onChange={(id, u) => { setUnit(id); setUnitLabel(u ? name(u) : ""); setPage(1); }} />
-      </div>
-      {can("personnel.manage") && (
-        <label className="row" style={{ margin: ".5rem 0" }}>
-          <input type="checkbox" style={{ width: "auto", minHeight: 0 }} checked={noSup} onChange={(e) => { setNoSup(e.target.checked); setPage(1); }} />
-          <span>{t("rline.onlyWithout")}</span>
-        </label>
-      )}
+      <PageHeader title={t("pers.title")} actions={<>
+        {can("personnel.manage") && <Link className="btn" to="/personnel/new"><Icon name="plus" size={16} /><span>{t("pers.add")}</span></Link>}
+        {can("personnel.import") && <Link className="btn secondary" to="/personnel/import">{t("pers.import")}</Link>}
+        {can("personnel.manage") && <Link className="btn secondary" to="/personnel/reporting-lines">{t("replines.title")}</Link>}
+      </>} />
+      <FilterBar
+        search={{ value: q, label: t("pers.search"), onChange: (v) => { setQ(v); setPage(1); } }}
+        filters={[{ id: "status", label: t("pers.status"), value: status, onChange: (v) => { setStatus(v); setPage(1); },
+          options: STATUSES.map((s) => ({ value: s, label: t(`pstatus.${s}` as Key) })) }]}
+        advancedExtra={<>
+          <div className="fb-unit">
+            <UnitPicker label={t("pers.unit")} value={unit} allowAll onChange={(id, u) => { setUnit(id); setUnitLabel(u ? name(u) : ""); setPage(1); }} />
+          </div>
+          {can("personnel.manage") && (
+            <label className="check">
+              <input type="checkbox" checked={noSup} onChange={(e) => { setNoSup(e.target.checked); setPage(1); }} />
+              <span>{t("rline.onlyWithout")}</span>
+            </label>
+          )}
+        </>}
+        custom={[
+          { id: "unit", label: `${t("pers.unit")}: ${unitLabel || unit}`, active: !!unit, onClear: () => { setUnit(""); setUnitLabel(""); setPage(1); } },
+          { id: "nosup", label: t("rline.onlyWithout"), active: noSup, onClear: () => { setNoSup(false); setPage(1); } },
+        ]}
+        onReset={reset} />
       <ErrorNotice error={list.error ?? exportError} />
-      {list.loading && !list.data ? <Loading /> : null}
-      {list.data && list.data.results.length === 0 && <p>{t("pers.noResults")}</p>}
-      <ul className="list">
-        {list.data?.results.map((p) => (
-          <li key={p.id} className="item">
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <Link to={`/personnel/${p.id}`}><h2>{p.full_name}</h2></Link>
-              <Chip tone={p.status === "active" ? "approved" : ["died", "jailed", "suspended"].includes(p.status) ? "bad" : "draft"}>{t(`pstatus.${p.status}` as Key)}</Chip>
-            </div>
-            <span className="muted">{p.rank.code} {name(p.rank)} · {name(p.org_unit)}{p.org_unit.unit_type && cat.typeById.get(p.org_unit.unit_type) ? ` (${name(cat.typeById.get(p.org_unit.unit_type)!)})` : ""}{p.service_number ? ` · ${p.service_number}` : ""}</span>
-          </li>
-        ))}
-      </ul>
-      {list.data && <Pager page={page} count={list.data.count} pageSize={25} onPage={setPage} />}
+      <DataTable id="personnel" caption={t("pers.title")} columns={columns} rows={list.data?.results} rowKey={(p) => p.id}
+                 loading={list.loading} filtered={filtered} onReset={reset}
+                 empty={{ icon: "users", title: t("pers.noResults"), action: can("personnel.manage") ? <Link className="btn" to="/personnel/new">{t("pers.add")}</Link> : undefined }}
+                 page={page} count={list.data?.count} pageSize={pageSize} onPage={setPage} onPageSize={(n) => { setPageSize(n); setPage(1); }}
+                 actions={canExport ? <>
+                   <button type="button" className="secondary sm" onClick={() => void exportCsv()}>{t("pers.export")}</button>
+                   <ExportPdfButton filename="personnel.pdf" className="secondary sm" build={buildPdf} onError={setExportError} />
+                 </> : undefined} />
     </>
   );
 }
@@ -255,16 +268,33 @@ function ChangeForm({ person, mode, onDone }: { person: Person; mode: Exclude<Mo
   );
 }
 
+type ProfileTab = "personal" | "service" | "assignments" | "attendance" | "training" | "admin";
+
 export function PersonnelDetail() {
   const { id = "" } = useParams();
-  const { t, lang, name, tr } = useI18n();
+  const { t, name } = useI18n();
   const { can } = useAuth();
+  const [sp, setSp] = useSearchParams();
   const person = useFetch<Person>(`/personnel/${id}/`);
   const history = useFetch<HistoryEntry[]>(`/personnel/${id}/history/`);
   const [mode, setMode] = useState<Mode>(null);
+  const [photoV, setPhotoV] = useState(0);
+  const [photoBroken, setPhotoBroken] = useState(false);
   const p = person.data;
   const done = () => { setMode(null); person.reload(); history.reload(); };
-  const label = (h: HistoryEntry, value: string) => (h.field === "status" ? tr(`pstatus.${value}`) ?? value : value);
+
+  const tabs: { id: ProfileTab; label: string; icon: IconName }[] = [
+    { id: "personal", label: t("pf.tab.personal"), icon: "user" },
+    { id: "service", label: t("pf.tab.service"), icon: "award" },
+    { id: "assignments", label: t("pf.tab.assignments"), icon: "briefcase" },
+    ...(can("attendance.view") ? [{ id: "attendance" as const, label: t("pf.tab.attendance"), icon: "calendar" as const }] : []),
+    ...(can("training.view") ? [{ id: "training" as const, label: t("pf.tab.training"), icon: "cap" as const }] : []),
+    { id: "admin", label: t("pf.tab.admin"), icon: "clock" },
+  ];
+  const wanted = sp.get("tab");
+  const tab: ProfileTab = tabs.find((x) => x.id === wanted)?.id ?? "personal";
+  const setTab = (next: ProfileTab) => setSp(next === "personal" ? {} : { tab: next }, { replace: true });
+  const photo = photoUrl(id, photoV);
 
   return (
     <>
@@ -272,45 +302,71 @@ export function PersonnelDetail() {
       <ErrorNotice error={person.error} />
       {person.loading && !p ? <Loading /> : null}
       {p && (
-        <section className="card">
-          <h1>{p.full_name}</h1>
-          <div className="row"><Chip tone={p.status === "active" ? "approved" : "draft"}>{t(`pstatus.${p.status}` as Key)}</Chip></div>
-          <div className="stat"><span>{t("pers.rank")}</span><b>{p.rank.code} {name(p.rank)}</b></div>
-          <div className="stat"><span>{t("pers.unit")}</span><b>{name(p.org_unit)}</b></div>
-          <div className="stat"><span>{t("pers.branch")}</span><b>{name(p.branch)}</b></div>
-          <div className="stat"><span>{t("pers.serviceNumber")}</span><b>{p.service_number ?? "-"}</b></div>
-          <div className="stat"><span>{t("pers.phone")}</span><b>{p.phone || "-"}</b></div>
+        <section className="card pf-head">
+          <div className="pf-photo">
+            <img src={photoBroken || !photo ? "/avatar-default.png" : photo} alt="" width={112} height={140} onError={() => setPhotoBroken(true)} />
+          </div>
+          <div className="pf-id">
+            <h1>{p.full_name}</h1>
+            <div className="pf-badges">
+              <Chip tone={statusTone(p.status)}>{t(`pstatus.${p.status}` as Key)}</Chip>
+              <Chip>{p.rank.code} {name(p.rank)}</Chip>
+            </div>
+            <p className="pf-meta">
+              <span>{t("pers.serviceNumber")}: <b>{p.service_number ?? "-"}</b></span>
+              <span>{t("pers.unit")}: <b>{name(p.org_unit)}</b></span>
+              <span>{t("pers.branch")}: <b>{name(p.branch)}</b></span>
+              <span>{t("pers.phone")}: <b>{p.phone || "-"}</b></span>
+            </p>
+          </div>
           {can("personnel.manage") && mode === null && p.status !== "died" && (
-            <div className="row" style={{ marginTop: "1rem" }}>
-              <button className="secondary" onClick={() => setMode("edit")}>{t("pers.editBasics")}</button>
-              <button className="secondary" onClick={() => setMode("transfer")}>{t("pers.transfer")}</button>
-              <button className="secondary" onClick={() => setMode("rank")}>{t("pers.changeRank")}</button>
-              <button className="secondary" onClick={() => setMode("status")}>{t("pers.changeStatus")}</button>
+            <div className="pf-actions">
+              <button type="button" className="secondary sm" onClick={() => setMode("edit")}><Icon name="edit" size={16} /><span>{t("pers.editBasics")}</span></button>
+              <button type="button" className="secondary sm" onClick={() => setMode("transfer")}>{t("pers.transfer")}</button>
+              <button type="button" className="secondary sm" onClick={() => setMode("rank")}>{t("pers.changeRank")}</button>
+              <button type="button" className="secondary sm" onClick={() => setMode("status")}>{t("pers.changeStatus")}</button>
             </div>
           )}
         </section>
       )}
       {p && mode && <ChangeForm person={p} mode={mode} onDone={done} />}
-      {p && <AppointmentsPanel person={p} />}
-      {p && <DeathPanel person={p} onChanged={done} />}
-      {p && <ReportingLine person={p} canManage={can("personnel.manage") && p.status !== "died"} onChanged={done} />}
-      {p && <PersonnelProfile personId={p.id} canManage={can("personnel.manage")} />}
-      {p && can("disciplinary.view") && <DisciplinaryPanel personId={p.id} canManage={can("disciplinary.manage")} />}
-      {p && can("documents.view") && <DocumentsPanel personId={p.id} canManage={can("documents.manage")} />}
-      <h2>{t("pers.history")}</h2>
-      <ErrorNotice error={history.error} />
-      <ul className="list">
-        {history.data?.map((h) => (
-          <li key={h.id} className="item">
-            <b>{t(`hist.${h.field}` as Key)}</b>{" "}
-            {h.old_label ? `${label(h, h.old_label)} → ${label(h, h.new_label)}` : label(h, h.new_label)}
-            <div className="muted">
-              {h.effective_date} · {h.recorded_by_username || "-"} · {formatDate(h.recorded_at, lang)}
-              {h.reason ? ` · ${h.reason}` : ""}
-            </div>
-          </li>
-        ))}
-      </ul>
+      {p && (
+        <>
+          <Tabs tabs={tabs} value={tab} onChange={setTab} label={t("pf.tabs")} controls idPrefix="pf" />
+          <TabPanel id="personal" idPrefix="pf" active={tab === "personal"}>
+            <section className="card">
+              <h2>{t("pf.basic")}</h2>
+              <dl className="kv">
+                <div><dt>{t("pers.fullName")}</dt><dd>{p.full_name}</dd></div>
+                <div><dt>{t("pers.serviceNumber")}</dt><dd>{p.service_number ?? "-"}</dd></div>
+                <div><dt>{t("pers.phone")}</dt><dd>{p.phone || "-"}</dd></div>
+                {p.account_username !== undefined && <div><dt>{t("rline.account")}</dt><dd>{p.account_username || t("rline.noAccount")}</dd></div>}
+              </dl>
+            </section>
+            <PersonnelProfile personId={p.id} canManage={can("personnel.manage")} onPhotoChanged={() => { setPhotoBroken(false); setPhotoV((v) => v + 1); }} />
+          </TabPanel>
+          <TabPanel id="service" idPrefix="pf" active={tab === "service"}>
+            <ErrorNotice error={history.error} />
+            <ServiceRecordTab person={p} history={history.data ?? []} canManage={can("personnel.manage")} />
+          </TabPanel>
+          <TabPanel id="assignments" idPrefix="pf" active={tab === "assignments"}>
+            <AppointmentsPanel person={p} />
+            <ReportingLine person={p} canManage={can("personnel.manage") && p.status !== "died"} onChanged={done} />
+          </TabPanel>
+          <TabPanel id="attendance" idPrefix="pf" active={tab === "attendance"}><AttendanceTab person={p} /></TabPanel>
+          <TabPanel id="training" idPrefix="pf" active={tab === "training"}><TrainingTab person={p} /></TabPanel>
+          <TabPanel id="admin" idPrefix="pf" active={tab === "admin"}>
+            <DeathPanel person={p} onChanged={done} />
+            <section className="card">
+              <h2>{t("pers.history")}</h2>
+              <ErrorNotice error={history.error} />
+              <HistoryTimeline entries={history.data ?? []} />
+            </section>
+            {can("disciplinary.view") && <DisciplinaryPanel personId={p.id} canManage={can("disciplinary.manage")} />}
+            {can("documents.view") && <DocumentsPanel personId={p.id} canManage={can("documents.manage")} />}
+          </TabPanel>
+        </>
+      )}
     </>
   );
 }

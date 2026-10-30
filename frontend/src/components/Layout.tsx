@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import { useFetch } from "../api/useFetch";
 import { useAuth } from "../auth/AuthContext";
 import { useI18n, type Key } from "../i18n";
+import { GlobalSearch } from "./GlobalSearch";
 import { Icon, type IconName } from "./Icon";
 import { useMedia } from "./useMedia";
 import { InstallButton } from "../pwa/install";
@@ -162,6 +163,7 @@ export function Layout() {
             <span className="brand-text">{t("app.name")}</span>
           </span>
         </div>
+        <GlobalSearch />
         <div className="topbar-actions">
           <InstallButton />
           <ThemeToggle />

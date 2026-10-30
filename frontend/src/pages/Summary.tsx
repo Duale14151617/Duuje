@@ -4,7 +4,8 @@ import type { ReportType, Summary as Data } from "../api/types";
 import { useFetch } from "../api/useFetch";
 import { useAuth } from "../auth/AuthContext";
 import { ExportPdfButton } from "../components/ExportPdfButton";
-import { ErrorNotice, Field, Loading, Notice } from "../components/ui";
+import { ErrorNotice, Field, EmptyState, Loading, Notice, PageHeader } from "../components/ui";
+import { DataTable, type Column } from "../components/DataTable";
 import { useI18n, type Key } from "../i18n";
 
 export function Summary() {
@@ -19,6 +20,11 @@ export function Summary() {
   const data = useFetch<Data>("/reports/summary/", q);
   const canExport = can("reports.export") && !!me?.features.report_export;
   const d = data.data;
+  const columns = (x: Data): Column<Data["regions"][number]>[] => [
+    { id: "region", header: t("sum.region"), width: 220, locked: true, sort: (r) => name(r.region), cell: (r) => name(r.region) },
+    { id: "subs", header: t("sum.submissions"), width: 130, align: "right", sort: (r) => r.submissions, cell: (r) => r.submissions },
+    ...x.figure_keys.map((k): Column<Data["regions"][number]> => ({ id: `f-${k}`, header: t(`fig.${k}` as Key), width: 140, align: "right", sort: (r) => r.totals[k] ?? 0, cell: (r) => r.totals[k] ?? 0 })),
+  ];
 
   async function exportCsv() {
     setExportError(null);
@@ -28,10 +34,9 @@ export function Summary() {
 
   return (
     <>
-      <div className="row" style={{ justifyContent: "space-between", marginBottom: "1rem" }}>
-        <h1 style={{ margin: 0 }}>{t("sum.title")}</h1>
-        {canExport && (
-          <div className="row">
+      <PageHeader title={t("sum.title")} actions={
+        canExport ? (
+          <>
             <button className="secondary" onClick={() => void exportCsv()}>{t("sum.export")}</button>
             {d && d.consolidated.submissions > 0 && (
               <ExportPdfButton filename="summary.pdf" onError={setExportError} build={() => ({
@@ -47,9 +52,8 @@ export function Summary() {
                 }],
               })} />
             )}
-          </div>
-        )}
-      </div>
+          </>
+        ) : undefined} />
       <Notice>{t("sum.note")}</Notice>
       <div className="grid">
         <Field label={t("sum.from")}><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
@@ -63,30 +67,19 @@ export function Summary() {
       </div>
       <ErrorNotice error={data.error ?? exportError} />
       {data.loading && !d ? <Loading /> : null}
-      {d && d.consolidated.submissions === 0 && <p>{t("sum.empty")}</p>}
+      {d && d.consolidated.submissions === 0 && <section className="card"><EmptyState icon="file" title={t("sum.empty")} /></section>}
       {d && d.consolidated.submissions > 0 && (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>{t("sum.region")}</th><th>{t("sum.submissions")}</th>
-                {d.figure_keys.map((k) => <th key={k}>{t(`fig.${k}` as Key)}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {d.regions.map((r) => (
-                <tr key={r.region.id}>
-                  <td>{name(r.region)}</td><td>{r.submissions}</td>
-                  {d.figure_keys.map((k) => <td key={k}>{r.totals[k] ?? 0}</td>)}
-                </tr>
-              ))}
-              <tr style={{ fontWeight: 700 }}>
-                <td>{t("sum.consolidated")}</td><td>{d.consolidated.submissions}</td>
-                {d.figure_keys.map((k) => <td key={k}>{d.consolidated.totals[k] ?? 0}</td>)}
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <>
+          <section className="card">
+            <h2>{t("sum.consolidated")}</h2>
+            <dl className="kv">
+              <div><dt>{t("sum.submissions")}</dt><dd>{d.consolidated.submissions}</dd></div>
+              {d.figure_keys.map((k) => <div key={k}><dt>{t(`fig.${k}` as Key)}</dt><dd>{d.consolidated.totals[k] ?? 0}</dd></div>)}
+            </dl>
+          </section>
+          <DataTable id="summary" caption={t("sum.title")} columns={columns(d)} rows={d.regions} rowKey={(r) => r.region.id}
+                     empty={{ icon: "file", title: t("sum.empty") }} clientPageSize={100} />
+        </>
       )}
     </>
   );

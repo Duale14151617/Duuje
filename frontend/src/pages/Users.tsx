@@ -4,7 +4,9 @@ import { api } from "../api/client";
 import type { Assignment, Branch, Page, Role, Unit, UserRow } from "../api/types";
 import { useFetch } from "../api/useFetch";
 import { useAuth } from "../auth/AuthContext";
-import { Chip, ErrorNotice, Field, formatDate, Loading, Notice, Pager } from "../components/ui";
+import { DataTable, type Column } from "../components/DataTable";
+import { FilterBar } from "../components/FilterBar";
+import { Chip, ErrorNotice, Field, formatDate, Loading, Notice, PageHeader } from "../components/ui";
 import { useI18n } from "../i18n";
 
 function AddUser({ onDone }: { onDone: () => void }) {
@@ -53,31 +55,21 @@ export function Users() {
   const [adding, setAdding] = useState(false);
   const users = useFetch<Page<UserRow>>("/users/", { q, page });
 
+  const columns: Column<UserRow>[] = [
+    { id: "name", header: t("pers.fullName"), width: 240, locked: true, sort: (u) => u.full_name, cell: (u) => <Link to={`/users/${u.id}`}>{u.full_name}</Link> },
+    { id: "username", header: t("users.username"), width: 200, sort: (u) => u.username, cell: (u) => u.username },
+    { id: "state", header: t("pers.status"), width: 260,
+      cell: (u) => <>{!u.is_active && <Chip tone="bad">{t("users.disabledBadge")}</Chip>}{u.mfa_enabled && <> <Chip tone="ok">{t("users.mfa")}</Chip></>}{u.is_active && !u.mfa_enabled && <span className="muted">—</span>}</> },
+  ];
   return (
     <>
-      <div className="row" style={{ justifyContent: "space-between", marginBottom: "1rem" }}>
-        <h1 style={{ margin: 0 }}>{t("users.title")}</h1>
-        {can("users.manage") && !adding && <button onClick={() => setAdding(true)}>{t("users.add")}</button>}
-      </div>
+      <PageHeader title={t("users.title")} actions={can("users.manage") && !adding ? <button onClick={() => setAdding(true)}>{t("users.add")}</button> : undefined} />
       {adding && <AddUser onDone={() => { setAdding(false); users.reload(); }} />}
-      <Field label={t("common.search")}>
-        <input type="search" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} />
-      </Field>
+      <FilterBar search={{ value: q, label: t("common.search"), onChange: (v) => { setQ(v); setPage(1); } }} onReset={() => { setQ(""); setPage(1); }} />
       <ErrorNotice error={users.error} />
-      {users.loading && !users.data ? <Loading /> : null}
-      <ul className="list">
-        {users.data?.results.map((u) => (
-          <li key={u.id} className="item">
-            <Link to={`/users/${u.id}`}><h2>{u.full_name}</h2></Link>
-            <div className="row">
-              <span className="muted">{u.username}</span>
-              {!u.is_active && <Chip tone="bad">{t("users.disabledBadge")}</Chip>}
-              {u.mfa_enabled && <Chip tone="approved">{t("users.mfa")}</Chip>}
-            </div>
-          </li>
-        ))}
-      </ul>
-      {users.data && <Pager page={page} count={users.data.count} pageSize={25} onPage={setPage} />}
+      <DataTable id="users" caption={t("users.title")} columns={columns} rows={users.data?.results} rowKey={(u) => u.id} loading={users.loading}
+                 filtered={!!q} onReset={() => { setQ(""); setPage(1); }} empty={{ icon: "users", title: t("common.empty") }}
+                 page={page} count={users.data?.count} pageSize={25} onPage={setPage} />
     </>
   );
 }
