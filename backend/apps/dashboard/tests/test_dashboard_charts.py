@@ -32,7 +32,7 @@ class DashboardChartSeries(BaseApiTest):
         return {r["code"]: r for r in self.client_for(user).get(URL).data["personnel"]["by_region"]}
 
     def test_headcount_per_region_with_active_split_largest_first(self):
-        resp = self.client_for(self.make_user("adm", "hq_admin")).get(URL)
+        resp = self.client_for(self.make_user("adm", "super_admin")).get(URL)
         rows = resp.data["personnel"]["by_region"]
         self.assertEqual([r["code"] for r in rows][:2], ["BARI", "KARKAAR"])
         by = {r["code"]: r for r in rows}
@@ -51,7 +51,7 @@ class DashboardChartSeries(BaseApiTest):
         sub = OU.objects.create(code="T-ARMY-HQ-A", name_en="Directorate", level="unit", parent=cmd)
         self.person("Hq one", sub)
         self.person("Hq two", sub)
-        by = self.by_region(self.make_user("adm2", "hq_admin"))
+        by = self.by_region(self.make_user("adm2", "super_admin"))
         self.assertEqual(by[None]["total"], 2)
         self.assertEqual(by[None]["name_en"], "")
         self.assertEqual(by["BARI"]["total"], 7)  # regions are unaffected
