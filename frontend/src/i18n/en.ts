@@ -1865,6 +1865,7 @@ export const en = {
   "filter.clearSearch": "Clear search",
   "filter.chipSearch": "Search: {value}",
   "pf.tabs": "Profile sections",
+  "pf.changePhoto": "Change photo",
   "pf.tab.personal": "Personal information",
   "pf.tab.service": "Service record",
   "pf.tab.assignments": "Assignments",

@@ -7,6 +7,7 @@ import { Icon, type IconName } from "../components/Icon";
 import { Chip, ErrorNotice } from "../components/ui";
 import { statusTone } from "../components/status";
 import { formatLongDate, greetingKey, timeAgo } from "../lib/time";
+import { auditLabel } from "../lib/auditLabel";
 import { useI18n } from "../i18n";
 import { ExportPdfButton } from "../components/ExportPdfButton";
 import { ActivityChart, ChartPanel, RangeSwitch, RegionChart } from "../components/DashboardCharts";
@@ -115,8 +116,8 @@ function RecentActivity() {
   const audit = can("audit.view");
   const events = useFetch<Page<AuditEvent>>(audit ? "/audit-events/" : null, { page_size: 6 });
   const notes = useFetch<Page<NotificationItem>>(audit ? null : "/notifications/", { page_size: 6 });
-  const rows: { id: string; icon: IconName; title: string; sub: string; at: string; chip?: { tone: string; text: string } }[] = audit
-    ? (events.data?.results ?? []).map((e) => ({ id: e.id, icon: "activity", title: e.action, sub: [e.actor_username || "-", e.entity_type].filter(Boolean).join(" · "), at: e.occurred_at,
+  const rows: { id: string; icon: IconName; title: string; raw?: string; sub: string; at: string; chip?: { tone: string; text: string } }[] = audit
+    ? (events.data?.results ?? []).map((e) => ({ id: e.id, icon: "activity", title: auditLabel(e.action), raw: e.action, sub: [e.actor_username || "-", e.entity_type].filter(Boolean).join(" · "), at: e.occurred_at,
         chip: { tone: statusTone(e.outcome), text: e.outcome } }))
     : (notes.data?.results ?? []).map((n) => ({ id: n.id, icon: "bell", title: tr(`nkind.${n.kind}`) ?? n.kind, sub: n.submission?.title ?? t("note.noAccess"), at: n.created_at }));
   const src = audit ? events : notes;
@@ -130,7 +131,7 @@ function RecentActivity() {
           {rows.map((r) => (
             <li key={r.id}>
               <span className="ico"><Icon name={r.icon} size={16} /></span>
-              <div className="activity-main"><b>{r.title}</b><span className="muted">{r.sub}</span></div>
+              <div className="activity-main"><b title={r.raw}>{r.title}</b><span className="muted">{r.sub}</span></div>
               {r.chip ? <Chip tone={r.chip.tone}>{r.chip.text}</Chip> : null}
               <time className="activity-time" dateTime={r.at}>{timeAgo(r.at, lang)}</time>
             </li>

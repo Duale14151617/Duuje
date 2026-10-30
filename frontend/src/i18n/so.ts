@@ -1869,6 +1869,7 @@ export const so: Record<keyof typeof en, string> = {
   "filter.clearSearch": "Nadiifi raadinta",
   "filter.chipSearch": "Raadin: {value}",
   "pf.tabs": "Qaybaha xogta shaqaalaha",
+  "pf.changePhoto": "Beddel sawirka",
   "pf.tab.personal": "Macluumaadka shakhsiga",
   "pf.tab.service": "Diiwaanka adeegga",
   "pf.tab.assignments": "Magacaabista iyo xilalka",

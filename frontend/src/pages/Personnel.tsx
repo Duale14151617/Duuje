@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ApiError, api, downloadCsv, fetchAll, photoUrl, upload } from "../api/client";
 import type { HistoryEntry, ImportPreview, Page, Person, Rank, Unit } from "../api/types";
@@ -8,6 +8,7 @@ import { Chip, ErrorNotice, Field, Loading, Notice, PageHeader, TabPanel, Tabs, 
 import { DataTable, type Column } from "../components/DataTable";
 import { FilterBar } from "../components/FilterBar";
 import { Icon, type IconName } from "../components/Icon";
+import { shrink } from "../components/PersonnelProfile";
 import { AttendanceTab, HistoryTimeline, ServiceRecordTab, TrainingTab } from "../components/PersonnelTabs";
 import { statusTone } from "../components/status";
 import { ExportPdfButton } from "../components/ExportPdfButton";
@@ -280,7 +281,20 @@ export function PersonnelDetail() {
   const [mode, setMode] = useState<Mode>(null);
   const [photoV, setPhotoV] = useState(0);
   const [photoBroken, setPhotoBroken] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoErr, setPhotoErr] = useState<unknown>(null);
+  const photoInput = useRef<HTMLInputElement>(null);
   const p = person.data;
+  async function pickPhoto(e: ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    setPhotoBusy(true); setPhotoErr(null);
+    try {
+      await upload(`/personnel/${id}/photo/upload/`, "photo", await shrink(f));
+      setPhotoBroken(false); setPhotoV((v) => v + 1);
+    } catch (x) { setPhotoErr(x); } finally { setPhotoBusy(false); }
+  }
   const done = () => { setMode(null); person.reload(); history.reload(); };
 
   const tabs: { id: ProfileTab; label: string; icon: IconName }[] = [
@@ -303,8 +317,19 @@ export function PersonnelDetail() {
       {person.loading && !p ? <Loading /> : null}
       {p && (
         <section className="card pf-head">
-          <div className="pf-photo">
-            <img src={photoBroken || !photo ? "/avatar-default.png" : photo} alt="" width={112} height={140} onError={() => setPhotoBroken(true)} />
+          <div className="pf-photo-col">
+            <div className="pf-photo">
+              <img src={photoBroken || !photo ? "/avatar-default.png" : photo} alt="" width={112} height={140} onError={() => setPhotoBroken(true)} />
+            </div>
+            {can("personnel.manage") && (
+              <>
+                <button type="button" className="secondary sm pf-photo-btn" disabled={photoBusy} onClick={() => photoInput.current?.click()}>
+                  <Icon name="edit" size={14} /><span>{t("pf.changePhoto")}</span>
+                </button>
+                <input ref={photoInput} type="file" accept="image/*" onChange={pickPhoto} tabIndex={-1} aria-hidden="true"
+                       style={{ position: "absolute", width: 1, height: 1, opacity: 0, overflow: "hidden", pointerEvents: "none" }} />
+              </>
+            )}
           </div>
           <div className="pf-id">
             <h1>{p.full_name}</h1>
@@ -329,6 +354,7 @@ export function PersonnelDetail() {
           )}
         </section>
       )}
+      <ErrorNotice error={photoErr} />
       {p && mode && <ChangeForm person={p} mode={mode} onDone={done} />}
       {p && (
         <>
@@ -343,7 +369,7 @@ export function PersonnelDetail() {
                 {p.account_username !== undefined && <div><dt>{t("rline.account")}</dt><dd>{p.account_username || t("rline.noAccount")}</dd></div>}
               </dl>
             </section>
-            <PersonnelProfile personId={p.id} canManage={can("personnel.manage")} onPhotoChanged={() => { setPhotoBroken(false); setPhotoV((v) => v + 1); }} />
+            <PersonnelProfile hidePhoto personId={p.id} canManage={can("personnel.manage")} onPhotoChanged={() => { setPhotoBroken(false); setPhotoV((v) => v + 1); }} />
           </TabPanel>
           <TabPanel id="service" idPrefix="pf" active={tab === "service"}>
             <ErrorNotice error={history.error} />
