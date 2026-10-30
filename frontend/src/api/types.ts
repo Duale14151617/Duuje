@@ -56,12 +56,16 @@ export interface AuditEvent {
   id: string; occurred_at: string; actor_username: string; action: string; entity_type: string;
   entity_id: string; outcome: "success" | "failure" | "denied"; correlation_id: string;
 }
+/** Headcount of one region; `code` is null for the row that groups units outside any region (headquarters). */
+export interface RegionHeadcount { code: string | null; name_en: string; name_so: string; total: number; active: number }
+/** One calendar day of audit activity; `issues` (failed or denied) is a subset of `events`. */
+export interface DayActivity { date: string; events: number; issues: number }
 export interface Dashboard {
   scope?: { units_in_scope: number; regions_in_scope: number; branch_commands_in_scope: number };
   ranks?: { draft: number; approved: number };
   accounts?: { active: number; disabled: number; privileged_without_mfa: number };
-  audit?: { events_24h: number; failed_logins_24h: number; denied_24h: number };
-  personnel?: { total: number; active: number };
+  audit?: { events_24h: number; failed_logins_24h: number; denied_24h: number; daily?: DayActivity[] };
+  personnel?: { total: number; active: number; by_region?: RegionHeadcount[] };
   reports?: { my_open: number; awaiting_review?: number };
   logistics?: { low_stock: number; assets_attention: number };
   training?: { in_progress: number; enrolled: number };

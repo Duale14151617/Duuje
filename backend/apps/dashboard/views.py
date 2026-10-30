@@ -1,6 +1,9 @@
-from datetime import timedelta
+import uuid
+from collections import defaultdict
+from datetime import datetime, time, timedelta
 
-from django.db.models import F
+from django.db.models import Count, F, Q
+from django.db.models.functions import TruncDate
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
@@ -12,10 +15,55 @@ from apps.audit.models import AuditEvent
 from apps.audit.services import record
 from apps.logistics.models import Asset, StockLine
 from apps.logistics.services import visible_q
+from apps.organization.models import OrganizationalUnit
 from apps.personnel.models import Personnel
 from apps.training.models import TrainingRecord
 from apps.ranks.models import Rank
 from apps.workflows.models import Submission
+
+
+def personnel_by_region(people):
+    """Headcount per region for the people the caller may already see (`people` is scope-filtered by the caller).
+
+    A unit's region is the second segment of its materialised path (HQ / region / ...). Units that sit outside any region
+    (system headquarters, the Army headquarters command) are grouped into one row with code None."""
+    rows = (people.order_by().values("org_unit__path")
+            .annotate(total=Count("id"), active=Count("id", filter=Q(status="active"))))
+    tally = defaultdict(lambda: [0, 0])
+    for r in rows:
+        parts = [p for p in r["org_unit__path"].split("/") if p]
+        slot = tally[parts[1] if len(parts) > 1 else ""]
+        slot[0] += r["total"]
+        slot[1] += r["active"]
+    regions = {u.pk.hex: u for u in OrganizationalUnit.objects.filter(
+        pk__in=[uuid.UUID(k) for k in tally if k], level="region")}
+    merged = defaultdict(lambda: [0, 0])
+    for key, (total, active) in tally.items():
+        slot = merged[key if key in regions else ""]
+        slot[0] += total
+        slot[1] += active
+    out = []
+    for key, (total, active) in merged.items():
+        region = regions.get(key)
+        out.append({"code": region.code if region else None, "name_en": region.name_en if region else "",
+                    "name_so": region.name_so if region else "", "total": total, "active": active})
+    return sorted(out, key=lambda r: (-r["total"], r["code"] or ""))
+
+
+def activity_series(days=7):
+    """Audit events per local calendar day for the last `days` days (oldest first, today last), zero-filled.
+    `issues` counts failed or denied outcomes, a subset of `events`."""
+    first = timezone.localdate() - timedelta(days=days - 1)
+    since = timezone.make_aware(datetime.combine(first, time.min))
+    rows = (AuditEvent.objects.filter(occurred_at__gte=since).annotate(day=TruncDate("occurred_at")).order_by()
+            .values("day").annotate(events=Count("id"), issues=Count("id", filter=Q(outcome__in=["failure", "denied"]))))
+    by_day = {r["day"]: r for r in rows}
+    series = []
+    for i in range(days):
+        day = first + timedelta(days=i)
+        r = by_day.get(day)
+        series.append({"date": day.isoformat(), "events": r["events"] if r else 0, "issues": r["issues"] if r else 0})
+    return series
 
 
 class DashboardView(APIView):
@@ -59,11 +107,13 @@ class DashboardView(APIView):
                 "events_24h": recent.count(),
                 "failed_logins_24h": recent.filter(action="auth.login", outcome="failure").count(),
                 "denied_24h": recent.filter(outcome="denied").count(),
+                "daily": activity_series(7),
             }
         if "personnel.view" in codes:
             pq = scope.unit_scope_q(user, "personnel.view", "org_unit__")
             people = Personnel.objects.filter(pq) if pq is not None else Personnel.objects.none()
-            data["personnel"] = {"total": people.count(), "active": people.filter(status="active").count()}
+            data["personnel"] = {"total": people.count(), "active": people.filter(status="active").count(),
+                                 "by_region": personnel_by_region(people)}
         if "reports.view" in codes:
             block = {"my_open": Submission.objects.filter(
                 submitter=user, status__in=["draft", "returned", "amended"]).count(),
