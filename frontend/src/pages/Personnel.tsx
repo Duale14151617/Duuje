@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ApiError, api, downloadCsv, fetchAll, photoUrl, upload } from "../api/client";
 import type { HistoryEntry, ImportPreview, Page, Person, Rank, Unit } from "../api/types";
@@ -8,7 +8,6 @@ import { Chip, ErrorNotice, Field, Loading, Notice, PageHeader, TabPanel, Tabs, 
 import { DataTable, type Column } from "../components/DataTable";
 import { FilterBar } from "../components/FilterBar";
 import { Icon, type IconName } from "../components/Icon";
-import { shrink } from "../components/PersonnelProfile";
 import { AttendanceTab, HistoryTimeline, ServiceRecordTab, TrainingTab } from "../components/PersonnelTabs";
 import { statusTone } from "../components/status";
 import { ExportPdfButton } from "../components/ExportPdfButton";
@@ -36,14 +35,16 @@ export function PersonnelList() {
   const { me, can } = useAuth();
   const [params] = useSearchParams();
   const [q, setQ] = useState(params.get("q") ?? "");
-  const [status, setStatus] = useState("");
-  const [unit, setUnit] = useState("");
+  const [status, setStatus] = useState(STATUSES.includes(params.get("status") ?? "") ? params.get("status")! : "");
+  const [unit, setUnit] = useState(params.get("unit") ?? "");
   const [unitLabel, setUnitLabel] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [noSup, setNoSup] = useState(false);
   const [exportError, setExportError] = useState<unknown>(null);
   const cat = useUnitTypes();
+  const linkedUnit = useFetch<Unit>(unit && !unitLabel ? `/organization/units/${unit}/` : null);
+  const unitText = unitLabel || (linkedUnit.data ? name(linkedUnit.data) : unit);
   const list = useFetch<Page<Person>>("/personnel/", { q, status, org_unit: unit, page, page_size: pageSize === 25 ? undefined : pageSize, no_supervisor: noSup ? 1 : undefined });
   const canExport = can("personnel.export") && !!me?.features.personnel_export;
   const filtered = !!(q || status || unit || noSup);
@@ -57,7 +58,7 @@ export function PersonnelList() {
 
   async function buildPdf() {
     const people = await fetchAll<Person>("/personnel/", { q, status, org_unit: unit });
-    const filters = [q && `${t("pers.search")}: ${q}`, status && `${t("pers.status")}: ${t(`pstatus.${status}` as Key)}`, unit && `${t("pers.unit")}: ${unitLabel || unit}`]
+    const filters = [q && `${t("pers.search")}: ${q}`, status && `${t("pers.status")}: ${t(`pstatus.${status}` as Key)}`, unit && `${t("pers.unit")}: ${unitText}`]
       .filter(Boolean).join("  |  ");
     return {
       title: t("pers.title"), landscape: true,
@@ -107,7 +108,7 @@ export function PersonnelList() {
           )}
         </>}
         custom={[
-          { id: "unit", label: `${t("pers.unit")}: ${unitLabel || unit}`, active: !!unit, onClear: () => { setUnit(""); setUnitLabel(""); setPage(1); } },
+          { id: "unit", label: `${t("pers.unit")}: ${unitText}`, active: !!unit, onClear: () => { setUnit(""); setUnitLabel(""); setPage(1); } },
           { id: "nosup", label: t("rline.onlyWithout"), active: noSup, onClear: () => { setNoSup(false); setPage(1); } },
         ]}
         onReset={reset} />
@@ -281,20 +282,7 @@ export function PersonnelDetail() {
   const [mode, setMode] = useState<Mode>(null);
   const [photoV, setPhotoV] = useState(0);
   const [photoBroken, setPhotoBroken] = useState(false);
-  const [photoBusy, setPhotoBusy] = useState(false);
-  const [photoErr, setPhotoErr] = useState<unknown>(null);
-  const photoInput = useRef<HTMLInputElement>(null);
   const p = person.data;
-  async function pickPhoto(e: ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    e.target.value = "";
-    if (!f) return;
-    setPhotoBusy(true); setPhotoErr(null);
-    try {
-      await upload(`/personnel/${id}/photo/upload/`, "photo", await shrink(f));
-      setPhotoBroken(false); setPhotoV((v) => v + 1);
-    } catch (x) { setPhotoErr(x); } finally { setPhotoBusy(false); }
-  }
   const done = () => { setMode(null); person.reload(); history.reload(); };
 
   const tabs: { id: ProfileTab; label: string; icon: IconName }[] = [
@@ -317,19 +305,8 @@ export function PersonnelDetail() {
       {person.loading && !p ? <Loading /> : null}
       {p && (
         <section className="card pf-head">
-          <div className="pf-photo-col">
-            <div className="pf-photo">
-              <img src={photoBroken || !photo ? "/avatar-default.png" : photo} alt="" width={112} height={140} onError={() => setPhotoBroken(true)} />
-            </div>
-            {can("personnel.manage") && (
-              <>
-                <button type="button" className="secondary sm pf-photo-btn" disabled={photoBusy} onClick={() => photoInput.current?.click()}>
-                  <Icon name="edit" size={14} /><span>{t("pf.changePhoto")}</span>
-                </button>
-                <input ref={photoInput} type="file" accept="image/*" onChange={pickPhoto} tabIndex={-1} aria-hidden="true"
-                       style={{ position: "absolute", width: 1, height: 1, opacity: 0, overflow: "hidden", pointerEvents: "none" }} />
-              </>
-            )}
+          <div className="pf-photo">
+            <img src={photoBroken || !photo ? "/avatar-default.png" : photo} alt="" width={112} height={140} onError={() => setPhotoBroken(true)} />
           </div>
           <div className="pf-id">
             <h1>{p.full_name}</h1>
@@ -354,7 +331,6 @@ export function PersonnelDetail() {
           )}
         </section>
       )}
-      <ErrorNotice error={photoErr} />
       {p && mode && <ChangeForm person={p} mode={mode} onDone={done} />}
       {p && (
         <>
@@ -369,7 +345,7 @@ export function PersonnelDetail() {
                 {p.account_username !== undefined && <div><dt>{t("rline.account")}</dt><dd>{p.account_username || t("rline.noAccount")}</dd></div>}
               </dl>
             </section>
-            <PersonnelProfile hidePhoto personId={p.id} canManage={can("personnel.manage")} onPhotoChanged={() => { setPhotoBroken(false); setPhotoV((v) => v + 1); }} />
+            <PersonnelProfile personId={p.id} canManage={can("personnel.manage")} onPhotoChanged={() => { setPhotoBroken(false); setPhotoV((v) => v + 1); }} />
           </TabPanel>
           <TabPanel id="service" idPrefix="pf" active={tab === "service"}>
             <ErrorNotice error={history.error} />

@@ -1,16 +1,16 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import type { AuditEvent, Dashboard as Data, DayActivity, NotificationItem, Page } from "../api/types";
+import type { AuditEvent, Dashboard as Data, DayActivity, NotificationItem, Page, Unit } from "../api/types";
 import { useFetch } from "../api/useFetch";
 import { useAuth } from "../auth/AuthContext";
 import { Icon, type IconName } from "../components/Icon";
 import { Chip, ErrorNotice } from "../components/ui";
 import { statusTone } from "../components/status";
 import { formatLongDate, greetingKey, timeAgo } from "../lib/time";
-import { auditLabel } from "../lib/auditLabel";
 import { useI18n } from "../i18n";
 import { ExportPdfButton } from "../components/ExportPdfButton";
 import { ActivityChart, ChartPanel, RangeSwitch, RegionChart } from "../components/DashboardCharts";
+import { ExceptionsPanel, ReviewQueuePanel, SecurityPanel, TasksPanel, TrainingPanel } from "../components/DashboardPanels";
 
 type Row = [label: string, value: number, tone?: string];
 
@@ -59,10 +59,8 @@ function Donut({ parts, centre, caption }: { parts: { key: string; value: number
   );
 }
 
-function AttendanceCard({ unitId, unitName }: { unitId: string; unitName: string }) {
+function AttendanceCard({ a, unitName }: { a: { data: AttendanceDay | null | undefined; loading: boolean; error: unknown }; unitName: string }) {
   const { t } = useI18n();
-  const today = new Date().toISOString().slice(0, 10);
-  const a = useFetch<AttendanceDay>("/attendance/summary/", { org_unit: unitId, period: "day", date: today });
   if (a.error || !a.data) return a.loading ? <div className="panel skeleton tall" role="status" aria-busy="true" aria-label={t("common.loading")} /> : null;
   const d = a.data;
   const rate = d.serving > 0 && d.recorded > 0 ? Math.round((d.present / d.serving) * 100) : null;
@@ -90,14 +88,13 @@ function AttendanceCard({ unitId, unitName }: { unitId: string; unitName: string
 function QuickActions() {
   const { t } = useI18n();
   const { can } = useAuth();
-  const all: { to: string; icon: IconName; label: string; show: boolean }[] = [
+  const items: { to: string; icon: IconName; label: string; show: boolean }[] = [
     { to: "/personnel/new", icon: "plus", label: t("pers.add"), show: can("personnel.manage") },
     { to: "/attendance", icon: "calendar", label: t("dash.qaAttendance"), show: can("attendance.record") },
     { to: "/reports/new", icon: "file", label: t("dash.qaReport"), show: can("reports.submit") },
     { to: "/personnel", icon: "users", label: t("nav.personnel"), show: can("personnel.view") || can("personnel.view_team") },
     { to: "/logistics", icon: "box", label: t("nav.logistics"), show: ["logistics.view", "logistics.restricted", "logistics.manage"].some(can) },
-  ];
-  const items = all.filter((x) => x.show);
+  ].filter((x) => x.show);
   if (items.length === 0) return null;
   return (
     <section className="panel" aria-labelledby="dash-quick">
@@ -116,8 +113,8 @@ function RecentActivity() {
   const audit = can("audit.view");
   const events = useFetch<Page<AuditEvent>>(audit ? "/audit-events/" : null, { page_size: 6 });
   const notes = useFetch<Page<NotificationItem>>(audit ? null : "/notifications/", { page_size: 6 });
-  const rows: { id: string; icon: IconName; title: string; raw?: string; sub: string; at: string; chip?: { tone: string; text: string } }[] = audit
-    ? (events.data?.results ?? []).map((e) => ({ id: e.id, icon: "activity", title: auditLabel(e.action), raw: e.action, sub: [e.actor_username || "-", e.entity_type].filter(Boolean).join(" · "), at: e.occurred_at,
+  const rows: { id: string; icon: IconName; title: string; sub: string; at: string; chip?: { tone: string; text: string } }[] = audit
+    ? (events.data?.results ?? []).map((e) => ({ id: e.id, icon: "activity", title: e.action, sub: [e.actor_username || "-", e.entity_type].filter(Boolean).join(" · "), at: e.occurred_at,
         chip: { tone: statusTone(e.outcome), text: e.outcome } }))
     : (notes.data?.results ?? []).map((n) => ({ id: n.id, icon: "bell", title: tr(`nkind.${n.kind}`) ?? n.kind, sub: n.submission?.title ?? t("note.noAccess"), at: n.created_at }));
   const src = audit ? events : notes;
@@ -131,7 +128,7 @@ function RecentActivity() {
           {rows.map((r) => (
             <li key={r.id}>
               <span className="ico"><Icon name={r.icon} size={16} /></span>
-              <div className="activity-main"><b title={r.raw}>{r.title}</b><span className="muted">{r.sub}</span></div>
+              <div className="activity-main"><b>{r.title}</b><span className="muted">{r.sub}</span></div>
               {r.chip ? <Chip tone={r.chip.tone}>{r.chip.text}</Chip> : null}
               <time className="activity-time" dateTime={r.at}>{timeAgo(r.at, lang)}</time>
             </li>
@@ -173,6 +170,17 @@ export function Dashboard() {
   // the user's first assignment gives the unit for unit-level figures (attendance today, vehicles)
   const home = me?.assignments[0]?.org_unit;
   const vehicles = useFetch<{ combined: { total: number; unavailable: number } }>(can("vehicles.view") && home ? "/vehicles/summary/" : null, { org_unit: home?.id });
+  const showAttendance = can("attendance.view") && !!home;
+  const att = useFetch<AttendanceDay>(showAttendance ? "/attendance/summary/" : null, { org_unit: home?.id, period: "day", date: new Date().toISOString().slice(0, 10) });
+  // region labels link to the personnel list only for people who may open it and may look up the region's unit id
+  const canOpenPersonnel = can("personnel.view") || can("personnel.view_team");
+  const regionRowCount = n?.personnel?.by_region?.length ?? 0;
+  const regionUnits = useFetch<Page<Unit>>(canOpenPersonnel && can("org.view") && regionRowCount > 0 ? "/organization/units/" : null, { level: "region", page_size: 100 });
+  const regionId = new Map((regionUnits.data?.results ?? []).map((u) => [u.code, u.id]));
+  const linkFor = canOpenPersonnel ? (r: { code: string | null }) => {
+    const id = r.code ? regionId.get(r.code) : undefined;
+    return id ? { all: `/personnel?unit=${id}`, active: `/personnel?unit=${id}&status=active` } : null;
+  } : undefined;
   const warn = (k: Parameters<typeof t>[0], v: number, tone = v > 0 ? "warn" : ""): Row => [t(k), v, tone];
   const plain = (k: Parameters<typeof t>[0], v: number): Row => [t(k), v];
   const first = me?.full_name.split(" ")[0];
@@ -229,18 +237,27 @@ export function Dashboard() {
     if (regionRows.length > 1) pdfSections.push({ title: t("dash.byRegion"),
       rows: regionRows.map((r) => [r.code === null ? t("level.headquarters") : name(r), r.total.toLocaleString()] as [string, string]) });
 
-    // Headline cards, each a shortcut to its page. Up to six that apply to this role are shown.
-    const openReports = n.reports?.awaiting_review ?? n.reports?.my_open;
+    // Headline cards, in the order an officer scans them: strength, attendance, what waits for a decision, urgent logistics, then security.
+    // Each is a shortcut to its page. Up to six that apply to this role are shown.
     const veh = vehicles.data?.combined;
+    const approvalTotal = approvals.reduce((sum, x) => sum + x.n, 0);
+    const hasApprovalSource = n.reports?.awaiting_review !== undefined || (can("ranks.approve") && !!n.ranks);
+    const logWarn = n.logistics ? n.logistics.low_stock + n.logistics.assets_attention : 0;
+    const secAlerts = n.audit ? n.audit.failed_logins_24h + n.audit.denied_24h : 0;
+    const a = att.data;
+    const attRate = a && a.serving > 0 && a.recorded > 0 ? a.present / a.serving : undefined;
     const kpis = [
       n.personnel && <Kpi key="p" to="/personnel" icon="users" label={t("dash.personnelTitle")} value={n.personnel.total} sub={t("dash.activeSub", { n: n.personnel.active.toLocaleString() })} />,
-      activeShare !== undefined && <Kpi key="a" to="/personnel" icon="check" label={t("dash.activeShare")} value={Math.round(activeShare * 100)} suffix="%" ring={activeShare} />,
-      n.scope && <Kpi key="u" to="/organization" icon="layers" label={t("dash.units")} value={n.scope.units_in_scope} />,
+      attRate !== undefined && a && <Kpi key="att" to="/attendance" icon="calendar" label={t("dash.attendanceToday")} value={Math.round(attRate * 100)} suffix="%" ring={attRate}
+        sub={`${a.present.toLocaleString()} / ${a.serving.toLocaleString()} ${t("att.status.present").toLowerCase()}`} />,
+      hasApprovalSource && <Kpi key="ap" to="/reports" icon="clock" label={t("dash.pending")} value={approvalTotal} tone={approvalTotal > 0 ? "warn" : ""} />,
+      n.logistics && <Kpi key="l" to="/logistics" icon="box" label={t("dash.logWarnings")} value={logWarn} tone={logWarn > 0 ? "warn" : ""}
+        sub={`${n.logistics.low_stock} ${t("dash.lowStock").toLowerCase()}`} />,
+      n.audit && <Kpi key="sec" to="/audit" icon="alert" label={t("dash.securityAlerts")} value={secAlerts} tone={secAlerts > 0 ? "bad" : ""} />,
+      n.personnel && activeShare !== undefined && !a && <Kpi key="a" to="/personnel" icon="check" label={t("dash.activeShare")} value={Math.round(activeShare * 100)} suffix="%" ring={activeShare} />,
       veh && <Kpi key="v" to="/vehicles" icon="truck" label={t("dash.vehicles")} value={veh.total} sub={t("dash.vehiclesSub", { n: veh.unavailable })} tone={veh.unavailable > 0 ? "warn" : ""} />,
-      openReports !== undefined && <Kpi key="r" to="/reports" icon="file" label={n.reports?.awaiting_review !== undefined ? t("dash.awaiting") : t("dash.myOpen")}
-        value={openReports} tone={n.reports?.awaiting_review ? "warn" : ""} />,
-      n.logistics && <Kpi key="l" to="/logistics" icon="box" label={t("dash.lowStock")} value={n.logistics.low_stock} tone={n.logistics.low_stock > 0 ? "warn" : ""} />,
-      n.training && <Kpi key="t" to="/training" icon="cap" label={t("dash.inProgress")} value={n.training.in_progress} />,
+      n.scope && <Kpi key="u" to="/organization" icon="layers" label={t("dash.units")} value={n.scope.units_in_scope} />,
+      n.reports?.awaiting_review === undefined && n.reports && <Kpi key="r" to="/reports" icon="file" label={t("dash.myOpen")} value={n.reports.my_open} />,
       n.accounts && <Kpi key="c" to="/users" icon="lock" label={t("dash.activeUsers")} value={n.accounts.active} />,
     ].filter(Boolean).slice(0, 6);
 
@@ -249,11 +266,17 @@ export function Dashboard() {
         <span className="approval-label">{x.label}</span><span className="approval-count">{x.n}</span><span className="alert-go">{t("dash.review")}</span><Icon name="arrow" size={16} />
       </Link>
     );
-    const showAttendance = can("attendance.view") && !!home;
+    // the old stacked summaries for these four are replaced by the workload and security sections below (they stay in the PDF)
+    const details = panels.filter((p) => !["file", "cap", "lock", "activity"].includes(p.icon));
+    const showQueue = n.reports?.awaiting_review !== undefined;
+    const showTasks = can("tasks.view");
+    const workload = [showQueue, showTasks, !!n.training].filter(Boolean).length;
+    const showSecurity = !!(n.accounts || n.audit);
 
     body = (
       <>
         {kpis.length > 0 && <div className="kpis">{kpis}</div>}
+        <h2 className="section-title">{t("dash.opsOverview")}</h2>
         <div className="dash-cols">
           <div className="dash-stack">
             <section className="panel" aria-labelledby="dash-pending">
@@ -273,33 +296,58 @@ export function Dashboard() {
             ) : null}
           </div>
           <div className="dash-stack">
-            {showAttendance && <AttendanceCard unitId={home!.id} unitName={name(home!)} />}
+            {showAttendance && <AttendanceCard a={att} unitName={name(home!)} />}
             <QuickActions />
-            <RecentActivity />
           </div>
         </div>
-        {(regionRows.length > 1 || daily) && (
+        {(n.personnel?.by_region || daily || can("audit.view")) && (
           <div className="charts">
-            {regionRows.length > 1 && <ChartPanel icon="map" title={t("dash.byRegion")}><RegionChart rows={regionRows} /></ChartPanel>}
+            {n.personnel?.by_region && <ChartPanel icon="map" title={t("dash.byRegion")}><RegionChart rows={regionRows} linkFor={linkFor} /></ChartPanel>}
             {daily && (
               <ChartPanel icon="activity" title={t(range === 30 ? "dash.activity30d" : "dash.activity7d")} actions={<RangeSwitch value={range} onChange={setRange} />}>
                 {series
-                  ? <ActivityChart days={series} />
+                  ? <ActivityChart key={range} days={series} />
                   : longer.error
                     ? <ErrorNotice error={longer.error} />
                     : <div className="skeleton chart-skeleton" role="status" aria-busy="true" aria-label={t("common.loading")} />}
               </ChartPanel>
             )}
+            {can("audit.view") && <ExceptionsPanel />}
           </div>
         )}
-        <h2 className="section-title">{t("dash.details")}</h2>
-        <div className="grid">{panels.map((p) => <Panel key={p.title} icon={p.icon} title={p.title} rows={p.rows} meter={p.meter} />)}</div>
+        {workload > 0 && (
+          <>
+            <h2 className="section-title">{t("dash.workload")}</h2>
+            <div className="workload">
+              {showQueue && <ReviewQueuePanel count={n.reports?.awaiting_review ?? 0} />}
+              {showTasks && <TasksPanel />}
+              {n.training && <TrainingPanel training={n.training} />}
+            </div>
+          </>
+        )}
+        {showSecurity && (
+          <>
+            <h2 className="section-title">{t("dash.security")}</h2>
+            <div className="dash-cols security-cols">
+              <SecurityPanel accounts={n.accounts} audit={n.audit} />
+              <RecentActivity />
+            </div>
+          </>
+        )}
+        {!showSecurity && <div className="dash-cols"><RecentActivity /></div>}
+        {details.length > 0 && (
+          <>
+            <h2 className="section-title">{t("dash.details")}</h2>
+            <div className="grid">{details.map((p) => <Panel key={p.title} icon={p.icon} title={p.title} rows={p.rows} meter={p.meter} />)}</div>
+          </>
+        )}
       </>
     );
   }
 
+
   return (
-    <>
+    <div className="dash">
       <div className="dash-top">
         <div className="hero">
           <img src="/defence-force.jpg" alt="Puntland Defence Force emblem" width={64} height={64} />
@@ -318,6 +366,6 @@ export function Dashboard() {
       </div>
       <ErrorNotice error={error} />
       {loading && !n ? <Skeleton label={t("common.loading")} /> : body}
-    </>
+    </div>
   );
 }

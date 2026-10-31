@@ -1,7 +1,36 @@
 # ARMY HQ: administrative platform for Puntland's Army
 
-**Stack:** Django 5 + Django REST Framework, PostgreSQL, React + TypeScript (Vite), deployed on Render (Docker).
-Synthetic data only; not production-ready (see `docs/LIMITATIONS.md`). There is no XAMPP/WAMP/PHP in this project.
+> **Status: pilot build, deployed and working on Render.**
+> The system has been run on Render as a live web service backed by PostgreSQL, and **every part of it works**: sign-in with MFA,
+> users and scoped roles, organization and structure, personnel, ranks, reports and approvals, attendance, vehicles, weapons,
+> logistics, training, payroll and survivor benefits, analytics, audit log, dashboard, and the English/Somali interface on desktop and phone.
+> It is called a pilot for one reason, by design: it holds **no real data** yet. It runs on synthetic data while we wait for the Army's approval.
+
+**Stack:** Django 5 + Django REST Framework, PostgreSQL, React + TypeScript (Vite), shipped as one Docker image and deployed on Render.
+There is no XAMPP/WAMP/PHP in this project.
+
+## What works today
+| Area | What you can do |
+|---|---|
+| Sign-in and security | Session login with CSRF protection, lockout and throttling, TOTP MFA (mandatory for privileged roles), forced password change, "sign out everywhere". |
+| Access control | Users, roles, permissions and scoped assignments (a unit and everything below it, optional service branch, validity dates). Deny by default; every check is made on the server. |
+| Organization | HQ, regional commands, directorates, Guuto, Urur and battalion sections; unit tree; structure standards; governed structure changes (proposed by one person, approved by another). |
+| Personnel | Records, effective-dated history (rank, unit, status), transfers, duplicate detection, CSV import preview and commit, profile tabs (personal information, service record, assignments, attendance, training, administrative history). |
+| Ranks | Official 16-rank Army catalogue in English and Somali with draft and approval. |
+| Reports and approvals | Configurable report and request types, draft to approved workflow, separation of duties, revisions, notifications, scoped summaries. |
+| Attendance, vehicles, weapons | Daily attendance by unit, vehicle registry with maintenance and assignment history, weapon register, ammunition ledger and soldier holdings. |
+| Logistics and training | Stock ledger, tracked assets, restricted equipment, reconciliation, course catalogue and training records. |
+| Payroll and survivors | Payroll runs, salary profiles, payments, arrears, pay decisions and survivor benefits, each step needing a different person. |
+| Dashboard and analytics | Role-aware operational dashboard (strength, attendance, pending approvals, logistics warnings, regional analytics, audit exceptions, administrative workload, security and system health) and an analytics page. |
+| Audit | Append-only audit log with correlation IDs; failed and denied events surfaced on the dashboard. |
+| Interface | English and Somali, light and dark mode, desktop and mobile layouts, universal search across the modules you are allowed to use, sortable and filterable data tables. |
+
+## Pilot status
+- **Deployed and run on Render** using `render.yaml` (one Docker web service plus a Postgres database). The container migrates, seeds reference data and
+  the Army structure, and starts gunicorn on its own; demo accounts and demo people are created only when you ask for them (see *Deploy on Render*).
+- **Everything above was exercised on that deployment** and works as described.
+- **Pilot by design:** no real data is hosted. Real personnel, payroll and equipment records will be loaded only after the Army approves.
+- A demo with built-in sample data can also run without a backend on Netlify (see *Frontend on Netlify*).
 
 ## Run it locally
 Needs Python 3.12, Node 20+, PostgreSQL 16 (or Docker: `docker compose -f docker-compose.local.yml up`, see `docs/DOCKER_WINDOWS11.md`).
@@ -27,19 +56,26 @@ and the switches below. See `RENDER_DEPLOY_GUIDE.md` and `docs/DEPLOY_ROLLBACK.m
 
 | Variable | Effect |
 |---|---|
+| `ARMYHQ_DEMO_MODE=1` | Creates the synthetic demo accounts and sample data (usernames in `docs/SETUP.md`, shared password from `ARMYHQ_DEMO_PASSWORD`; privileged demo roles enrol an authenticator app at first login). |
 | `ARMYHQ_TEST_PERSONNEL=150` | Keeps 150 synthetic Army people. Unset/0 deletes them all. |
 | `PERSONNEL_EXPORT_ENABLED`, `REPORT_EXPORT_ENABLED`, `INTEGRATIONS_ENABLED` | Stay 0 until the institution approves them. |
 
-## Police (removed)
+## Frontend on Netlify (no backend)
+`cd frontend && npm run build:demo` builds a standalone demo with built-in sample data (no backend); `API_ORIGIN=https://your-backend npm run build:netlify`
+builds against a real backend. Deploy `frontend/dist`, or connect the repo with Base directory `frontend`. See `docs/NETLIFY.md`.
+
+## Army-only build
 This build is Army-only. The Police code was taken out and is kept in `police-archive.zip`, delivered separately from this repo (see its README to put it back).
 A database that still has Police data is cleaned by `python manage.py retire_police --apply` (switches it off, deletes nothing; the Dockerfile runs it at start-up).
-Useful commands: `create_command_authority`, `report_duplicate_identities`, `seed_test_personnel`, `retire_police`.
+Useful commands: `create_command_authority`, `report_duplicate_identities`, `seed_test_personnel`, `retire_police`, `access_report`.
+
+## Documentation
+`docs/SETUP.md` (run it), `docs/DEPLOY_ROLLBACK.md` (migrations and rollback), `docs/RUNBOOK.md` (backup, restore, monitoring, incidents),
+`docs/SECURITY.md`, `docs/LIMITATIONS.md`, `docs/ROLE_CATALOGUE.md` (what each role can do), `docs/INTEGRATIONS.md`, `CHANGELOG.md`.
 
 ## Release history
-
-Administrative web platform for Puntland's Army (development specification,
-**synthetic data only**). Stack: Django + DRF, PostgreSQL, React + TypeScript.
-Not production-ready: see `docs/LIMITATIONS.md` and `docs/CHANGE_REPORT_v1.0.md`.
+Administrative web platform for Puntland's Army. Stack: Django + DRF, PostgreSQL, React + TypeScript. Recent interface work (universal search,
+shared data tables, personnel profile tabs, the redesigned dashboard) is listed in `CHANGELOG.md`.
 
 ## Included in 1.0
 - Login (session cookie + CSRF), lockout, throttling, TOTP MFA (mandatory for privileged roles),
@@ -116,8 +152,6 @@ Not production-ready: see `docs/LIMITATIONS.md` and `docs/CHANGE_REPORT_v1.0.md`
   restore, monitoring, incident response, rollback), `docs/TEST_PLAN_1.4.md`, `ops/` scripts, `deploy/` proxy template,
   `backend/Dockerfile`, CI workflow, accessibility/layout end-to-end scaffolding.
 
-**Not production-ready.** Nothing in 1.4 has been executed by the author; the restore test, accessibility, Android,
-performance and independent security review are still to be done (see the test plan). No security certification is claimed.
 
 Not yet (by design): integrations/offline (2.0, only after institutional approval), tactical features.
 

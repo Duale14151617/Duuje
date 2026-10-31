@@ -11,7 +11,7 @@ interface Profile {
 }
 
 /** Phone photos are huge; shrink to <=1600px JPEG in the browser so uploads stay small and fast. Falls back to the original. */
-export async function shrink(file: File): Promise<File> {
+async function shrink(file: File): Promise<File> {
   if (file.size < 1_000_000 && file.type === "image/jpeg") return file;
   try {
     const bmp = await createImageBitmap(file);
@@ -51,7 +51,7 @@ const L = {
 
 /** Photo + sensitive profile (blood type, weapon ID, emergency contact...). Readable/editable by personnel managers only;
  *  everyone who can view a person sees the photo. */
-export function PersonnelProfile({ personId, canManage, onPhotoChanged, hidePhoto = false }: { personId: string; canManage: boolean; onPhotoChanged?: () => void; hidePhoto?: boolean }) {
+export function PersonnelProfile({ personId, canManage, onPhotoChanged }: { personId: string; canManage: boolean; onPhotoChanged?: () => void }) {
   const { lang } = useI18n();
   const s = L[lang === "so" ? "so" : "en"];
   const profile = useFetch<Profile>(canManage ? `/personnel/${personId}/profile/` : null);
@@ -107,7 +107,7 @@ export function PersonnelProfile({ personId, canManage, onPhotoChanged, hidePhot
     <section className="card" style={{ marginTop: "1rem" }}>
       <h2>{s.title}</h2>
       <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "flex-start" }}>
-        {hidePhoto ? null : (<div style={{ width: 120 }}>
+        <div style={{ width: 120 }}>
           {(() => {
             // Managers know from the profile whether a photo exists; viewers just try to load it.
             const showImg = !broken && (canManage ? photoV > 0 || !!d?.has_photo : true);
@@ -147,7 +147,7 @@ export function PersonnelProfile({ personId, canManage, onPhotoChanged, hidePhot
               <input ref={fileRef} type="file" accept="image/*" onChange={pick} tabIndex={-1} aria-hidden="true" style={HIDDEN_INPUT} />
             </>
           )}
-        </div>)}
+        </div>
         <div style={{ flex: 1, minWidth: 200 }}>
           {canManage && profile.loading && !d ? <Loading /> : null}
           {canManage && d && !editing && (

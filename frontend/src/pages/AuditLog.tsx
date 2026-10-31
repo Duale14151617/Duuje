@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { fetchAll } from "../api/client";
 import type { AuditEvent, Page } from "../api/types";
 import { useFetch } from "../api/useFetch";
@@ -11,8 +12,9 @@ import { useI18n } from "../i18n";
 
 export function AuditLog() {
   const { t, lang } = useI18n();
-  const [action, setAction] = useState("");
-  const [outcome, setOutcome] = useState("");
+  const [params] = useSearchParams();
+  const [action, setAction] = useState(params.get("action") ?? "");
+  const [outcome, setOutcome] = useState(["success", "failure", "denied"].includes(params.get("outcome") ?? "") ? params.get("outcome")! : "");
   const [page, setPage] = useState(1);
   const [exportError, setExportError] = useState<unknown>(null);
   const events = useFetch<Page<AuditEvent>>("/audit-events/", { action, outcome, page });
