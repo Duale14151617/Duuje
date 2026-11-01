@@ -520,7 +520,7 @@ def equipment_summary(user, today=None):
     }
     if scope.has_anywhere(user, "logistics.report"):
         rows = (assets.filter(acquisition_cost__isnull=False).values("currency")
-                .annotate(total=Coalesce(Sum("acquisition_cost"), 0, output_field=DecimalField(max_digits=18, decimal_places=2)), n=Count("pk")).order_by("currency"))
+                .annotate(total=Coalesce(Sum("acquisition_cost"), Decimal("0"), output_field=DecimalField(max_digits=18, decimal_places=2)), n=Count("pk")).order_by("currency"))
         out["acquisition"] = {"visible": True, "by_currency": [{"currency": r["currency"], "total": str(r["total"]), "assets": r["n"]} for r in rows]}
     can_approve = scope.can(user, "logistics.approve")
     can_restricted = scope.can(user, "logistics.restricted_approve")

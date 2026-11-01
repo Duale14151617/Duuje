@@ -1,5 +1,6 @@
 import uuid
 from datetime import timedelta
+from decimal import Decimal
 
 from django.db.models import Count, DecimalField, Exists, F, OuterRef, Q, Sum
 from django.db.models.functions import Coalesce
@@ -229,7 +230,8 @@ def ppe_summary(user, lines, today=None):
     }
     if scope.has_anywhere(user, "logistics.report"):
         spend = (StockTransaction.objects.filter(stock_line__in=ids, kind="receive", unit_cost__isnull=False)
-                 .values("currency").annotate(total=Coalesce(Sum(F("delta") * F("unit_cost"), output_field=DecimalField(max_digits=18, decimal_places=2)), 0),
+                 .values("currency").annotate(total=Coalesce(Sum(F("delta") * F("unit_cost"), output_field=DecimalField(max_digits=18, decimal_places=2)), Decimal("0"),
+                                                      output_field=DecimalField(max_digits=18, decimal_places=2)),
                                               qty=Sum("delta")).order_by("currency"))
         out["procurement"] = {"visible": True, "by_currency": [{"currency": r["currency"], "total": str(r["total"]), "quantity": r["qty"]} for r in spend]}
     return out

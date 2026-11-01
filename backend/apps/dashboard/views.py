@@ -1,7 +1,9 @@
+import logging
 import uuid
 from collections import defaultdict
 from datetime import datetime, time, timedelta
 
+from django.db import transaction
 from django.db.models import Count, F, Q
 from django.db.models.functions import TruncDate
 from django.utils import timezone
@@ -129,15 +131,23 @@ class DashboardView(APIView):
                 "low_stock": StockLine.objects.filter(vq, reorder_level__gt=0, quantity__lte=F("reorder_level")).count(),
                 "assets_attention": Asset.objects.filter(vq, status__in=["missing", "lost"]).count(),
             }
-            from apps.logistics.services import equipment_summary
-            from apps.ppe.views import _ppe_lines, ppe_summary
-            data["equipment"] = {**equipment_summary(user), "ppe": ppe_summary(user, _ppe_lines(user))}
+            try:
+                with transaction.atomic():  # savepoint: a fault in this optional block must not take the whole dashboard down
+                    from apps.logistics.services import equipment_summary
+                    from apps.ppe.views import _ppe_lines, ppe_summary
+                    data["equipment"] = {**equipment_summary(user), "ppe": ppe_summary(user, _ppe_lines(user))}
+            except Exception:
+                logging.getLogger(__name__).exception("dashboard: equipment block failed")
         if "vehicles.view" in codes:
-            from apps.vehicles.models import Vehicle
-            from apps.vehicles.services import fleet_analytics, with_due
-            vq = scope.unit_scope_q(user, "vehicles.view", "org_unit__")
-            if vq is not None:
-                data["fleet"] = fleet_analytics(with_due(Vehicle.objects.filter(vq)), scope.unit_scope_q(user, "vehicles.cost", "vehicle__org_unit__"))
+            try:
+                with transaction.atomic():
+                    from apps.vehicles.models import Vehicle
+                    from apps.vehicles.services import fleet_analytics, with_due
+                    vq = scope.unit_scope_q(user, "vehicles.view", "org_unit__")
+                    if vq is not None:
+                        data["fleet"] = fleet_analytics(with_due(Vehicle.objects.filter(vq)), scope.unit_scope_q(user, "vehicles.cost", "vehicle__org_unit__"))
+            except Exception:
+                logging.getLogger(__name__).exception("dashboard: fleet block failed")
         if "training.view" in codes:
             tq = scope.unit_scope_q(user, "training.view", "personnel__org_unit__")
             recs = TrainingRecord.objects.filter(tq) if tq is not None else TrainingRecord.objects.none()
