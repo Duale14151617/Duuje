@@ -1,0 +1,12 @@
+# Local PostgreSQL for development only. Do not reuse these credentials anywhere else.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: armyhq
+      POSTGRES_USER: armyhq_owner
+      POSTGRES_PASSWORD: dev-only-change-me
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: ["armyhq_pg:/var/lib/postgresql/data"]
+volumes:
+  armyhq_pg:
