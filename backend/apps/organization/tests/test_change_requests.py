@@ -356,3 +356,73 @@ class BulkTransferTests(Base):
         r = self.bulk(items=items, org_unit=str(self.unit("BARI-ARMY-A").pk))  # B-1's default destination is its own unit
         self.assertEqual(r.status_code, 400)
         self.assertEqual(r.json()["rows"][0]["row"], 2)
+
+
+class RankAndStatusRequestTests(Base):
+    """Rank and status changes by a headquarters administrator wait for the super administrator."""
+
+    def rank_body(self, code="PA-02", **over):
+        data = {"kind": "rank_change", "order_ref": "Order 77/2026", "issuing_officer": "Col. Example", "order_date": "2026-10-01",
+                "payload": {"personnel": str(self.person_a.pk), "rank": str(self.rank(code).pk), "effective_date": "2026-10-02", "reason": "Promotion"}}
+        data.update(over)
+        return data
+
+    def status_body(self, status="on_leave", **over):
+        data = {"kind": "status_change", "order_ref": "Order 78/2026", "issuing_officer": "Col. Example", "order_date": "2026-10-01",
+                "payload": {"personnel": str(self.person_a.pk), "status": status, "effective_date": "2026-10-02", "reason": "Leave"}}
+        data.update(over)
+        return data
+
+    def test_hq_admin_cannot_change_rank_or_status_directly(self):
+        for path, body in (("change-rank", {"rank": str(self.rank("PA-02").pk)}), ("change-status", {"status": "on_leave"})):
+            r = self.hq.post(f"/api/v1/personnel/{self.person_a.pk}/{path}/", {**body, "version": 1}, format="json")
+            self.assertEqual(r.status_code, 403, path)
+
+    def test_rank_request_waits_then_applies_on_approval(self):
+        r = self.hq.post(URL, self.rank_body(), format="json")
+        self.assertEqual((r.status_code, r.json()["status"]), (201, "pending"), r.content)
+        self.person_a.refresh_from_db()
+        self.assertEqual(self.person_a.rank.code, "PA-03")
+        self.assertEqual(self.act(r.json(), "approve").status_code, 200)
+        self.person_a.refresh_from_db()
+        self.assertEqual(self.person_a.rank.code, "PA-02")
+        self.assertTrue(self.person_a.history.filter(field="rank", reason__contains="Order 77/2026").exists())
+        self.assertTrue(AuditEvent.objects.filter(action="personnel.change_rank", metadata__order_ref="Order 77/2026").exists())
+
+    def test_status_request_waits_then_applies_on_approval(self):
+        r = self.hq.post(URL, self.status_body(), format="json")
+        self.assertEqual((r.status_code, r.json()["status"]), (201, "pending"), r.content)
+        self.person_a.refresh_from_db()
+        self.assertEqual(self.person_a.status, "active")
+        self.assertEqual(self.act(r.json(), "approve").status_code, 200)
+        self.person_a.refresh_from_db()
+        self.assertEqual(self.person_a.status, "on_leave")
+
+    def test_rejected_request_changes_nothing_and_proposer_cannot_approve(self):
+        row = self.hq.post(URL, self.status_body(), format="json").json()
+        self.assertEqual(self.act(row, "approve", client=self.hq2).status_code, 403)
+        self.assertEqual(self.act(row, "reject", note="Not authorised").json()["status"], "rejected")
+        self.person_a.refresh_from_db()
+        self.assertEqual(self.person_a.status, "active")
+
+    def test_invalid_requests_are_refused(self):
+        self.assertEqual(self.hq.post(URL, self.status_body(status="died"), format="json").status_code, 400)  # death has its own workflow
+        self.assertEqual(self.hq.post(URL, self.status_body(status="active"), format="json").status_code, 400)  # no change
+        self.assertEqual(self.hq.post(URL, self.rank_body(code="PA-03"), format="json").status_code, 400)  # same rank
+        self.assertEqual(self.hq.post(URL, self.rank_body(code="PA-04"), format="json").status_code, 400)  # draft rank
+        self.assertEqual(ChangeRequest.objects.count(), 0)
+
+    def test_second_open_request_for_the_same_person_is_refused(self):
+        self.assertEqual(self.hq.post(URL, self.status_body(), format="json").status_code, 201)
+        self.assertEqual(self.hq.post(URL, self.status_body(status="suspended"), format="json").status_code, 400)
+
+    def test_request_goes_stale_if_the_person_changed_in_between(self):
+        row = self.hq.post(URL, self.status_body(), format="json").json()
+        Personnel.objects.filter(pk=self.person_a.pk).update(status="suspended")
+        self.assertEqual(self.act(row, "approve").status_code, 409)
+
+    def test_super_administrator_entry_applies_at_once(self):
+        r = self.sa.post(URL, self.status_body(), format="json")
+        self.assertEqual((r.status_code, r.json()["status"]), (201, "approved"), r.content)
+        self.person_a.refresh_from_db()
+        self.assertEqual(self.person_a.status, "on_leave")

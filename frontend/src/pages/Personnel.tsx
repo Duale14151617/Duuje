@@ -324,9 +324,15 @@ export function PersonnelDetail() {
           {can("personnel.manage") && mode === null && p.status !== "died" && (
             <div className="pf-actions">
               <button type="button" className="secondary sm" onClick={() => setMode("edit")}><Icon name="edit" size={16} /><span>{t("pers.editBasics")}</span></button>
-              <button type="button" className="secondary sm" onClick={() => setMode("transfer")}>{t("pers.transfer")}</button>
-              <button type="button" className="secondary sm" onClick={() => setMode("rank")}>{t("pers.changeRank")}</button>
-              <button type="button" className="secondary sm" onClick={() => setMode("status")}>{t("pers.changeStatus")}</button>
+              {can("changes.propose") && !can("changes.approve") ? (
+                <Link className="btn secondary sm" to="/change-requests" title={t("pers.needsApproval")}>{t("pers.raiseRequest")}</Link>
+              ) : (
+                <>
+                  <button type="button" className="secondary sm" onClick={() => setMode("transfer")}>{t("pers.transfer")}</button>
+                  <button type="button" className="secondary sm" onClick={() => setMode("rank")}>{t("pers.changeRank")}</button>
+                  <button type="button" className="secondary sm" onClick={() => setMode("status")}>{t("pers.changeStatus")}</button>
+                </>
+              )}
             </div>
           )}
         </section>

@@ -288,6 +288,16 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         "revoke_assignment": ("roles.assign", "global"),
     }
 
+    def get_object(self):
+        """A super administrator's account can only be changed by a super administrator (no takeover by resetting its password or MFA)."""
+        target = super().get_object()
+        if (self.request.method not in ("GET", "HEAD", "OPTIONS") and target.pk != self.request.user.pk
+                and scope.can(target, scope.FULL_ACCESS) and not scope.can(self.request.user, scope.FULL_ACCESS)):
+            record("access.denied", request=self.request, outcome="denied", entity_type="user", entity_id=target.pk,
+                   metadata={"reason": "protected_account"})
+            raise PermissionDenied("Only a super administrator can change a super administrator's account.")
+        return target
+
     def get_queryset(self):
         qs = User.objects.all()
         p = self.request.query_params
@@ -400,6 +410,12 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
             raise PermissionDenied()
         ser = AssignmentCreateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
+        beyond = sorted(c for c in ser.validated_data["role"].permissions.values_list("code", flat=True)
+                        if not scope.can(request.user, c))
+        if beyond:  # nobody can hand out authority they do not hold themselves (stops an administrator making themselves super admin)
+            record("access.denied", request=request, outcome="denied", entity_type="role_assignment",
+                   metadata={"reason": "role_exceeds_authority", "role": ser.validated_data["role"].code})
+            return error("role_exceeds_authority", "This role carries authority you do not hold. Only a super administrator can assign it.", 403)
         with transaction.atomic():
             a = RoleAssignment.objects.create(user=target, created_by=request.user, **ser.validated_data)
             record("role_assignment.create", request=request, entity_type="role_assignment", entity_id=a.pk,

@@ -125,7 +125,7 @@ class RecordTests(TrainingBase):
         self.assertEqual(viewer.get(f"{T}records/{rec['id']}/").status_code, 200)
         self.assertEqual(self.to(viewer, rec, "in_progress").status_code, 403)
         self.assertEqual(self.enroll(viewer, mine, start="2026-04-01").status_code, 403)
-        self.assertEqual(self.who("adm", "hq_admin", "HQ").get(T + "records/").status_code, 403)
+        self.assertEqual(self.who("adm", "hq_admin", "HQ").get(T + "records/").status_code, 200)
         self.assertEqual(self.who("ro", "read_only", "BARI").get(T + "records/").status_code, 403)
         self.assertEqual(t.get(T + "records/?course=abc").status_code, 400)
 

@@ -182,12 +182,12 @@ class StockTests(LogisticsBase):
         self.assertEqual(n.get(L + f"stock/?org_unit={self.unit('BARI').pk}").data["count"], 0)
         self.assertEqual(n.get(L + "stock/?category=abc").status_code, 400)
 
-    def test_view_only_roles_cannot_change_stock_and_admin_has_no_inventory_access(self):
+    def test_view_only_roles_cannot_change_stock_and_hq_admin_can_view_inventory(self):
         line = self.line(qty=10)
         chief = self.who("chief", "regional_chief", "BARI")
         self.assertEqual(chief.get(f"{L}stock/{line.pk}/").status_code, 200)
         self.assertEqual(self.tx(chief, line, "receive", 1).status_code, 403)
-        self.assertEqual(self.who("adm", "hq_admin", "HQ").get(L + "stock/").status_code, 403)
+        self.assertEqual(self.who("adm", "hq_admin", "HQ").get(L + "stock/").status_code, 200)  # everyday stock work; category approvals stay reserved
 
     def test_reorder_flag_and_filter(self):
         self.line("BARI-ARMY-A", qty=3, reorder=5)

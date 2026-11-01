@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, ApiError } from "../api/client";
-import type { AppointmentTypeOut, ChangeKind, ChangeRequest, ChangeStatus, PersonLookup } from "../api/types";
+import type { AppointmentTypeOut, ChangeKind, ChangeRequest, ChangeStatus, Page, PersonLookup, Rank } from "../api/types";
 import { useFetch } from "../api/useFetch";
 import { useAuth } from "../auth/AuthContext";
 import { UnitPicker } from "../components/UnitPicker";
@@ -9,7 +9,8 @@ import { useI18n, type Key } from "../i18n";
 
 const BASE = "/organization/change-requests";
 const STATUSES: ChangeStatus[] = ["pending", "in_review", "approved", "rejected", "withdrawn"];
-const KINDS: ChangeKind[] = ["transfer", "appointment_add", "appointment_end"];
+const KINDS: ChangeKind[] = ["transfer", "rank_change", "status_change", "appointment_add", "appointment_end"];
+const SETTABLE_STATUSES = ["active", "on_leave", "suspended", "jailed", "retired", "discharged"];  // Died has its own death workflow
 
 function NewRequest({ onDone }: { onDone: (msg: string) => void }) {
   const { t, name } = useI18n();
@@ -19,6 +20,9 @@ function NewRequest({ onDone }: { onDone: (msg: string) => void }) {
   useEffect(() => { const h = setTimeout(() => setDebounced(q.trim()), 300); return () => clearTimeout(h); }, [q]);
   const people = useFetch<{ results: PersonLookup[] }>(debounced.length >= 3 ? `${BASE}/people/` : null, { q: debounced });
   const types = useFetch<{ results: AppointmentTypeOut[] }>(kind === "appointment_add" ? `${BASE}/appointment-types/` : null);
+  const ranks = useFetch<Page<Rank>>(kind === "rank_change" ? "/ranks/" : null, { approval_status: "approved", page_size: 100 });
+  const [rankId, setRankId] = useState("");
+  const [newStatus, setNewStatus] = useState("");
   const [person, setPerson] = useState<PersonLookup | null>(null);
   const [unit, setUnit] = useState("");
   const [typeId, setTypeId] = useState("");
@@ -37,6 +41,8 @@ function NewRequest({ onDone }: { onDone: (msg: string) => void }) {
     setError(null); setBusy(true);
     const payload: Record<string, unknown> =
       kind === "transfer" ? { personnel: person.id, org_unit: unit, effective_date: date || undefined, reason }
+      : kind === "rank_change" ? { personnel: person.id, rank: rankId, effective_date: date || undefined, reason }
+      : kind === "status_change" ? { personnel: person.id, status: newStatus, effective_date: date || undefined, reason }
       : kind === "appointment_add" ? { personnel: person.id, org_unit: unit, appointment_type: typeId, effective_from: date || undefined }
       : { personnel: person.id, appointment, reason };
     try {
@@ -50,7 +56,7 @@ function NewRequest({ onDone }: { onDone: (msg: string) => void }) {
       <h2>{t("cr.new")}</h2>
       <ErrorNotice error={error} />
       <Field label={t("cr.kind")}>
-        <select value={kind} onChange={(e) => { setKind(e.target.value as ChangeKind); setUnit(""); setAppointment(""); }}>
+        <select value={kind} onChange={(e) => { setKind(e.target.value as ChangeKind); setUnit(""); setAppointment(""); setRankId(""); setNewStatus(""); }}>
           {KINDS.map((k) => <option key={k} value={k}>{t(`cr.kind.${k}` as Key)}</option>)}
         </select>
       </Field>
@@ -64,6 +70,22 @@ function NewRequest({ onDone }: { onDone: (msg: string) => void }) {
       {person && <Notice>{t("cr.person")}: {person.rank} {person.full_name} · {person.service_number ?? "-"} · {person.unit}</Notice>}
       {person && kind === "transfer" && (
         <UnitPicker label={t("cr.destination")} value={unit} onChange={setUnit} exclude={person.unit_id} required />
+      )}
+      {person && kind === "rank_change" && (
+        <Field label={t("cr.newRank")}>
+          <select value={rankId} onChange={(e) => setRankId(e.target.value)} required>
+            <option value="" />
+            {(ranks.data?.results ?? []).filter((r) => r.branch === person.branch_id).map((r) => <option key={r.id} value={r.id}>{r.code} {name(r)}</option>)}
+          </select>
+        </Field>
+      )}
+      {person && kind === "status_change" && (
+        <Field label={t("cr.newStatus")}>
+          <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)} required>
+            <option value="" />
+            {SETTABLE_STATUSES.filter((s) => s !== person.status).map((s) => <option key={s} value={s}>{t(`pstatus.${s}` as Key)}</option>)}
+          </select>
+        </Field>
       )}
       {person && kind === "appointment_add" && (
         <>

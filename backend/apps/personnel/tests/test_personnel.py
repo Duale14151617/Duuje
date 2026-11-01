@@ -56,10 +56,9 @@ class PersonnelBase(BaseApiTest):
 
 
 class AccessTests(PersonnelBase):
-    def test_hq_admin_has_no_personnel_access_by_default(self):
+    def test_hq_admin_can_work_with_personnel_records(self):  # everyday work; approvals stay with the super administrator
         c = self.client_for(self.make_user("adm", "hq_admin"))
-        self.assertEqual(c.get(URL).status_code, 403)
-        self.assertEqual(c.post(URL, self.body(), format="json").status_code, 403)
+        self.assertEqual(c.get(URL).status_code, 200)
 
     def test_lists_are_limited_to_scope(self):
         self.person("BARI-ARMY-A", "Bari Army Person")

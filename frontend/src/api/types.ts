@@ -307,7 +307,7 @@ export interface UnitOverview {
   counts_complete: boolean;
 }
 
-export type ChangeKind = "transfer" | "appointment_add" | "appointment_end";
+export type ChangeKind = "transfer" | "appointment_add" | "appointment_end" | "rank_change" | "status_change";
 export type ChangeStatus = "pending" | "in_review" | "approved" | "rejected" | "withdrawn";
 export interface ChangeRequest {
   id: string; kind: ChangeKind; status: ChangeStatus; summary: string; payload: Record<string, unknown>; unit: string;
@@ -316,7 +316,7 @@ export interface ChangeRequest {
   self_approved: boolean; version: number;
 }
 export interface PersonLookup {
-  id: string; full_name: string; service_number: string | null; rank: string; unit: string; unit_id: string; status: string;
+  id: string; full_name: string; service_number: string | null; rank: string; unit: string; unit_id: string; branch_id: string; status: string;
   open_appointments: { id: string; type: string; unit: string }[];
 }
 

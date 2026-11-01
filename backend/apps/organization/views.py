@@ -472,7 +472,7 @@ class ChangeRequestViewSet(viewsets.GenericViewSet):
             for a in CommandAppointment.objects.filter(personnel__in=people, ended_at__isnull=True).select_related("appointment_type", "org_unit"):
                 open_by.setdefault(a.personnel_id, []).append({"id": str(a.pk), "type": a.appointment_type.name_en, "unit": a.org_unit.name_en})
             rows = [{"id": str(p.pk), "full_name": p.full_name, "service_number": p.service_number, "rank": p.rank.name_en,
-                     "unit": p.org_unit.name_en, "unit_id": str(p.org_unit_id), "status": p.status,
+                     "unit": p.org_unit.name_en, "unit_id": str(p.org_unit_id), "branch_id": str(p.branch_id), "status": p.status,
                      "open_appointments": open_by.get(p.pk, [])} for p in people]
         record("change_request.people_lookup", request=request, entity_type="personnel", metadata={"count": len(rows)})
         return Response({"results": rows})

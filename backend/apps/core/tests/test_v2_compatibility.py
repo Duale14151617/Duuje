@@ -11,6 +11,7 @@ from django.db.migrations.loader import MigrationLoader
 
 from apps.accounts.models import Role
 from apps.core.testing import BaseApiTest
+from apps.core.management.commands.seed_reference_data import HQ_ADMIN_RESERVED, PERMISSIONS
 from config.api_v1 import router
 
 V14_ROLE_PERMISSIONS = {'auditor': ['audit.view', 'dashboard.view', 'org.view'],
@@ -90,6 +91,8 @@ class RoleCompatibilityTests(BaseApiTest):
             allowed |= {"vehicles.view"} if role in ("regional_chief", "branch_admin") else set()  # vehicle register: oversight roles read it
             allowed |= {"vehicles.configure"} if role == "hq_admin" else set()  # HQ admin maintains the vehicle categories
             allowed |= {"payroll.view"} if role == "auditor" else set()  # the auditor reads payroll (regional finance), never acts on it
+            if role == "hq_admin":  # every permission except the ones reserved for the super administrator
+                allowed = set(PERMISSIONS) - HQ_ADMIN_RESERVED - set(codes)
             self.assertEqual(gained, allowed, role)
 
     def test_only_the_documented_role_was_added_and_none_removed(self):

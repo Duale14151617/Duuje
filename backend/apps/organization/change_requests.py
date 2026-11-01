@@ -154,6 +154,61 @@ def _check_appointment_end(actor, code, payload):
     return person, appt, clean, summary
 
 
+# ------------------------------------------------------------------ rank and status handlers
+def _check_rank_change(actor, code, payload, expect_from=None):
+    """Validate a rank change against the live records (same rules as a direct change). Returns (person, rank, payload, summary)."""
+    from apps.personnel.models import Personnel
+    from apps.personnel import services as svc
+    from apps.ranks.models import Rank
+
+    person = _person_and_unit(actor, code, payload)
+    rank = Rank.objects.filter(pk=str(payload.get("rank") or "")).first() if _is_uuid(payload.get("rank")) else None
+    if person.status == Personnel.Status.DIED:
+        raise field_error("personnel", "person_deceased", "This person is deceased; the file is closed to changes.")
+    if rank is None or rank.approval_status != "approved" or rank.branch_id != person.branch_id:
+        raise field_error("rank", "rank_invalid", "That rank cannot be used.")
+    if expect_from is not None and str(person.rank_id) != expect_from:
+        raise StaleRequest()
+    if rank.pk == person.rank_id:
+        raise field_error("rank", "no_change", "The person already holds that rank.")
+    try:
+        svc.check_assignment(person.org_unit, rank)
+    except svc.RuleError as e:
+        raise field_error(e.field, e.code, "That rank is not allowed here.")
+    if person.supervisor_id and svc.outranks(person.supervisor.rank, rank) is False:
+        raise field_error("rank", "outranks_supervisor", "The new rank would outrank this person's supervisor.")
+    if any(svc.outranks(rank, sub.rank) is False for sub in person.subordinates.select_related("rank")):
+        raise field_error("rank", "outranks_subordinate", "The new rank would be below one of this person's subordinates.")
+    clean = {"personnel": str(person.pk), "from_rank": str(person.rank_id), "rank": str(rank.pk),
+             "effective_date": _day(payload.get("effective_date"), "effective_date").isoformat(),
+             "reason": str(payload.get("reason") or "")[:200]}
+    summary = f"Rank change {person.full_name} ({person.service_number or 'no service number'}): {svc.rank_label(person.rank)} -> {svc.rank_label(rank)}"[:300]
+    return person, rank, clean, summary
+
+
+def _check_status_change(actor, code, payload, expect_from=None):
+    from apps.personnel.models import Personnel
+    from apps.personnel import services as svc
+
+    person = _person_and_unit(actor, code, payload)
+    status = str(payload.get("status") or "")
+    if person.status == Personnel.Status.DIED:
+        raise field_error("personnel", "person_deceased", "This person is deceased; the file is closed to changes.")
+    if status == Personnel.Status.DIED:
+        raise field_error("status", "use_death_workflow", "A death is recorded through the death workflow.")
+    if status not in svc.STATUSES:
+        raise field_error("status", "status_invalid", "That status cannot be used.")
+    if expect_from is not None and person.status != expect_from:
+        raise StaleRequest()
+    if status == person.status:
+        raise field_error("status", "no_change", "The person already has that status.")
+    clean = {"personnel": str(person.pk), "from_status": person.status, "status": status,
+             "effective_date": _day(payload.get("effective_date"), "effective_date").isoformat(),
+             "reason": str(payload.get("reason") or "")[:200]}
+    summary = f"Status change {person.full_name} ({person.service_number or 'no service number'}): {person.status} -> {status}"[:300]
+    return person, status, clean, summary
+
+
 def _validate(actor, kind, payload):
     if kind == ChangeRequest.Kind.TRANSFER:
         _, dest, clean, summary = _check_transfer(actor, PROPOSE, payload)
@@ -164,12 +219,20 @@ def _validate(actor, kind, payload):
     if kind == ChangeRequest.Kind.APPOINTMENT_END:
         _, appt, clean, summary = _check_appointment_end(actor, PROPOSE, payload)
         return appt.org_unit, clean, summary
+    if kind == ChangeRequest.Kind.RANK_CHANGE:
+        person, _, clean, summary = _check_rank_change(actor, PROPOSE, payload)
+        return person.org_unit, clean, summary
+    if kind == ChangeRequest.Kind.STATUS_CHANGE:
+        person, _, clean, summary = _check_status_change(actor, PROPOSE, payload)
+        return person.org_unit, clean, summary
     raise field_error("kind", "unknown_kind", "That kind of request is not supported.")
 
 
 def _apply(req, actor, request):
     if req.kind in (ChangeRequest.Kind.APPOINTMENT_ADD, ChangeRequest.Kind.APPOINTMENT_END):
         return _apply_appointments(req, actor, request)
+    if req.kind in (ChangeRequest.Kind.RANK_CHANGE, ChangeRequest.Kind.STATUS_CHANGE):
+        return _apply_rank_or_status(req, actor, request)
     if req.kind == ChangeRequest.Kind.TRANSFER:
         from apps.personnel.services import add_history
 
@@ -188,6 +251,38 @@ def _apply(req, actor, request):
 
 
 # ------------------------------------------------------------------ lifecycle
+def _apply_rank_or_status(req, actor, request):
+    from apps.personnel import appointments as appt_svc
+    from apps.personnel import services as svc
+
+    p = req.payload
+    reason = f"Order {req.order_ref} ({req.issuing_officer}, {req.order_date.isoformat()})"
+    if p.get("reason"):
+        reason += f": {p['reason']}"
+    day = date.fromisoformat(p["effective_date"])
+    if req.kind == ChangeRequest.Kind.RANK_CHANGE:
+        person, rank, _, _ = _check_rank_change(actor, APPROVE, p, expect_from=p["from_rank"])  # re-validated against today's records
+        old = person.rank
+        updated = versioned_update(person, {"rank": rank}, person.version)
+        svc.add_history(updated, "rank", str(old.pk), str(rank.pk), svc.rank_label(old), svc.rank_label(rank), day, reason, actor)
+        record("personnel.change_rank", request=request, actor=actor, entity_type="personnel", entity_id=updated.pk,
+               metadata={"from": str(old.pk), "to": str(rank.pk), "effective_date": p["effective_date"],
+                         "change_request": str(req.pk), "order_ref": req.order_ref})
+        return
+    person, status, _, _ = _check_status_change(actor, APPROVE, p, expect_from=p["from_status"])
+    old = person.status
+    updated = versioned_update(person, {"status": status}, person.version)
+    svc.add_history(updated, "status", old, status, old, status, day, reason, actor)
+    record("personnel.change_status", request=request, actor=actor, entity_type="personnel", entity_id=updated.pk,
+           metadata={"from": old, "to": status, "effective_date": p["effective_date"],
+                     "change_request": str(req.pk), "order_ref": req.order_ref})
+    if status in ("retired", "discharged"):  # authority ends with service
+        ended, revoked = appt_svc.end_all_for(actor, updated, f"Status changed to {status}")
+        if ended:
+            record("personnel.appointments_ended", request=request, actor=actor, entity_type="personnel", entity_id=updated.pk,
+                   metadata={"count": ended, "access_revoked": revoked, "reason": status, "change_request": str(req.pk)})
+
+
 def _apply_appointments(req, actor, request):
     from apps.personnel import appointments as appt_svc
     from apps.personnel.services import RuleError
@@ -237,6 +332,9 @@ def propose(actor, request, *, kind, payload, order_ref, issuing_officer, order_
     if not isinstance(payload, dict):
         raise field_error("payload", "invalid_payload", "Invalid.")
     unit, clean, summary = _validate(actor, kind, payload)
+    if kind in (ChangeRequest.Kind.RANK_CHANGE, ChangeRequest.Kind.STATUS_CHANGE) and ChangeRequest.objects.filter(
+            kind=kind, status__in=(S.PENDING, S.IN_REVIEW), payload__personnel=clean["personnel"]).exists():
+        raise field_error("personnel", "already_pending", "A request of this kind for that person is already waiting for a decision.")
     req = ChangeRequest.objects.create(
         kind=kind, summary=summary, payload=clean, unit=unit, order_ref=order_ref, issuing_officer=issuing_officer,
         order_date=order_day, proposed_by=actor, proposed_by_username=actor.username)

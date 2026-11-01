@@ -197,6 +197,13 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
         return self._out(person)
 
     # --- tracked changes (each writes effective-dated history) -----------
+    @staticmethod
+    def _needs_approval(request, what):
+        """Headquarters administrators can propose but not approve: their transfers, rank and status changes go through the
+        change-request queue (Army order + super administrator decision) instead of being applied directly."""
+        if scope.can(request.user, "changes.propose") and not scope.can(request.user, "changes.approve"):
+            raise PermissionDenied(f"{what} need the authorizing Army order and super administrator approval: raise a change request instead.")
+
     def _workflow(self, request, serializer_cls, field, audit_action):
         person = self.get_object()
         if person.status == Personnel.Status.DIED:
@@ -233,14 +240,17 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
 
     @action(detail=True, methods=["post"])
     def transfer(self, request, pk=None):
+        self._needs_approval(request, "Transfers")
         return self._workflow(request, TransferSerializer, "org_unit", "personnel.transfer")
 
     @action(detail=True, methods=["post"], url_path="change-rank")
     def change_rank(self, request, pk=None):
+        self._needs_approval(request, "Rank changes")
         return self._workflow(request, RankChangeSerializer, "rank", "personnel.change_rank")
 
     @action(detail=True, methods=["post"], url_path="change-status")
     def change_status(self, request, pk=None):
+        self._needs_approval(request, "Status changes")
         return self._workflow(request, StatusChangeSerializer, "status", "personnel.change_status")
 
     @action(detail=True, methods=["get"])

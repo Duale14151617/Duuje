@@ -114,6 +114,22 @@ SENSITIVE_PREFIXES = ("personnel.", "reports.view", "reports.submit", "reports.r
                       "logistics.view", "logistics.manage", "logistics.restricted", "logistics.reconcile",
                       "logistics.report", "logistics.approve", "training.view", "training.manage", "training.report", "analytics.",
                       "org.structure_approve", "cid.", "search.", "disciplinary.", "documents.", "reports.combined", "attendance.", "weapons.", "vehicles.", "payroll.", "survivor.", "payment.", "arrears.", "changes.approve", "system.")
+# The headquarters administrator does the everyday work of the system (people, units, reports, stock, weapons, vehicles, training,
+# attendance, payroll preparation, accounts), because most of the force cannot run it themselves. What it can never hold is the
+# authority to APPROVE or to override: anything that would shift control away from the super administrator is reserved here.
+# Where a workflow exists the administrator proposes or prepares and the super administrator decides (structure changes, personnel
+# transfers, rank-catalogue entries, inventory categories, vehicle disposals, payroll runs, arrears, survivor allocations).
+HQ_ADMIN_RESERVED = frozenset({
+    "system.full_access",                                                  # maintenance override
+    "changes.approve", "org.structure_approve", "ranks.approve",           # approvals of hierarchy and catalogue changes
+    "logistics.approve", "logistics.restricted_approve", "logistics.restricted", "vehicles.approve",
+    "payroll.approve", "payroll.decide", "payroll.policy_confirm", "arrears.approve", "survivor.verify", "survivor.approve",
+    "payment.prepare", "payment.authorize", "payment.execute", "payment.reconcile", "payment.details",   # money movement
+    "personnel.confirm_death",                                             # confirming a death changes status to Died
+    "cid.access", "search.cross_service", "reports.combined",              # restricted units and command-level views
+    "disciplinary.view", "disciplinary.manage",                            # disciplinary history stays with branch administrators
+    "integrations.manage",                                                 # API clients are a back door if misused
+})
 REPORT_TYPES = [  # code, kind, name_en, name_so, figure keys
     ("monthly_admin_report", "report", "Monthly administrative report", "Warbixinta maamul ee bishii",
      ["personnel_strength", "personnel_on_leave", "personnel_in_training"]),
@@ -128,7 +144,7 @@ BASIC = ["dashboard.view", "org.view", "ranks.view"]
 # code: (name_en, name_so, privileged, requires_branch, allowed_levels, permissions)
 ROLES = {
     "hq_admin": ("Headquarters administrator", "Maamulaha Xarunta Guud", True, False, ["headquarters"],
-                 [c for c in PERMISSIONS if not c.startswith(SENSITIVE_PREFIXES)]),
+                 [c for c in PERMISSIONS if c not in HQ_ADMIN_RESERVED]),
     "hq_reporting": ("Headquarters reporting user", "Isticmaalaha warbixinta Xarunta", False, False,
                      ["headquarters"], BASIC + ["personnel.view", "personnel.export", "reports.view", "reports.summary", "reports.export"]),
     "regional_chief": ("Regional chief", "Taliyaha gobolka", True, False, ["region"],

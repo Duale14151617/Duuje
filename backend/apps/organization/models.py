@@ -257,6 +257,8 @@ class ChangeRequest(models.Model):
         TRANSFER = "transfer"
         APPOINTMENT_ADD = "appointment_add"
         APPOINTMENT_END = "appointment_end"
+        RANK_CHANGE = "rank_change"
+        STATUS_CHANGE = "status_change"
 
     class Status(models.TextChoices):
         PENDING = "pending"
