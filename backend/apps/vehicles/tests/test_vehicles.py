@@ -34,7 +34,7 @@ class VehicleBase(PersonnelBase):
         self.cat = {c.code: c for c in VehicleCategory.objects.all()}
 
     def add(self, unit=None, c=None, **kw):
-        body = {"category": "hilux_4x4", "org_unit": str((unit or self.bn).pk), "plate": "TEST-001", "make": "Toyota", "model": "Hilux",
+        body = {"category": "hilux_4x4", "org_unit": str((unit or self.bn).pk), "plate": "GD-001", "make": "Toyota", "model": "Hilux",
                 "location": "Test depot", **kw}
         return (c or self.officer).post(URL, body, format="json")
 
@@ -56,27 +56,49 @@ class RegistryTests(VehicleBase):
         hq = self.client_for(self.make_user("hqadm", "hq_admin"))
         r = hq.post(URL + "categories/", {"code": "water_tanker", "name_en": "Water tanker"}, format="json")
         self.assertEqual(r.status_code, 201)
-        self.assertEqual(self.add(category="water_tanker", plate="TEST-009").status_code, 201)
+        self.assertEqual(self.add(category="water_tanker", plate="GD-009").status_code, 201)
 
     def test_register_generates_unique_stable_id_and_separates_category_from_model(self):
-        a, b = self.veh(), self.veh(plate="TEST-002", category="ambulance", make="Toyota", model="Hilux")
+        a, b = self.veh(), self.veh(plate="GD-002", category="ambulance", make="Toyota", model="Hilux")
         self.assertEqual((a.vehicle_id, b.vehicle_id), ("VEH-000001", "VEH-000002"))
         self.assertEqual(b.category.code, "ambulance")  # same make/model, different category
         old = a.vehicle_id
-        r = self.post(a, "edit", {"plate": "NEW-777"})
+        r = self.post(a, "edit", {"plate": "GD-777"})
         self.assertEqual(r.status_code, 200, r.data)
         a.refresh_from_db()
-        self.assertEqual((a.vehicle_id, a.plate), (old, "NEW-777"))  # plate changed, ID did not
+        self.assertEqual((a.vehicle_id, a.plate), (old, "GD-777"))  # plate changed, ID did not
 
     def test_plate_uniqueness_ignores_case_and_spacing_and_none_is_explicit(self):
-        self.veh(plate="ab 123")
-        r = self.add(plate="AB-123")
+        self.veh(plate="gd 123")
+        r = self.add(plate="GD-123")
         self.assertEqual(r.status_code, 400)
         self.assertIn("plate_in_use", self.codes(r, "plate"))
         v1 = self.veh(plate="", plate_status="none")
         v2 = self.veh(plate="", plate_status="unknown")  # several unplated vehicles are allowed, nothing invented
         self.assertEqual((v1.plate, v1.plate_status, v2.plate_status), ("", "none", "unknown"))
         self.assertEqual(self.add(plate="", plate_status="registered").status_code, 400)
+
+    def test_ownership_decides_the_plate_prefix(self):
+        st = self.veh(plate="gd 555")  # default ownership is state property
+        self.assertEqual((st.ownership, st.plate), ("state", "GD 555"))
+        pr = self.veh(plate="PL-555", ownership="private")
+        self.assertEqual((pr.ownership, pr.plate), ("private", "PL-555"))
+        r = self.add(plate="PL-556")  # state property with a PL plate
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("plate_prefix", self.codes(r, "plate"))
+        r = self.add(plate="GD-556", ownership="private")  # private with a GD plate
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("plate_prefix", self.codes(r, "plate"))
+        self.assertEqual(self.add(plate="GD-557", ownership="military").status_code, 400)
+        self.assertEqual(self.add(plate="", plate_status="unknown", ownership="private").status_code, 201)  # no plate: no prefix to check
+        # changing ownership must come with a plate of the new prefix
+        r = self.post(st, "edit", {"ownership": "private"})
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("plate_prefix", self.codes(r, "plate"))
+        self.assertEqual(self.post(st, "edit", {"ownership": "private", "plate": "PL-558"}).status_code, 200)
+        st.refresh_from_db()
+        self.assertEqual((st.ownership, st.plate), ("private", "PL-558"))
+        self.assertEqual({v["plate"] for v in self.officer.get(URL, {"ownership": "private"}).data["results"] if v["plate"]}, {"PL-555", "PL-558"})
 
     def test_validation(self):
         self.assertEqual(self.add(category="nope").status_code, 400)
@@ -88,20 +110,20 @@ class RegistryTests(VehicleBase):
     def test_search_by_vehicle_id_plate_driver_and_full_record(self):
         v = self.veh(driver=str(self.d1.pk), custodian=str(self.d2.pk))
         self.post(v, "status", {"status": "under_repair", "reason": "Gearbox"})
-        for q in ({"q": v.vehicle_id}, {"vehicle_id": v.vehicle_id.lower()}, {"plate": "test 001"}, {"service_number": "D-1"}, {"status": "under_repair"},
+        for q in ({"q": v.vehicle_id}, {"vehicle_id": v.vehicle_id.lower()}, {"plate": "gd 001"}, {"service_number": "D-1"}, {"status": "under_repair"},
                   {"category": "hilux_4x4"}, {"org_unit": str(self.brig.pk)}):
             rows = self.officer.get(URL, q).data["results"]
             self.assertEqual([r["vehicle_id"] for r in rows], [v.vehicle_id], q)
         d = self.officer.get(f"{URL}{v.vehicle_id}/").data  # lookup by Vehicle ID
         self.assertEqual((d["plate"], d["category"]["code"], d["org_unit"]["code"], d["driver"]["service_number"], d["custodian"]["service_number"],
-                          d["location"], d["status"]), ("TEST-001", "hilux_4x4", "BARI-ARMY-A1", "D-1", "D-2", "Test depot", "under_repair"))
+                          d["location"], d["status"]), ("GD-001", "hilux_4x4", "BARI-ARMY-A1", "D-1", "D-2", "Test depot", "under_repair"))
         self.assertTrue(d["assignment_history"])
         self.assertEqual(self.officer.get(f"{URL}{v.pk}/history/").status_code, 200)
 
 
 class AssignmentTests(VehicleBase):
     def test_driver_change_keeps_history_and_blocks_double_booking(self):
-        v, w = self.veh(driver=str(self.d1.pk)), self.veh(plate="TEST-002")
+        v, w = self.veh(driver=str(self.d1.pk)), self.veh(plate="GD-002")
         r = self.post(w, "driver", {"driver": str(self.d1.pk)})
         self.assertIn("driver_already_assigned", self.codes(r, "driver"))
         self.assertEqual(self.post(v, "driver", {"driver": str(self.d2.pk), "authority_ref": "Order 7"}).status_code, 200)
@@ -175,9 +197,9 @@ class StatusMaintenanceSummaryTests(VehicleBase):
         self.assertEqual(self.officer.get(URL, {"overdue": "1"}).data["count"], 0)
 
     def test_fleet_totals_do_not_double_count(self):
-        self.veh(category="ambulance", plate="A-1", unit=self.brig)
-        self.veh(category="hilux_4x4", plate="H-1", unit=self.bn, driver=str(self.d1.pk))
-        self.veh(category="hilux_4x4", plate="H-2", unit=self.bn)
+        self.veh(category="ambulance", plate="GD-A1", unit=self.brig)
+        self.veh(category="hilux_4x4", plate="GD-H1", unit=self.bn, driver=str(self.d1.pk))
+        self.veh(category="hilux_4x4", plate="GD-H2", unit=self.bn)
         s = self.officer.get(URL + "summary/", {"org_unit": str(self.brig.pk)}).data
         self.assertEqual((s["total"], s["direct"]["total"], s["subordinate"]["total"], s["combined"]["total"]), (3, 1, 2, 3))
         cats = {c["code"]: c["count"] for c in s["combined"]["by_category"]}
@@ -188,7 +210,7 @@ class StatusMaintenanceSummaryTests(VehicleBase):
         self.assertEqual((b["direct"]["total"], b["subordinate"]["total"]), (2, 0))
         region = self.officer.get(URL + "summary/", {"org_unit": str(self.unit("BARI-ARMY").pk)}).data
         self.assertEqual(region["total"], 3)  # branch command total equals brigade total: each vehicle counted once
-        v = Vehicle.objects.get(plate="H-2")
+        v = Vehicle.objects.get(plate="GD-H2")
         self.post(v, "transfer", {"org_unit": str(self.brig.pk), "authority_ref": "O1"})
         s = self.officer.get(URL + "summary/", {"org_unit": str(self.brig.pk)}).data
         self.assertEqual((s["total"], s["direct"]["total"], s["subordinate"]["total"]), (3, 2, 1))

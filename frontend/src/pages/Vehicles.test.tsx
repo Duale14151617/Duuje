@@ -12,7 +12,7 @@ vi.mock("../components/UnitPicker", () => ({ UnitPicker: ({ label }: { label: st
 const cat = { id: "c1", code: "hilux_4x4", name_en: "Hilux 4x4", name_so: "Hilux 4x4" };
 const unit = { id: "u1", code: "BN-1", name_en: "Battalion 1", name_so: "Urur 1" };
 const row = {
-  id: "11111111-1111-1111-1111-111111111111", vehicle_id: "VEH-000001", plate: "TEST-001", plate_status: "registered", category: cat, vehicle_type: "", make: "Toyota",
+  id: "11111111-1111-1111-1111-111111111111", vehicle_id: "VEH-000001", plate: "GD-001", plate_status: "registered", ownership: "state", category: cat, vehicle_type: "", make: "Toyota",
   model: "Hilux", year: 2015, org_unit: unit, driver: null, custodian: null, location: "Test depot", status: "operational", condition: "good", next_due_date: null,
   maintenance_overdue: false, disposal_pending: false, version: 3,
 };

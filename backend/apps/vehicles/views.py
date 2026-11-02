@@ -52,7 +52,7 @@ def _status_type(x):
 def _out(v, today=None):
     due = getattr(v, "next_due", None)
     today = today or timezone.localdate()
-    return {"id": str(v.pk), "vehicle_id": v.vehicle_id, "plate": v.plate, "plate_status": v.plate_status, "category": _cat(v.category),
+    return {"id": str(v.pk), "vehicle_id": v.vehicle_id, "plate": v.plate, "plate_status": v.plate_status, "ownership": v.ownership, "category": _cat(v.category),
             "vehicle_type": v.vehicle_type, "make": v.make, "model": v.model, "year": v.year, "org_unit": _unit_brief(v.org_unit),
             "driver": _person_brief(v.driver), "custodian": _person_brief(v.custodian), "location": v.location, "status": v.status,
             "condition": v.condition, "next_due_date": due, "maintenance_overdue": bool(due and due < today and v.status != "decommissioned"),
@@ -151,6 +151,8 @@ class VehicleViewSet(viewsets.GenericViewSet):
             qs = qs.filter(vehicle_id__iexact=p["vehicle_id"].strip()[:20])
         if p.get("plate"):
             qs = qs.filter(plate_key=svc.plate_key(p["plate"][:32]) or "\0")
+        if p.get("ownership") in svc.OWNERSHIPS:
+            qs = qs.filter(ownership=p["ownership"])
         if p.get("category"):
             qs = qs.filter(Q(category__code=p["category"]) | Q(category_id=_uid(p["category"])))
         if p.get("status"):

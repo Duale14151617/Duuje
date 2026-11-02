@@ -44,6 +44,10 @@ MAX_DOC_BYTES = 5 * 1024 * 1024
 KIND_STATUS = {"service": V.Status.UNDER_MAINTENANCE, "repair": V.Status.UNDER_REPAIR, "inspection": V.Status.AWAITING_INSPECTION}
 
 
+PLATE_PREFIX = {"state": "GD", "private": "PL"}  # state property -> GD---, private -> PL---
+OWNERSHIPS = set(PLATE_PREFIX)
+
+
 def plate_key(plate):
     key = re.sub(r"[\s\-]", "", (plate or "")).upper()
     return key or None
@@ -82,7 +86,7 @@ def effective_unit(vehicle):
 def snapshot(v):
     return {"org_unit": str(v.org_unit_id), "driver": str(v.driver_id) if v.driver_id else None,
             "custodian": str(v.custodian_id) if v.custodian_id else None, "location": v.location, "status": v.status,
-            "condition": v.condition, "plate": v.plate, "plate_status": v.plate_status, "category": str(v.category_id),
+            "condition": v.condition, "plate": v.plate, "plate_status": v.plate_status, "ownership": v.ownership, "category": str(v.category_id),
             "vehicle_type": v.vehicle_type, "make": v.make, "model": v.model, "year": v.year, "notes": v.notes}
 
 
@@ -146,7 +150,14 @@ def _person(value, field, user, perm_unit_check):
     return p
 
 
-def _plate(plate, plate_status):
+def _ownership(value, default=V.Ownership.STATE):
+    value = default if value in (None, "") else value
+    if value not in OWNERSHIPS:
+        raise field_error("ownership", "invalid_ownership", "Choose state property or private.")
+    return value
+
+
+def _plate(plate, plate_status, ownership=V.Ownership.STATE):
     plate = (plate or "").strip()
     if plate_status not in {c.value for c in V.PlateStatus}:
         plate_status = V.PlateStatus.REGISTERED if plate else V.PlateStatus.UNKNOWN
@@ -154,6 +165,11 @@ def _plate(plate, plate_status):
         raise field_error("plate", "required", "Give the plate, or mark the plate as none/unknown.")
     if plate_status != V.PlateStatus.REGISTERED:
         plate = ""
+    else:
+        prefix = PLATE_PREFIX[ownership]
+        plate = plate.upper()
+        if not plate_key(plate).startswith(prefix):
+            raise field_error("plate", "plate_prefix", f"A {'state property' if ownership == 'state' else 'private'} vehicle plate must start with {prefix} (for example {prefix}-123).")
     return plate, plate_key(plate), plate_status
 
 
@@ -169,7 +185,8 @@ def _year(d):
 @transaction.atomic
 def register(request, d, unit, can_reach):
     cat = category_by(d.get("category"))
-    plate, key, pstatus = _plate(d.get("plate"), d.get("plate_status"))
+    ownership = _ownership(d.get("ownership"))
+    plate, key, pstatus = _plate(d.get("plate"), d.get("plate_status"), ownership)
     status = d.get("status") or V.Status.OPERATIONAL
     if status not in valid_statuses():
         raise field_error("status", "invalid_status", "Invalid status.")
@@ -185,7 +202,7 @@ def register(request, d, unit, can_reach):
     try:
         with transaction.atomic():
             v = V.objects.create(
-                vehicle_id=_next_vehicle_id(), plate=plate, plate_key=key, plate_status=pstatus, category=cat,
+                vehicle_id=_next_vehicle_id(), plate=plate, plate_key=key, plate_status=pstatus, ownership=ownership, category=cat,
                 vehicle_type=_text(d, "vehicle_type", 60), make=_text(d, "make", 60), model=_text(d, "model", 60), year=_year(d),
                 org_unit=unit, driver=driver, custodian=custodian, location=_text(d, "location", 200), status=status,
                 condition=condition, acquired_on=_date(d.get("acquired_on"), "acquired_on"),
@@ -218,8 +235,14 @@ def edit_details(request, vehicle, d, version):
         if d["condition"] not in CONDITIONS:
             raise field_error("condition", "invalid_condition", "Invalid condition.")
         changes["condition"] = d["condition"]
-    if "plate" in d or "plate_status" in d:
-        plate, key, pstatus = _plate(d.get("plate", v.plate), d.get("plate_status"))
+    ownership = _ownership(d.get("ownership"), default=v.ownership)
+    if "ownership" in d:
+        changes["ownership"] = ownership
+    # Re-check the plate whenever the plate, its status or the ownership changes, so the GD/PL prefix always matches.
+    if "plate" in d or "plate_status" in d or ownership != v.ownership:
+        # Only an ownership change keeps the stored plate status; a new plate with no status given counts as registered (as before).
+        pstatus_in = d.get("plate_status") or (v.plate_status if "plate" not in d and "plate_status" not in d else None)
+        plate, key, pstatus = _plate(d.get("plate", v.plate), pstatus_in, ownership)
         if key and V.objects.filter(plate_key=key).exclude(pk=v.pk).exists():
             raise field_error("plate", "plate_in_use", "Another vehicle already has this plate.")
         changes.update(plate=plate, plate_key=key, plate_status=pstatus)

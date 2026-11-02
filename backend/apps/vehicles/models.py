@@ -97,6 +97,10 @@ class Vehicle(models.Model):
         NONE = "none"          # explicitly: this vehicle carries no plate
         UNKNOWN = "unknown"    # not yet established; never filled with an invented value
 
+    class Ownership(models.TextChoices):
+        STATE = "state"      # state property: plate starts with GD
+        PRIVATE = "private"  # private vehicle: plate starts with PL
+
     UNAVAILABLE = ("under_maintenance", "under_repair", "out_of_service", "awaiting_inspection", "decommissioned")
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -104,6 +108,8 @@ class Vehicle(models.Model):
     plate = models.CharField(max_length=32, blank=True)
     plate_key = models.CharField(max_length=32, null=True, blank=True, editable=False)  # upper-case, no spaces/dashes
     plate_status = models.CharField(max_length=12, choices=PlateStatus.choices, default=PlateStatus.UNKNOWN)
+    # State property (GD plates) or private (PL plates). A registered plate must carry the prefix of its ownership.
+    ownership = models.CharField(max_length=10, choices=Ownership.choices, default=Ownership.STATE)
     category = models.ForeignKey(VehicleCategory, on_delete=models.PROTECT, related_name="vehicles")
     vehicle_type = models.CharField(max_length=60, blank=True)
     make = models.CharField(max_length=60, blank=True)
@@ -135,7 +141,8 @@ class Vehicle(models.Model):
         db_table = "vehicles"
         ordering = ["vehicle_id"]
         indexes = [models.Index(fields=["org_unit", "status"], name="vehicle_unit_status_idx"),
-                   models.Index(fields=["category"], name="vehicle_category_idx")]
+                   models.Index(fields=["category"], name="vehicle_category_idx"),
+                   models.Index(fields=["ownership"], name="vehicle_ownership_idx")]
         constraints = [
             models.UniqueConstraint(fields=["plate_key"], condition=Q(plate_key__isnull=False), name="vehicle_unique_plate"),
             # One driver drives one vehicle at a time; a vehicle row never double-books a person.

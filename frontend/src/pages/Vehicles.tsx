@@ -13,12 +13,15 @@ import { FleetPanel } from "../components/EquipmentPanels";
 import type { FleetAnalytics } from "../api/types";
 import { useI18n, type Key } from "../i18n";
 
+type Ownership = "state" | "private";
+const PLATE_PREFIX: Record<Ownership, string> = { state: "GD", private: "PL" };  // state property -> GD---, private -> PL---
+
 interface Named { code: string; name_en: string; name_so: string }
 interface UnitB extends Named { id: string }
 interface Person { id: string; full_name: string; service_number: string | null; rank: Named; org_unit?: UnitB }
 interface Cat extends Named { id: string }
 interface VehicleRow {
-  id: string; vehicle_id: string; plate: string; plate_status: string; category: Cat; vehicle_type: string; make: string; model: string;
+  id: string; vehicle_id: string; plate: string; plate_status: string; ownership: Ownership; category: Cat; vehicle_type: string; make: string; model: string;
   year: number | null; org_unit: UnitB; driver: Person | null; custodian: Person | null; location: string; status: string; condition: string;
   next_due_date: string | null; maintenance_overdue: boolean; disposal_pending: boolean; version: number;
 }
@@ -65,6 +68,7 @@ export function Vehicles() {
   const needsInspection = sp.get("needs_inspection") === "1";
   const underMaintenance = sp.get("under_maintenance") === "1";
   const category = sp.get("category") ?? "";
+  const ownership = sp.get("ownership") ?? "";
   const setCategory = (v: string) => setParam("category", v);
   const setParam = (k: string, v: string) => { const n = new URLSearchParams(sp); if (v) n.set(k, v); else n.delete(k); setSp(n); setPage(1); };
   const [overdue, setOverdue] = useState(false);
@@ -79,12 +83,12 @@ export function Vehicles() {
   const summary = useFetch<Summary>(unit ? "/vehicles/summary/" : null, { org_unit: unit });
   const analytics = useFetch<FleetAnalytics>("/vehicles/analytics/", { org_unit: unit || undefined });
   const list = useFetch<Page<VehicleRow>>("/vehicles/", {
-    q, status, category, group: group || undefined, condition: condition || undefined,
+    q, status, category, ownership: ownership || undefined, group: group || undefined, condition: condition || undefined,
     needs_inspection: needsInspection ? 1 : undefined, under_maintenance: underMaintenance ? 1 : undefined, org_unit: unit || undefined, direct: direct ? 1 : undefined, page, page_size: pageSize === 25 ? undefined : pageSize,
     overdue: overdue ? 1 : undefined, no_driver: noDriver ? 1 : undefined, include_decommissioned: withDecom ? 1 : undefined,
   });
   const reset = <T,>(set: (v: T) => void) => (v: T) => { set(v); setPage(1); };
-  const filtered = !!(q || status || category || unit || group || condition || needsInspection || underMaintenance || overdue || noDriver || withDecom || direct);
+  const filtered = !!(q || status || category || ownership || unit || group || condition || needsInspection || underMaintenance || overdue || noDriver || withDecom || direct);
   const resetAll = () => { setQ(""); setStatus(""); setOverdue(false); setNoDriver(false); setWithDecom(false); setDirect(false); setSp({}); setPage(1); };
   const flags: [string, boolean, (v: boolean) => void][] = [["veh.onlyOverdue", overdue, setOverdue], ["fleet.requiringInspection", needsInspection, (v) => setParam("needs_inspection", v ? "1" : "")], ["fleet.underMaintenance", underMaintenance, (v) => setParam("under_maintenance", v ? "1" : "")], ["veh.onlyNoDriver", noDriver, setNoDriver], ["veh.showDecommissioned", withDecom, setWithDecom]];
 
@@ -92,6 +96,7 @@ export function Vehicles() {
     { id: "id", header: t("veh.col.vehicle"), width: 140, locked: true, sort: (v) => v.vehicle_id, cell: (v) => <Link to={`/vehicles/${v.id}`}>{v.vehicle_id}</Link> },
     { id: "category", header: t("veh.category"), width: 150, sort: (v) => name(v.category), cell: (v) => name(v.category) },
     { id: "plate", header: t("veh.col.plate"), width: 130, sort: (v) => v.plate, cell: (v) => v.plate || t(v.plate_status === "none" ? "veh.plateNone" : "veh.plateUnknown") },
+    { id: "ownership", header: t("veh.ownership"), width: 140, sort: (v) => v.ownership, cell: (v) => t(v.ownership === "private" ? "veh.ownership.private" : "veh.ownership.state") },
     { id: "status", header: t("veh.status"), width: 170, sort: (v) => st.label(v.status),
       cell: (v) => <><Chip tone={tone(v.status)}>{st.label(v.status)}</Chip>{v.maintenance_overdue && <> <Chip tone="bad">{t("veh.overdue")}</Chip></>}</> },
     { id: "unit", header: t("veh.unit"), width: 200, sort: (v) => name(v.org_unit), cell: (v) => name(v.org_unit) },
@@ -112,6 +117,7 @@ export function Vehicles() {
         search={{ value: q, label: t("veh.search"), onChange: reset(setQ) }}
         filters={[
           { id: "category", label: t("veh.category"), value: category, onChange: reset(setCategory), options: (cats.data?.results ?? []).map((c) => ({ value: c.code, label: name(c) })) },
+          { id: "ownership", label: t("veh.ownership"), value: ownership, onChange: (v) => setParam("ownership", v), options: [{ value: "state", label: t("veh.ownership.state") }, { value: "private", label: t("veh.ownership.private") }] },
           { id: "status", label: t("veh.status"), value: status, onChange: reset(setStatus), options: st.list.map((x) => ({ value: x.code, label: name(x) })) },
           { id: "group", label: t("fleet.group"), value: group, onChange: (v) => setParam("group", v), options: ["utility", "personnel_transport", "general_transport", "protected_transport", "other"].map((g) => ({ value: g, label: t(`fleet.group.${g}` as Key) })) },
           { id: "condition", label: t("veh.condition"), value: condition, onChange: (v) => setParam("condition", v), options: CONDITIONS.map((c) => ({ value: c, label: t(`cond.${c}` as Key) })) },
@@ -187,12 +193,16 @@ function SummaryCards({ s, onOpen }: { s: Summary; onOpen: (id: string) => void 
 
 function RegisterForm({ unit, cats, onDone, onCancel }: { unit: string; cats: Cat[]; onDone: () => void; onCancel: () => void }) {
   const { t, name } = useI18n();
-  const [f, setF] = useState({ category: "", org_unit: unit, plate: "", plate_status: "registered", vehicle_type: "", make: "", model: "", year: "", location: "", condition: "unknown" });
+  const [f, setF] = useState({ category: "", org_unit: unit, ownership: "state" as Ownership, plate: "", plate_status: "registered", vehicle_type: "", make: "", model: "", year: "", location: "", condition: "unknown" });
   const [error, setError] = useState<unknown>(null);
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
+  const prefix = PLATE_PREFIX[f.ownership];
+  // The prefix is fixed by the ownership; the person types only the rest of the plate. If they paste a full plate, a leading prefix is not doubled.
+  const plateRest = (raw: string) => raw.toUpperCase().replace(new RegExp(`^${prefix}[\\s-]*`), "");
   async function submit(e: FormEvent) {
     e.preventDefault(); setError(null);
-    try { await api("/vehicles/", { method: "POST", body: { ...f, year: f.year ? Number(f.year) : null } }); onDone(); } catch (err) { setError(err); }
+    const plate = f.plate_status === "registered" ? `${prefix}-${plateRest(f.plate.trim())}` : "";
+    try { await api("/vehicles/", { method: "POST", body: { ...f, plate, year: f.year ? Number(f.year) : null } }); onDone(); } catch (err) { setError(err); }
   }
   return (
     <form className="card" onSubmit={(e) => void submit(e)}>
@@ -201,12 +211,24 @@ function RegisterForm({ unit, cats, onDone, onCancel }: { unit: string; cats: Ca
         <select value={f.category} required onChange={set("category")}><option value="" />{cats.map((c) => <option key={c.id} value={c.code}>{name(c)}</option>)}</select>
       </Field>
       <UnitPicker label={t("veh.unit")} value={f.org_unit} required onChange={(id) => setF({ ...f, org_unit: id })} />
+      <Field label={t("veh.ownership")}>
+        <select value={f.ownership} onChange={set("ownership")}>
+          <option value="state">{t("veh.ownership.state")} (GD)</option><option value="private">{t("veh.ownership.private")} (PL)</option>
+        </select>
+      </Field>
       <Field label={t("veh.plateStatus")}>
         <select value={f.plate_status} onChange={set("plate_status")}>
           <option value="registered">{t("veh.plateRegistered")}</option><option value="none">{t("veh.plateNone")}</option><option value="unknown">{t("veh.plateUnknown")}</option>
         </select>
       </Field>
-      {f.plate_status === "registered" && <Field label={t("veh.plate")}><input value={f.plate} required maxLength={32} onChange={set("plate")} /></Field>}
+      {f.plate_status === "registered" && (
+        <Field label={t("veh.plate")}>
+          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <b aria-hidden="true">{prefix}-</b>
+            <input value={f.plate} required maxLength={28} placeholder="123" aria-label={`${t("veh.plate")} (${prefix}-)`} onChange={(e) => setF({ ...f, plate: plateRest(e.target.value) })} />
+          </span>
+        </Field>
+      )}
       <Field label={t("veh.type")}><input value={f.vehicle_type} maxLength={60} onChange={set("vehicle_type")} /></Field>
       <Field label={t("veh.make")}><input value={f.make} maxLength={60} onChange={set("make")} /></Field>
       <Field label={t("veh.model")}><input value={f.model} maxLength={60} onChange={set("model")} /></Field>
@@ -270,6 +292,7 @@ export function VehicleDetail() {
       {d.disposal && <Notice>{t("veh.disposalPending")}: {d.disposal.reason} ({d.disposal.authority_ref})</Notice>}
       <section className="card">
         <div className="stat"><span>{t("veh.plate")}</span><b>{d.plate || t(d.plate_status === "none" ? "veh.plateNone" : "veh.plateUnknown")}</b></div>
+        <div className="stat"><span>{t("veh.ownership")}</span><b>{t(d.ownership === "private" ? "veh.ownership.private" : "veh.ownership.state")}</b></div>
         <div className="stat"><span>{t("veh.category")}</span><b>{name(d.category)}</b></div>
         <div className="stat"><span>{t("veh.make")} / {t("veh.model")}</span><b>{[d.make, d.model, d.year].filter(Boolean).join(" ") || "—"}</b></div>
         <div className="stat"><span>{t("veh.unit")}</span><b>{name(d.org_unit)}</b></div>
