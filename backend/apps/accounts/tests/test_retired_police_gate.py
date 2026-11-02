@@ -1,4 +1,4 @@
-"""Safety net: Police is retired, but any Police rows left in an old database must stay hidden from every scope (super_admin excepted).
+"""Safety net: Police is retired, but any Police rows left in an old database must stay hidden from every scope, the super administrator included.
 
 The fixture builds its own minimal Police branch, command, unit and rank, because nothing in the Army-only build seeds them."""
 from datetime import date
@@ -37,9 +37,10 @@ class RetiredPoliceGateTests(BaseApiTest):
         with override_settings(POLICE_MODULE_ENABLED=False):
             self.assertEqual(self.numbers(admin), set())
 
-    def test_super_admin_reaches_everything_even_with_the_police_module_off(self):
+    def test_retired_police_is_hidden_from_the_super_admin_too(self):
         sup = self.client_for(self.make_user("sup3", "super_admin"))
         admin = self.client_for(self.make_user("polis4", "branch_admin", unit="BARI", branch="POLICE"))
+        self.assertEqual(self.numbers(sup), {"PP-T1"})  # module on: the override still reaches it
         with override_settings(POLICE_MODULE_ENABLED=False):
-            self.assertEqual(self.numbers(sup), {"PP-T1"})  # maintenance override: nothing is out of reach
-            self.assertEqual(self.numbers(admin), set())    # every other role still obeys the switch
+            self.assertEqual(self.numbers(sup), set())    # retired: nobody sees it, the maintenance override included
+            self.assertEqual(self.numbers(admin), set())

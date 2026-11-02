@@ -63,6 +63,8 @@ export function PersonnelProfile({ personId, canManage, onPhotoChanged }: { pers
   const [broken, setBroken] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const d = profile.data;
+  // The page header already shows the photo, so this card only repeats it when there is none yet (as an "add photo" box).
+  const hasPhoto = !broken && (canManage ? photoV > 0 || !!d?.has_photo : true);
 
   const set = (k: keyof Profile) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => (f ? { ...f, [k]: e.target.value } : f));
@@ -105,9 +107,17 @@ export function PersonnelProfile({ personId, canManage, onPhotoChanged }: { pers
 
   return (
     <section className="card" style={{ marginTop: "1rem" }}>
-      <h2>{s.title}</h2>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: ".5rem", flexWrap: "wrap", marginBottom: ".75rem" }}>
+        <h2 style={{ margin: 0 }}>{s.title}</h2>
+        {canManage && hasPhoto && (
+          <>
+            <button type="button" className="secondary sm" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? s.uploading : s.change}</button>
+            <input ref={fileRef} type="file" accept="image/*" onChange={pick} tabIndex={-1} aria-hidden="true" style={HIDDEN_INPUT} />
+          </>
+        )}
+      </div>
       <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "flex-start" }}>
-        <div style={{ width: 120 }}>
+        {!hasPhoto && <div style={{ width: 120 }}>
           {(() => {
             // Managers know from the profile whether a photo exists; viewers just try to load it.
             const showImg = !broken && (canManage ? photoV > 0 || !!d?.has_photo : true);
@@ -147,7 +157,7 @@ export function PersonnelProfile({ personId, canManage, onPhotoChanged }: { pers
               <input ref={fileRef} type="file" accept="image/*" onChange={pick} tabIndex={-1} aria-hidden="true" style={HIDDEN_INPUT} />
             </>
           )}
-        </div>
+        </div>}
         <div style={{ flex: 1, minWidth: 200 }}>
           {canManage && profile.loading && !d ? <Loading /> : null}
           {canManage && d && !editing && (

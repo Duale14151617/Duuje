@@ -69,16 +69,18 @@ def _gates(user):
     return g
 
 
-FULL_ACCESS = "system.full_access"  # maintenance override held by super_admin: module switches and gates never hide data from it
+FULL_ACCESS = "system.full_access"  # maintenance override held by super_admin: lifts the restricted-unit and cross-branch gates (not a retired Police service)
 
 
 def _blocked(user, a, code, unit):
-    if not code.startswith(GATED_PREFIXES) or FULL_ACCESS in a.perm_codes:
+    if not code.startswith(GATED_PREFIXES):
         return False
     g = _gates(user)
+    if g["police"] is not None and unit.branch_id == g["police"] and not settings.POLICE_MODULE_ENABLED:
+        return True  # the Police service is retired: its records are closed to everyone, the maintenance override included
+    if FULL_ACCESS in a.perm_codes:
+        return False
     if g["police"] is not None and unit.branch_id == g["police"]:
-        if not settings.POLICE_MODULE_ENABLED:
-            return True
         if a.branch_id != g["police"] and "police.cross_access" not in a.perm_codes:
             return True
     return "cid.access" not in a.perm_codes and any(unit.path.startswith(p) for p in g["restricted"])
@@ -114,12 +116,13 @@ def unit_scope_q(user, code, prefix=""):
         part = Q(**{f"{prefix}path__startswith": a.org_unit.path})
         if a.branch_id is not None:
             part &= Q(**{f"{prefix}branch_id": a.branch_id})
-        if code.startswith(GATED_PREFIXES) and FULL_ACCESS not in a.perm_codes:
+        if code.startswith(GATED_PREFIXES):
             g = _gates(user)
             if g["police"] is not None and (
-                    not settings.POLICE_MODULE_ENABLED
-                    or (a.branch_id != g["police"] and "police.cross_access" not in a.perm_codes)):
+                    not settings.POLICE_MODULE_ENABLED  # retired service: hidden from everyone, super administrator included
+                    or (FULL_ACCESS not in a.perm_codes and a.branch_id != g["police"] and "police.cross_access" not in a.perm_codes)):
                 part &= ~Q(**{f"{prefix}branch_id": g["police"]})
+        if code.startswith(GATED_PREFIXES) and FULL_ACCESS not in a.perm_codes:
             if "cid.access" not in a.perm_codes:
                 for path in g["restricted"]:
                     part &= ~Q(**{f"{prefix}path__startswith": path})
