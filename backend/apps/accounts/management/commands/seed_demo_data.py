@@ -196,6 +196,31 @@ class Command(BaseCommand):
             Asset.objects.get_or_create(category=vehicles, identifier=f"DEMO-VEH-{i:03d}",
                                         defaults={"org_unit": unit, "description": "Synthetic demo vehicle"})
         self._demo_weapons_ammunition(unit)
+        self._demo_ppe(unit)
+
+    def _demo_ppe(self, unit):
+        """Approve two PPE categories, stock them for the demo unit and issue some to two demo soldiers (demo only)."""
+        from django.db.models import F
+        from apps.logistics.models import InventoryCategory, StockLine, StockTransaction
+        from apps.ppe.models import PpeMovement
+        InventoryCategory.objects.filter(code__in=["ppe_helmets", "ppe_body_armour"]).update(approval_status="approved")
+        if PpeMovement.objects.exists():
+            return
+        people = list(Personnel.objects.filter(service_number__in=["DEMO-0001", "DEMO-0002"], org_unit__path__startswith=unit.path)
+                      .order_by("service_number"))
+        for code, qty, size in (("ppe_helmets", 60, "L"), ("ppe_body_armour", 40, "M")):
+            cat = InventoryCategory.objects.filter(code=code).first()
+            if cat is None:
+                continue
+            line, _ = StockLine.objects.get_or_create(category=cat, org_unit=unit, defaults={"uom": "pcs", "quantity": qty, "reorder_level": 10})
+            for n, person in enumerate(people):
+                line.refresh_from_db()
+                ref = f"DEMO-PPE-{code[4:9].upper()}-{n + 1}"
+                txn = StockTransaction.objects.create(stock_line=line, kind="issue", delta=-1, balance_after=line.quantity - 1,
+                                                      reason=f"Issued to {person.service_number}", external_ref=ref, actor_username="demo")
+                StockLine.objects.filter(pk=line.pk).update(quantity=F("quantity") - 1, version=F("version") + 1)
+                PpeMovement.objects.create(personnel=person, stock_line=line, kind="issue", delta=1, size=size, condition="new",
+                                           reference=ref, authority_ref="Demo order 2/2026", store_transaction=txn, actor_username="demo")
 
     def _demo_weapons_ammunition(self, unit):
         """Synthetic weapon register entries and ammunition ledger opening balances (demo only; serials are fake)."""

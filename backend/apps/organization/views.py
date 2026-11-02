@@ -50,6 +50,8 @@ class UnitViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
                 qs = qs.filter(**{field: value})
         if p.get("active") in ("true", "false"):
             qs = qs.filter(active=p["active"] == "true")
+        elif self.action == "list" and p.get("include_inactive") != "1":
+            qs = qs.filter(active=True)  # a retired service (for example Police) no longer appears in lists, trees or drop-downs
         if p.get("q"):
             qs = qs.filter(Q(code__icontains=p["q"]) | Q(name_en__icontains=p["q"]) | Q(name_so__icontains=p["q"]))
         for param, field in (("unit_type", "unit_type"), ("designation", "designations")):
@@ -270,6 +272,8 @@ class StructureViewSet(viewsets.GenericViewSet):
             qs = qs.filter(parent=uuid_param(self.request, "parent"))
         if p.get("active") in ("true", "false"):
             qs = qs.filter(active=p["active"] == "true")
+        elif self.action == "list" and p.get("include_inactive") != "1":
+            qs = qs.filter(active=True)
         return qs.select_related("unit_type", "parent").prefetch_related("designations").order_by("unit_type__tier", "path")
 
     def list(self, request):
