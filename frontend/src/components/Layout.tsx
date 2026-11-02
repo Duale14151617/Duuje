@@ -22,7 +22,7 @@ const NAV_SECTIONS: { key: string; title?: Key; to: string[] }[] = [
   { key: "people", title: "nav.group.people", to: ["/personnel", "/search", "/attendance", "/training", "/ranks"] },
   { key: "pay", title: "nav.group.pay", to: ["/payroll", "/survivors"] },
   { key: "reporting", title: "nav.group.reporting", to: ["/combined", "/reports", "/summary", "/analytics", "/tasks"] },
-  { key: "logistics", title: "nav.group.logistics", to: ["/logistics", "/ammunition", "/ppe", "/weapons", "/vehicles", "/holdings", "/accountability", "/food"] },
+  { key: "logistics", title: "nav.group.logistics", to: ["/logistics", "/ammunition", "/ppe", "/weapons", "/inventories", "/vehicles", "/holdings", "/accountability", "/food"] },
   { key: "admin", title: "nav.group.admin", to: ["/users", "/integrations", "/audit"] },
 ];
 
@@ -49,6 +49,7 @@ export function Layout() {
     { to: "/ammunition", icon: "box", label: "nav.ammunition", show: can("logistics.restricted") },
     { to: "/ppe", icon: "lock", label: "nav.ppe", show: can("logistics.view") },
     { to: "/weapons", icon: "lock", label: "nav.weapons", show: can("weapons.view") },
+    { to: "/inventories", icon: "check", label: "nav.inventories", show: can("weapons.view") },
     { to: "/vehicles", icon: "box", label: "nav.vehicles", show: can("vehicles.view") },
     { to: "/holdings", icon: "users", label: "nav.holdings", show: can("weapons.view") },
     { to: "/accountability", icon: "list", label: "nav.accountability", show: can("weapons.view") },

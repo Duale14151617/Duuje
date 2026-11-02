@@ -25,6 +25,7 @@ from apps.organization.views import (ChangeRequestViewSet, DesignationViewSet, R
                                      StructureViewSet, UnitTypeViewSet, UnitViewSet)
 from apps.ranks.views import RankViewSet
 from apps.analytics.views import AnalyticsViewSet
+from apps.inventories.views import InventoryViewSet
 from apps.integrations.views import ExtAnalyticsView, ExtMeView, IntegrationClientViewSet
 
 router = DefaultRouter()
@@ -76,6 +77,7 @@ router.register("training/summary", TrainingSummaryViewSet, basename="training-s
 router.register("audit-events", AuditEventViewSet, basename="audit-event")
 router.register("analytics", AnalyticsViewSet, basename="analytics")
 router.register("integrations/clients", IntegrationClientViewSet, basename="integration-client")
+router.register("inventories", InventoryViewSet, basename="inventory")
 
 urlpatterns = [
     path("auth/csrf/", acc.CsrfView.as_view()),

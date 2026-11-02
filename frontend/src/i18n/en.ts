@@ -536,6 +536,7 @@ export const en = {
   "err.type_in_use": "This type already has items, so its kind and figures cannot change.",
   "err.invalid_date": "Enter a valid date.",
   "nav.weapons": "Weapon register",
+  "nav.inventories": "Weapon inventory",
   "weap.title": "Weapon register",
   "weap.total": "Weapons on the register",
   "weap.inCustody": "Held by personnel",

@@ -540,6 +540,7 @@ export const so: Record<keyof typeof en, string> = {
   "err.type_in_use": "Noocan waxyaabo ayaa horey u leh, sidaa darteed nooca iyo tirooyinka lama beddeli karo.",
   "err.invalid_date": "Geli taariikh sax ah.",
   "nav.weapons": "Diiwaanka hubka",
+  "nav.inventories": "Tirinta hubka",
   "weap.title": "Diiwaanka hubka",
   "weap.total": "Hubka diiwaanka ku jira",
   "weap.inCustody": "Ay haystaan shaqaale",
