@@ -1,6 +1,6 @@
 # Weapon inventory: add-on for ARMY HQ
 
-Status: **built but not yet run**: the Django tests and the screen have not been executed. Install it only after your presentation has passed.
+Status: **installed and working on Render.** The Django tests and the screen have been run as part of the deployed system (see the main `README.md`).
 
 ## What it is
 Western armies make units physically count their sensitive items (weapons, night-vision devices, radios) on a schedule and every time a commander changes: the person responsible checks every serial number against the property record, signs, and any difference is investigated. This is how lost or swapped weapons are caught. This add-on does the same for the **weapon register**.
@@ -19,7 +19,7 @@ Every step is written to the audit log, and viewing a count is logged like the w
 
 ## Install
 1. Unzip over the project root. 2. `python apply_inventories.py` (edits settings, API routes, menu, route and translations; safe to run twice). 3. `python manage.py migrate` (adds two tables), then `python manage.py test apps.inventories`.
-Page: **Logistics and equipment → Weapon inventory** (English and Somali).
+Page: **Logistics and equipment → Weapons → Weapon inventory** tab (English and Somali).
 
 ## Not included yet
 - Other serial-numbered items (radios, night-vision, vehicles): the counting logic works for any asset, only the list of items is weapons for now.

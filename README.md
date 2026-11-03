@@ -28,7 +28,8 @@ There is no XAMPP/WAMP/PHP in this project.
 ## Pilot status
 - **Deployed and run on Render** using `render.yaml` (one Docker web service plus a Postgres database). The container migrates, seeds reference data and
   the Army structure, and starts gunicorn on its own; demo accounts and demo people are created only when you ask for them (see *Deploy on Render*).
-- **Everything above was exercised on that deployment** and works as described.
+- **Everything above was exercised on that deployment** and works as described, including the weapon inventory and the consolidated sidebar. The tests have been run.
+- **Sidebar:** the Logistics and equipment section has six entries; Ammunition, Weapons (register, inventory, holdings) and Military vehicles (with the equipment catalogue) show their pages as tabs.
 - **Pilot by design:** no real data is hosted. Real personnel, payroll and equipment records will be loaded only after the Army approves.
 - A demo with built-in sample data can also run without a backend on Netlify (see *Frontend on Netlify*).
 
