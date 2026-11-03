@@ -147,7 +147,7 @@ BASIC = ["dashboard.view", "org.view", "ranks.view"]
 ROLES = {
     "hq_admin": ("Headquarters administrator", "Maamulaha Xarunta Guud", True, False, ["headquarters"],
                  [c for c in PERMISSIONS if c not in HQ_ADMIN_RESERVED]),
-    "hq_reporting": ("Headquarters reporting user", "Isticmaalaha warbixinta Xarunta", False, False,
+    "hq_reporting": ("Headquarters reporting user", "Isticmaalaha warbixinta Xarunta", True, False,
                      ["headquarters"], BASIC + ["personnel.view", "personnel.export", "reports.view", "reports.summary", "reports.export"]),
     "regional_chief": ("Regional chief", "Taliyaha gobolka", True, False, ["region"],
                        BASIC + ["personnel.view", "personnel.manage", "personnel.export", "reports.view", "reports.review",
@@ -155,7 +155,7 @@ ROLES = {
     "branch_admin": ("Branch administrator", "Maamulaha laanta", True, True, ["region", "branch_command"],
                      BASIC + ["org.manage", "personnel.view", "personnel.manage", "personnel.import", "reports.view",
                       "reports.submit", "reports.review", "reports.summary"]),
-    "unit_admin": ("Unit administrator", "Maamulaha cutubka", False, False, ["unit", "branch_command", "station"],
+    "unit_admin": ("Unit administrator", "Maamulaha cutubka", True, False, ["unit", "branch_command", "station"],
                    BASIC + ["org.manage", "personnel.view", "personnel.manage", "reports.view", "reports.submit"]),
     "reporting_officer": ("Reporting officer", "Sarkaalka warbixinta", False, False, [],
                           BASIC + ["personnel.view", "reports.view", "reports.submit"]),

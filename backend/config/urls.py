@@ -8,7 +8,7 @@ from apps.core.middleware import get_correlation_id
 
 
 def serve_frontend(request, *args, **kwargs):
-    """Serve the React SPA for non-API routes in the single-origin Render demo."""
+    """Serve the React SPA for non-API routes in the single-origin Render deployment."""
     index = Path(settings.BASE_DIR) / "frontend_dist" / "index.html"
     if not index.is_file():
         raise Http404("Frontend build is missing")

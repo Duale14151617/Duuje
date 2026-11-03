@@ -52,7 +52,7 @@ def covers(a, unit):
 
 
 # Permission families that touch personnel data. Two extra server-side rules apply to them (see _blocked / unit_scope_q):
-#  1. Police units are invisible while POLICE_MODULE_ENABLED is off (the pilot can be switched off without a deploy of code).
+#  1. Police units are invisible while POLICE_MODULE_ENABLED is off (the Police module can be switched off without a deploy of code).
 #  2. Police units are reachable only from an assignment limited to the POLICE branch, or from a role holding
 #     `police.cross_access` (command authority: President / Commander of the Puntland Defense Forces, and super_admin).
 #     Army roles and any branch-less regional/HQ role therefore never reach Police records by default.

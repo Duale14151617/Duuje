@@ -456,6 +456,7 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
         resp = HttpResponse(jpeg, content_type="image/jpeg")
         resp["Cache-Control"] = "private, no-store"
         resp["Content-Disposition"] = 'inline; filename="photo.jpg"'
+        resp["X-Content-Type-Options"] = "nosniff"
         return resp
 
     @action(detail=True, methods=["post"], url_path="photo/upload", parser_classes=[MultiPartParser])

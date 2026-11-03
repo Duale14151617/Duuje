@@ -18,7 +18,7 @@ set as Bari. File: `backend/apps/accounts/management/commands/seed_demo_data.py`
 `ARMYHQ_TEST_PERSONNEL=150` adds them on deploy; `0`/unset deletes them all. Files: `backend/apps/personnel/management/commands/seed_test_personnel.py`,
 `backend/apps/personnel/tests/test_seed_test_personnel.py`, `Dockerfile`, `RENDER_DEPLOY_GUIDE.md`.
 
-## 4. Police module (pilot, OFF by default) - see docs/POLICE_MODULE.md
+## 4. Police module (OFF by default) - see docs/POLICE_MODULE.md
 `POLICE_MODULE_ENABLED=1` turns it on. Draft Police rank catalogue from Article 23 (1972), seven Police departments with CID as a
 restricted unit, `cid.access`, `police.cross_access` and `search.cross_service` permissions, roles `cid_officer` and
 `command_authority`, Army/branch-less roles blocked from Police records, cross-service search page.

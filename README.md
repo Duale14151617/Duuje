@@ -1,10 +1,10 @@
 # ARMY HQ: administrative platform for Puntland's Army
 
-> **Status: pilot build, deployed and working on Render.**
+> **Status: a fully functional system deployed on Render.**
 > The system has been run on Render as a live web service backed by PostgreSQL, and **every part of it works**: sign-in with MFA,
 > users and scoped roles, organization and structure, personnel, ranks, reports and approvals, attendance, vehicles, weapons,
 > logistics, training, payroll and survivor benefits, analytics, audit log, dashboard, and the English/Somali interface on desktop and phone.
-> It is called a pilot for one reason, by design: it holds **no real data** yet. It runs on synthetic data while we wait for the Army's approval.
+> By design it holds **no real data** yet: it runs on synthetic data while we wait for the Army's approval.
 
 **Stack:** Django 5 + Django REST Framework, PostgreSQL, React + TypeScript (Vite), shipped as one Docker image and deployed on Render.
 There is no XAMPP/WAMP/PHP in this project.
@@ -25,13 +25,13 @@ There is no XAMPP/WAMP/PHP in this project.
 | Audit | Append-only audit log with correlation IDs; failed and denied events surfaced on the dashboard. |
 | Interface | English and Somali, light and dark mode, desktop and mobile layouts, universal search across the modules you are allowed to use, sortable and filterable data tables. |
 
-## Pilot status
+## Deployment status
 - **Deployed and run on Render** using `render.yaml` (one Docker web service plus a Postgres database). The container migrates, seeds reference data and
-  the Army structure, and starts gunicorn on its own; demo accounts and demo people are created only when you ask for them (see *Deploy on Render*).
+  the Army structure, and starts gunicorn on its own; sample accounts and sample people are created only when you ask for them (see *Deploy on Render*).
 - **Everything above was exercised on that deployment** and works as described, including the weapon inventory and the consolidated sidebar. The tests have been run.
 - **Sidebar:** the Logistics and equipment section has six entries; Ammunition, Weapons (register, inventory, holdings) and Military vehicles (with the equipment catalogue) show their pages as tabs.
-- **Pilot by design:** no real data is hosted. Real personnel, payroll and equipment records will be loaded only after the Army approves.
-- A demo with built-in sample data can also run without a backend on Netlify (see *Frontend on Netlify*).
+- **No real data yet, by design:** no real data is hosted. Real personnel, payroll and equipment records will be loaded only after the Army approves.
+- A standalone preview with built-in sample data can also run without a backend on Netlify (see *Frontend on Netlify*).
 
 ## Run it locally
 Needs Python 3.12, Node 20+, PostgreSQL 16 (or Docker: `docker compose -f docker-compose.local.yml up`, see `docs/DOCKER_WINDOWS11.md`).
@@ -57,12 +57,12 @@ and the switches below. See `RENDER_DEPLOY_GUIDE.md` and `docs/DEPLOY_ROLLBACK.m
 
 | Variable | Effect |
 |---|---|
-| `ARMYHQ_DEMO_MODE=1` | Creates the synthetic demo accounts and sample data (usernames in `docs/SETUP.md`, shared password from `ARMYHQ_DEMO_PASSWORD`; privileged demo roles enrol an authenticator app at first login). |
+| `ARMYHQ_DEMO_MODE=1` | Creates the synthetic sample accounts and sample data (usernames in `docs/SETUP.md`, shared password from `ARMYHQ_DEMO_PASSWORD`; privileged sample roles enrol an authenticator app at first login). |
 | `ARMYHQ_TEST_PERSONNEL=150` | Keeps 150 synthetic Army people. Unset/0 deletes them all. |
 | `PERSONNEL_EXPORT_ENABLED`, `REPORT_EXPORT_ENABLED`, `INTEGRATIONS_ENABLED` | Stay 0 until the institution approves them. |
 
 ## Frontend on Netlify (no backend)
-`cd frontend && npm run build:demo` builds a standalone demo with built-in sample data (no backend); `API_ORIGIN=https://your-backend npm run build:netlify`
+`cd frontend && npm run build:demo` builds a standalone preview with built-in sample data (no backend); `API_ORIGIN=https://your-backend npm run build:netlify`
 builds against a real backend. Deploy `frontend/dist`, or connect the repo with Base directory `frontend`. See `docs/NETLIFY.md`.
 
 ## Army-only build
@@ -91,7 +91,7 @@ shared data tables, personnel profile tabs, the redesigned dashboard) is listed 
   with reference strengths (information only), approved strength exceptions, specialist designations (Sahan, Sanco) and
   expected-relationship checks, on the **Structure** page.
 - Append-only audit log (model guard + PostgreSQL trigger), correlation IDs.
-- Role-aware dashboard (real counts for scope/ranks/accounts/audit; clearly labelled synthetic demo figures).
+- Role-aware dashboard (real counts for scope/ranks/accounts/audit; clearly labelled synthetic sample figures).
 - Somali/English UI, mobile-first (bottom nav on phones, sidebar on desktop).
 - OpenAPI at `/api/v1/docs/` when `ENABLE_API_DOCS=1`.
 
@@ -169,5 +169,5 @@ See `docs/SETUP.md` to run it and `docs/DEPLOY_ROLLBACK.md` for migrations and r
 
 
 ## Frontend on Netlify (2.1.2, no backend)
-`cd frontend && npm run build:demo` builds a standalone demo with built-in sample data (no backend); `API_ORIGIN=https://your-backend npm run build:netlify`
+`cd frontend && npm run build:demo` builds a standalone preview with built-in sample data (no backend); `API_ORIGIN=https://your-backend npm run build:netlify`
 builds against a real backend. Deploy `frontend/dist`, or connect the repo with Base directory `frontend`. See `docs/NETLIFY.md`.

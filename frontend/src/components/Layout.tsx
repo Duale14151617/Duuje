@@ -272,7 +272,7 @@ export function Layout() {
         )}
         <Outlet />
       </main>
-      <footer className="muted small" style={{ textAlign: "center", padding: "1rem" }}>{t("app.name")} · Pilot build</footer>
+      <footer className="muted small" style={{ textAlign: "center", padding: "1rem" }}>{t("app.name")} · Fully functional system deployed on Render</footer>
     </div>
   );
 }

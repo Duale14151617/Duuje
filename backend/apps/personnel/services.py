@@ -39,7 +39,7 @@ def normalize_phone(value):
 def check_assignment(unit, rank, allow_draft_rank=False):
     """Business rules tying a person's unit and rank together.
 
-    `allow_draft_rank` exists ONLY for clearly tagged synthetic demo people (seed_test_personnel, opt-in); no API path sets it."""
+    `allow_draft_rank` exists ONLY for clearly tagged synthetic sample people (seed_test_personnel, opt-in); no API path sets it."""
     if unit.level not in (OrganizationalUnit.Level.BRANCH, OrganizationalUnit.Level.UNIT, OrganizationalUnit.Level.STATION):
         raise RuleError("unit_level_invalid", "org_unit")
     if not unit.active:

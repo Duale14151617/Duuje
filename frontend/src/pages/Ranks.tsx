@@ -48,11 +48,13 @@ export function Ranks() {
   const [branch, setBranch] = useState("");
   const [category, setCategory] = useState("");
   const [status, setStatus] = useState("");
+  const [showRetired, setShowRetired] = useState(false);
+  const [q, setQ] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
   const [swapping, setSwapping] = useState<string | null>(null);
   const [swapWith, setSwapWith] = useState("");
   const [actionError, setActionError] = useState<unknown>(null);
-  const ranks = useFetch<Page<Rank>>("/ranks/", { branch, category, approval_status: status, page_size: 100 });
+  const ranks = useFetch<Page<Rank>>("/ranks/", { branch, category, approval_status: status, active: showRetired ? "" : "true", page_size: 100 });
   const branches = useFetch<Page<Branch>>("/organization/branches/", { page_size: 100 });
   const canEdit = can("ranks.manage");
   const canApprove = can("ranks.approve");
@@ -98,7 +100,9 @@ export function Ranks() {
   }
 
   // Most senior first, so "Move up" really moves the row up the screen. Retired ranks go last.
-  const shown = [...(ranks.data?.results ?? [])].sort((a, b) =>
+  const needle = q.trim().toLowerCase();
+  const matches = (r: Rank) => !needle || [r.code, r.name_en, r.name_so].some((v) => v.toLowerCase().includes(needle));
+  const shown = [...(ranks.data?.results ?? [])].filter(matches).sort((a, b) =>
     (a.branch === b.branch ? 0 : a.branch < b.branch ? -1 : 1) || Number(b.active) - Number(a.active) || b.sort_order - a.sort_order);
 
   return (
@@ -125,10 +129,18 @@ export function Ranks() {
             <option value="approved">{t("status.approved")}</option>
           </select>
         </Field>
+        <Field label={t("common.search")}>
+          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} />
+        </Field>
       </div>
+      <label className="row" style={{ marginBottom: ".5rem" }}>
+        <input type="checkbox" checked={showRetired} onChange={(e) => setShowRetired(e.target.checked)} />
+        {t("ranks.showRetired")}
+      </label>
+      {ranks.data && <p className="muted">{t("ranks.count")}: {shown.length}</p>}
       <ErrorNotice error={ranks.error ?? actionError} />
       {ranks.loading && !ranks.data ? <Loading /> : null}
-      {ranks.data && ranks.data.results.length === 0 && <p>{t("common.empty")}</p>}
+      {ranks.data && shown.length === 0 && <p>{t("common.empty")}</p>}
       <ul className="list">
         {shown.map((r) => (
           <li key={r.id} className="item">

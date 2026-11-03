@@ -3,12 +3,12 @@
 Netlify hosts only the static single-page app. The Django API and PostgreSQL are **not** part of it. Synthetic data only;
 see `LIMITATIONS.md` before any real use.
 
-## Standalone demo (default): `npm run build:demo`
+## Standalone preview (default): `npm run build:demo`
 Builds the app with `VITE_DEMO=1` (`.env.demo`). The API client then answers from an in-memory sample data set
 (`src/demo/mock.ts`) instead of calling a server: any username and password signs in, every page is populated, edits work
 until you reload, nothing is saved or sent anywhere, and a banner says so. `netlify.toml` uses this command by default, and
 `npm run build:demo` followed by dragging `frontend/dist` onto Netlify's *Deploy manually* page gives the same result.
-`src/demo/mock.ts` was reconstructed from the compiled demo build (identifiers are short, type checks are off for that one file).
+`src/demo/mock.ts` was reconstructed from the compiled preview build (identifiers are short, type checks are off for that one file).
 The sections below cover deploying against a real backend.
 
 ## What the build does

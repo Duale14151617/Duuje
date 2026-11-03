@@ -89,8 +89,8 @@ class DashboardView(APIView):
             }
         if "ranks.view" in codes:
             data["ranks"] = {
-                "draft": Rank.objects.filter(approval_status="draft").count(),
-                "approved": Rank.objects.filter(approval_status="approved").count(),
+                "draft": Rank.objects.exclude(branch__code="POLICE").filter(approval_status="draft").count(),
+                "approved": Rank.objects.exclude(branch__code="POLICE").filter(approval_status="approved").count(),
             }
         if scope.can(user, "users.view"):
             privileged_no_mfa = (

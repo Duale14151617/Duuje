@@ -22,29 +22,29 @@ python manage.py apply_army_structure --apply   # Army HQ, directorates, 4 regio
 # First real administrator (prompts for a password; first login forces password change + MFA enrolment)
 python manage.py create_hq_admin --username admin --full-name "System Administrator"
 
-# Optional synthetic demo accounts (DEBUG only)
+# Optional synthetic sample accounts (DEBUG only)
 export ARMYHQ_DEMO_PASSWORD='choose-a-12+-char-password'
 python manage.py seed_demo_data
 
 python manage.py runserver
 ```
-Demo users: `hqadmin`, `hqreports`, `auditor`, `bari.chief`, `nugaal.chief`,
+Sample users: `hqadmin`, `hqreports`, `auditor`, `bari.chief`, `nugaal.chief`,
 `bari.armyadmin`, `bari.unitadmin`, `logistics`, `readonly`. Karkaar, Nugaal and Mudug each have the same regional set
 as Bari, named `<region>.chief`, `.armyadmin`, `.unitadmin`, `.reporter`, `.logistics`, `.restricted`, `.trainer`
 (for example `karkaar.chief`, `mudug.reporter`). Privileged ones must enrol
 an authenticator app (TOTP) at first sign-in. Compare what each user can see to check scoping.
 
-Personnel needs approved ranks. In a demo, `seed_demo_data` approves a few Army ranks with placeholder Somali names
-(demo only). In real use an administrator approves ranks in the Ranks screen after supplying Somali names.
+Personnel needs approved ranks. In the sample setup, `seed_demo_data` approves a few Army ranks with placeholder Somali names
+(sample data only). In real use an administrator approves ranks in the Ranks screen after supplying Somali names.
 Export: set `PERSONNEL_EXPORT_ENABLED=1` only after institutional approval.
 
 Reports: re-run `seed_reference_data` after upgrading (adds permissions, role grants and the three starter report types).
-Summary export: set `REPORT_EXPORT_ENABLED=1` only after institutional approval. Demo user `bari.reporter` can submit;
+Summary export: set `REPORT_EXPORT_ENABLED=1` only after institutional approval. Sample user `bari.reporter` can submit;
 `bari.chief` can review; `hqreports` sees summaries.
 
 Logistics/training: re-run `seed_reference_data` after upgrading (new permissions, two new roles, draft categories and
-starter courses). Categories must be approved by a `logistics_reviewer` (never the creator) before use. In a demo,
-`seed_demo_data` approves two harmless categories and adds sample stock/vehicles; demo users: `logistics`,
+starter courses). Categories must be approved by a `logistics_reviewer` (never the creator) before use. In the sample setup,
+`seed_demo_data` approves two harmless categories and adds sample stock/vehicles; sample users: `logistics`,
 `restricted`, `reviewer`, `trainer`.
 
 Hardening (1.4): `python manage.py check --deploy --fail-level ERROR` must pass in production. Password recovery: an

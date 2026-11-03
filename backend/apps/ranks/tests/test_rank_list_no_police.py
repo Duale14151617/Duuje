@@ -25,3 +25,14 @@ class RankListHidesPoliceTests(BaseApiTest):
         r = self.admin.get(URL + f"?branch={pk}")
         self.assertEqual(r.status_code, 200, r.content)
         self.assertEqual(r.json()["results"], [])
+
+
+class PersonnelCannotTakeAPoliceRankTests(BaseApiTest):
+    def test_rank_fields_do_not_accept_police_ranks(self):
+        from apps.personnel.serializers import PersonnelCreateSerializer, RankChangeSerializer
+        police, _ = ServiceBranch.objects.get_or_create(code="POLICE", defaults={"name_en": "Police", "name_so": "Booliis"})
+        Rank.objects.get_or_create(branch=police, code="P-1", defaults={"category": "inspector", "name_en": "Inspector", "sort_order": 1})
+        for ser in (PersonnelCreateSerializer, RankChangeSerializer):
+            qs = ser().fields["rank"].queryset
+            self.assertFalse(qs.filter(branch__code="POLICE").exists(), ser.__name__)
+            self.assertTrue(qs.filter(branch__code="ARMY").exists(), ser.__name__)

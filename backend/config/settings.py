@@ -87,7 +87,7 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "config.urls"
 
-# The Render demo image copies the Vite build here. WhiteNoise serves the built
+# The Render image copies the Vite build here. WhiteNoise serves the built
 # frontend assets from /assets/* while Django serves the SPA index at / and routes.
 WHITENOISE_ROOT = BASE_DIR / "frontend_dist"
 WHITENOISE_MIMETYPES = {".webmanifest": "application/manifest+json"}

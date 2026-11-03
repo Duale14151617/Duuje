@@ -1,6 +1,6 @@
-# ARMY HQ — Windows 11 + Docker Desktop (local demo)
+# ARMY HQ — Windows 11 + Docker Desktop (local run)
 
-This setup runs the React frontend, Django API, and PostgreSQL database together on your own PC. It is for synthetic demo data only, not real personnel or operational records.
+This setup runs the React frontend, Django API, and PostgreSQL database together on your own PC. It is for synthetic sample data only, not real personnel or operational records.
 
 ## 1. Install Docker Desktop
 1. Download Docker Desktop for Windows: https://www.docker.com/products/docker-desktop/
@@ -19,14 +19,14 @@ Extract the entire ZIP into a folder, for example `C:\ARMYHQ`. Open that folder 
 In File Explorer, open the `armyhq-v2.1.2` folder. Click the address bar, type `powershell`, and press Enter. Confirm `dir` shows `Dockerfile` and `docker-compose.local.yml`.
 
 ## 4. Start the complete app
-Use a demo-only password (at least 12 characters). You can set one in this PowerShell window:
+Use a sample-only password (at least 12 characters). You can set one in this PowerShell window:
 
 ```powershell
-$env:ARMYHQ_DEMO_PASSWORD = "Demo-Only-Change-123!"
+$env:ARMYHQ_DEMO_PASSWORD = "Sample-Only-Change-123!"
 docker compose -f docker-compose.yml -f docker-compose.local.yml up --build -d
 ```
 
-The first build downloads packages and may take several minutes. The app container runs database migrations, creates the cache table, seeds reference data, and creates synthetic demo accounts. Wait for it to finish.
+The first build downloads packages and may take several minutes. The app container runs database migrations, creates the cache table, seeds reference data, and creates synthetic sample accounts. Wait for it to finish.
 
 ## 5. Open ARMY HQ
 Open this address in your browser:
@@ -37,8 +37,8 @@ The API health endpoint is:
 
 http://localhost:8000/api/v1/health/live/
 
-## 6. Demo login
-The seed command creates synthetic accounts including `hqadmin`, `hqreports`, `auditor`, `bari.chief`, and `readonly`. They use the `ARMYHQ_DEMO_PASSWORD` value set above. Privileged roles require authenticator-app MFA enrollment on first sign-in. Use only the synthetic demo accounts.
+## 6. Sample login
+The seed command creates synthetic accounts including `hqadmin`, `hqreports`, `auditor`, `bari.chief`, and `readonly`. They use the `ARMYHQ_DEMO_PASSWORD` value set above. Privileged roles require authenticator-app MFA enrollment on first sign-in. Use only the synthetic sample accounts.
 
 ## 7. Useful Docker commands
 View logs:
@@ -53,7 +53,7 @@ Start it again:
 ```powershell
 docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
 ```
-Stop and DELETE the database volume (this permanently deletes local demo data):
+Stop and DELETE the database volume (this permanently deletes local run data):
 ```powershell
 docker compose -f docker-compose.yml -f docker-compose.local.yml down -v
 ```
@@ -66,6 +66,6 @@ docker compose -f docker-compose.yml -f docker-compose.local.yml down -v
 
 ## Security notes
 - This configuration binds the web port to your own PC (`127.0.0.1`), not the public internet.
-- Demo database credentials are intentionally local-only and insecure; never reuse them on a server.
+- Local database credentials are intentionally local-only and insecure; never reuse them on a server.
 - Do not add real personnel, security, medical, or operational information.
 - This package has not been verified on your PC; the first Docker build and startup still need to be tested.

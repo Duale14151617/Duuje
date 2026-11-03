@@ -27,7 +27,7 @@ Keep at least one copy off-host and offline. The private key lives only with the
 **Restore test** (`ops/restore_test.sh <archive>`): verifies the checksum, restores into a scratch database
 (refuses the live name), counts key tables, checks the append-only triggers exist, checks ledger balances, runs
 `showmigrations`/`check` against the copy, then drops the scratch database. Run at least once before any real use,
-after every schema change, and quarterly. Ledger-balance check note: demo data seeds quantities without ledger
+after every schema change, and quarterly. Ledger-balance check note: sample data seeds quantities without ledger
 entries, so run the check on real-shaped data only.
 
 **Recovery of production** (after loss of the database): stop writes (maintenance page) → provision PostgreSQL →
