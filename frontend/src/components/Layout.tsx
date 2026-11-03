@@ -13,7 +13,15 @@ import { ThemeToggle } from "../theme/ThemeToggle";
 const SIDEBAR_KEY = "armyhq.sidebar";
 const GROUPS_KEY = "armyhq.navgroups"; // names of the sidebar sections the user has folded away
 
-type NavItem = { to: string; label: Key; icon: IconName; show: boolean };
+type NavItem = { to: string; label: Key; icon: IconName; show: boolean; match?: string[]; go?: string };
+
+/** Pages that live as tabs inside one sidebar entry. Each tab keeps its own route and its own permission check. */
+const HUBS: { id: string; tabs: string[] }[] = [
+  { id: "ammunition", tabs: ["/ammunition", "/accountability"] },
+  { id: "weapons", tabs: ["/weapons", "/inventories", "/holdings"] },
+  { id: "vehicles", tabs: ["/vehicles", "/equipment"] },
+];
+const TAB_PATHS = HUBS.flatMap((h) => h.tabs);
 
 /** Which section each page sits in; sections with no visible page are not drawn. `title` is absent for the top block. */
 const NAV_SECTIONS: { key: string; title?: Key; to: string[] }[] = [
@@ -22,7 +30,7 @@ const NAV_SECTIONS: { key: string; title?: Key; to: string[] }[] = [
   { key: "people", title: "nav.group.people", to: ["/personnel", "/search", "/attendance", "/training", "/ranks"] },
   { key: "pay", title: "nav.group.pay", to: ["/payroll", "/survivors"] },
   { key: "reporting", title: "nav.group.reporting", to: ["/combined", "/reports", "/summary", "/analytics", "/tasks"] },
-  { key: "logistics", title: "nav.group.logistics", to: ["/logistics", "/ammunition", "/ppe", "/weapons", "/inventories", "/vehicles", "/equipment", "/holdings", "/accountability", "/food"] },
+  { key: "logistics", title: "nav.group.logistics", to: ["/logistics", "/ammunition", "/ppe", "/weapons", "/vehicles", "/food"] },
   { key: "admin", title: "nav.group.admin", to: ["/users", "/integrations", "/audit"] },
 ];
 
@@ -46,14 +54,10 @@ export function Layout() {
     { to: "/reports", icon: "file", label: "nav.reports", show: can("reports.view") },
     { to: "/summary", icon: "list", label: "nav.summary", show: can("reports.summary") },
     { to: "/logistics", icon: "box", label: "nav.logistics", show: ["logistics.view", "logistics.restricted", "logistics.configure", "logistics.approve", "logistics.restricted_approve", "logistics.report"].some(can) },
-    { to: "/ammunition", icon: "box", label: "nav.ammunition", show: can("logistics.restricted") },
+    { to: "/ammunition", go: can("logistics.restricted") ? "/ammunition" : "/accountability", icon: "box", label: "nav.hub.ammunition", show: can("logistics.restricted") || can("weapons.view"), match: ["/ammunition", "/accountability"] },
     { to: "/ppe", icon: "lock", label: "nav.ppe", show: can("logistics.view") },
-    { to: "/weapons", icon: "lock", label: "nav.weapons", show: can("weapons.view") },
-    { to: "/inventories", icon: "check", label: "nav.inventories", show: can("weapons.view") },
-    { to: "/vehicles", icon: "box", label: "nav.vehicles", show: can("vehicles.view") },
-    { to: "/equipment", icon: "list", label: "nav.equipment", show: ["vehicles.view", "weapons.view", "equipment.manage"].some(can) },
-    { to: "/holdings", icon: "users", label: "nav.holdings", show: can("weapons.view") },
-    { to: "/accountability", icon: "list", label: "nav.accountability", show: can("weapons.view") },
+    { to: "/weapons", icon: "lock", label: "nav.hub.weapons", show: can("weapons.view"), match: ["/weapons", "/inventories", "/holdings"] },
+    { to: "/vehicles", go: can("vehicles.view") ? "/vehicles" : "/equipment", icon: "box", label: "nav.vehicles", show: ["vehicles.view", "weapons.view", "equipment.manage"].some(can), match: ["/vehicles", "/equipment"] },
     { to: "/payroll", icon: "list", label: "nav.payroll", show: can("payroll.view") },
     { to: "/survivors", icon: "users", label: "nav.survivors", show: can("survivor.view") },
     { to: "/attendance", icon: "check", label: "nav.attendance", show: can("attendance.view") },
@@ -68,6 +72,17 @@ export function Layout() {
     { to: "/integrations", icon: "plug", label: "nav.integrations", show: can("integrations.view") },
     { to: "/audit", icon: "check", label: "nav.audit", show: can("audit.view") },
     { to: "/notifications", icon: "bell", label: "nav.notifications", show: true },
+  ];
+
+  // the tabs inside each grouped entry: same pages, same permission checks as when they were separate menu items
+  const tabDefs: { to: string; label: Key; show: boolean }[] = [
+    { to: "/ammunition", label: "nav.ammunition", show: can("logistics.restricted") },
+    { to: "/accountability", label: "nav.accountability", show: can("weapons.view") },
+    { to: "/weapons", label: "nav.weapons", show: can("weapons.view") },
+    { to: "/inventories", label: "nav.inventories", show: can("weapons.view") },
+    { to: "/holdings", label: "nav.holdings", show: can("weapons.view") },
+    { to: "/vehicles", label: "nav.vehicles", show: can("vehicles.view") },
+    { to: "/equipment", label: "nav.equipment", show: ["vehicles.view", "weapons.view", "equipment.manage"].some(can) },
   ];
 
   // ---- responsive sidebar: drawer < 768px, persistent sidebar/rail >= 768px ----
@@ -134,13 +149,15 @@ export function Layout() {
   // the icon rail has no room for section headings, so it shows every page with a thin divider between sections
   const rail = collapsed && !isMobile;
   const isHere = (to: string) => (to === "/" ? location.pathname === "/" : location.pathname === to || location.pathname.startsWith(`${to}/`));
-  const placed = new Set(NAV_SECTIONS.flatMap((sec) => sec.to));
+  const placed = new Set([...NAV_SECTIONS.flatMap((sec) => sec.to), ...TAB_PATHS]);
   const sections = [
     ...NAV_SECTIONS.map((sec) => ({ ...sec, items: sec.to.map((to) => items.find((i) => i.to === to)).filter((i): i is NavItem => !!i && i.show) })),
     // a page added to `items` but not yet to a section still appears, in a heading-less block at the end
     { key: "other", title: undefined, to: [] as string[], items: items.filter((i) => i.show && !placed.has(i.to)) },
   ].filter((sec) => sec.items.length > 0);
-  const hereKey = sections.find((sec) => sec.items.some((i) => isHere(i.to)))?.key;
+  const hereHub = HUBS.find((h) => h.tabs.some(isHere));
+  const hubTabs = hereHub ? hereHub.tabs.map((to) => tabDefs.find((d) => d.to === to)).filter((d): d is (typeof tabDefs)[number] => !!d && d.show) : [];
+  const hereKey = sections.find((sec) => sec.items.some((i) => (i.match ?? [i.to]).some(isHere)))?.key;
   // arriving at a page inside a folded section (a dashboard link, the back button) opens that section
   useEffect(() => {
     if (hereKey && folded.includes(hereKey)) saveFolded(folded.filter((k) => k !== hereKey));
@@ -227,7 +244,7 @@ export function Layout() {
                   {sec.items.map((i) => {
                     const label = `${t(i.label)}${i.to === "/notifications" && count > 0 ? ` (${count})` : ""}`;
                     return (
-                      <NavLink key={i.to} to={i.to} end={i.to === "/"} className={({ isActive }) => (isActive ? "active" : "")}
+                      <NavLink key={i.to} to={i.go ?? i.to} end={i.to === "/"} className={() => ((i.match ?? [i.to]).some(isHere) ? "active" : "")}
                                data-unread={i.to === "/notifications" && count > 0 ? "" : undefined}
                                onClick={() => setOpen(false)}
                                onMouseEnter={showTip(label)} onMouseLeave={() => setTip(null)} onFocus={showTip(label)} onBlur={() => setTip(null)}>
@@ -244,6 +261,15 @@ export function Layout() {
       </div>
       {tip && <div className="nav-tip" role="presentation" style={{ top: tip.top }}>{tip.text}</div>}
       <main>
+        {hubTabs.length > 1 && (
+          <nav className="tabs" aria-label={t(hereHub!.id === "weapons" ? "nav.hub.weapons" : hereHub!.id === "ammunition" ? "nav.hub.ammunition" : "nav.vehicles")}>
+            {hubTabs.map((i) => (
+              <NavLink key={i.to} to={i.to} className={() => `tab${isHere(i.to) ? " active" : ""}`} aria-current={isHere(i.to) ? "page" : undefined}>
+                {t(i.label)}
+              </NavLink>
+            ))}
+          </nav>
+        )}
         <Outlet />
       </main>
       <footer className="muted small" style={{ textAlign: "center", padding: "1rem" }}>{t("app.name")} · Pilot build</footer>

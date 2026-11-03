@@ -535,6 +535,8 @@ export const en = {
   "err.summary_too_large": "Too many items. Narrow the filters.",
   "err.type_in_use": "This type already has items, so its kind and figures cannot change.",
   "err.invalid_date": "Enter a valid date.",
+  "nav.hub.ammunition": "Ammunition",
+  "nav.hub.weapons": "Weapons",
   "nav.weapons": "Weapon register",
   "nav.inventories": "Weapon inventory",
   "weap.title": "Weapon register",

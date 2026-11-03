@@ -552,6 +552,10 @@ input:disabled, select:disabled, textarea:disabled { background: var(--surface-2
 button.tab { --btn-bg: transparent; --btn-bd: transparent; --btn-fg: var(--slate); --btn-hover: var(--surface-2); display: inline-flex; align-items: center; gap: .45rem;
   flex: 0 0 auto; white-space: nowrap; min-height: var(--control-h); padding: 0 .9rem; border: 0; border-bottom: 3px solid transparent; border-radius: var(--r-md) var(--r-md) 0 0; }
 button.tab[aria-selected="true"] { --btn-fg: var(--accent-text); border-bottom-color: var(--gold-strong); font-weight: 700; }
+a.tab { display: inline-flex; align-items: center; flex: 0 0 auto; white-space: nowrap; min-height: var(--control-h); padding: 0 .9rem; color: var(--slate); text-decoration: none;
+  border-bottom: 3px solid transparent; border-radius: var(--r-md) var(--r-md) 0 0; }
+a.tab:hover { background: var(--surface-2); }
+a.tab.active { color: var(--accent-text); border-bottom-color: var(--gold-strong); font-weight: 700; }
 .tab-panel:focus-visible { outline-offset: 4px; }
 
 /* ---- empty states, skeletons ---- */

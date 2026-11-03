@@ -539,6 +539,8 @@ export const so: Record<keyof typeof en, string> = {
   "err.summary_too_large": "Waxyaabo aad u badan. Yaree shaandhooyinka.",
   "err.type_in_use": "Noocan waxyaabo ayaa horey u leh, sidaa darteed nooca iyo tirooyinka lama beddeli karo.",
   "err.invalid_date": "Geli taariikh sax ah.",
+  "nav.hub.ammunition": "Rasaasta",
+  "nav.hub.weapons": "Hubka",
   "nav.weapons": "Diiwaanka hubka",
   "nav.inventories": "Tirinta hubka",
   "weap.title": "Diiwaanka hubka",
