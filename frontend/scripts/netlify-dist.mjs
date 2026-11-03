@@ -2,7 +2,7 @@
 // Post-build step for Netlify: writes dist/_redirects and dist/_headers (honoured by git deploys AND drag-and-drop).
 //   API_ORIGIN=https://api.example.org npm run build:netlify   -> /api/* is proxied to that backend (same-origin for the browser)
 //   (API_ORIGIN unset)                                         -> frontend only: the app shows "Cannot reach the server"
-//   node scripts/netlify-dist.mjs --demo                       -> standalone demo build (built-in sample data, no API at all)
+//   node scripts/netlify-dist.mjs --preview                       -> standalone preview build (built-in sample data, no API at all)
 // DIST_DIR=/path overrides the folder to process (default: ../dist).
 // The CSP hash for the inline theme script is computed from the BUILT index.html, so editing that script never breaks the CSP.
 import { createHash } from "node:crypto";
@@ -10,13 +10,13 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const demo = process.argv.includes("--demo");
+const preview = process.argv.includes("--preview");
 const dist = process.env.DIST_DIR ?? join(dirname(fileURLToPath(import.meta.url)), "..", "dist");
 const indexPath = join(dist, "index.html");
 if (!existsSync(indexPath)) { console.error("dist/index.html not found: run `npm run build` first."); process.exit(1); }
 
-const raw = demo ? "" : (process.env.API_ORIGIN ?? "").trim();
-if (demo && process.env.API_ORIGIN) console.warn("Demo build: API_ORIGIN is ignored (the demo never calls an API).");
+const raw = preview ? "" : (process.env.API_ORIGIN ?? "").trim();
+if (preview && process.env.API_ORIGIN) console.warn("Preview build: API_ORIGIN is ignored (the preview never calls an API).");
 let api = "";
 if (raw) {
   let u;
@@ -77,8 +77,8 @@ const headers = `/*
 
 writeFileSync(join(dist, "_redirects"), redirects);
 writeFileSync(join(dist, "_headers"), headers);
-console.log(demo
-  ? "Netlify files written for the standalone DEMO build (sample data, nothing is saved)."
+console.log(preview
+  ? "Netlify files written for the standalone PREVIEW build (sample data, nothing is saved)."
   : api
     ? `Netlify files written. /api/* is proxied to ${api}.`
     : "Netlify files written in FRONTEND-ONLY mode (no API_ORIGIN): sign-in will report that the server cannot be reached.");

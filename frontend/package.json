@@ -11,7 +11,7 @@
     "lint": "eslint src",
     "e2e": "playwright test",
     "build:netlify": "npm run build && node scripts/netlify-dist.mjs",
-    "build:demo": "tsc --noEmit && vite build --mode demo && node scripts/netlify-dist.mjs --demo"
+    "build:preview": "tsc --noEmit && vite build --mode preview && node scripts/netlify-dist.mjs --preview"
   },
   "dependencies": {
     "react": "^18.3.1",

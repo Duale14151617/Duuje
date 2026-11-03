@@ -1,6 +1,6 @@
 # ARMY HQ: 10-minute presentation script
 
-**Before you start (15 minutes ahead):** open the site once so the Render instance wakes up. Log in as `superadmin` and `hqadmin` in two different browsers (or one normal and one private window), and finish MFA on both. All sample accounts share the sample password set in `ARMYHQ_DEMO_PASSWORD`.
+**Before you start (15 minutes ahead):** open the site once so the Render instance wakes up. Log in as `superadmin` and `hqadmin` in two different browsers (or one normal and one private window), and finish MFA on both. All sample accounts share the sample password set in `ARMYHQ_SAMPLE_PASSWORD`.
 
 ## 1. The picture (2 min), `superadmin`
 - **Dashboard:** strength, attendance, logistics, fleet and protective-equipment panels in one view.

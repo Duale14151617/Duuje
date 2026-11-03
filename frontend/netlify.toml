@@ -1,5 +1,5 @@
 # ARMY HQ frontend on Netlify. The Django API is NOT part of this deploy.
-# Default below = standalone DEMO (built-in sample data, nothing saved, no backend needed).
+# Default below = standalone PREVIEW (built-in sample data, nothing saved, no backend needed).
 # Set the site's Base directory to "frontend" when deploying the full repository; leave it empty for the frontend-only package.
 #
 # To deploy against a real backend instead, change the build command to
@@ -8,7 +8,7 @@
 #
 # scripts/netlify-dist.mjs writes dist/_redirects (SPA fallback, optional API proxy) and dist/_headers (security headers, CSP).
 [build]
-  command = "npm ci && npm run build:demo"
+  command = "npm ci && npm run build:preview"
   publish = "dist"
 
 [build.environment]

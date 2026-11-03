@@ -1,3 +1,5 @@
+# NOTE: the resource names `armyhq-demo` and `armyhq-demo-db` (and the database/user names below) are kept on purpose. Renaming them
+# in a Blueprint makes Render create a NEW service and a NEW empty database, so the running deployment would lose its data.
 services:
   - type: web
     name: armyhq-demo
@@ -16,9 +18,9 @@ services:
         sync: false
       - key: TRUST_PROXY_HEADERS
         value: "1"
-      - key: ARMYHQ_DEMO_MODE
+      - key: ARMYHQ_SAMPLE_MODE
         value: "1"
-      - key: ARMYHQ_DEMO_PASSWORD
+      - key: ARMYHQ_SAMPLE_PASSWORD
         sync: false
       - key: SECURE_SSL_REDIRECT
         value: "0"
@@ -56,7 +58,7 @@ services:
         value: "0"
       - key: ENABLE_API_DOCS
         value: "0"
-      # Demo people: owned by the Render dashboard (sync: false), left unset = off.
+      # Sample people: owned by the Render dashboard (sync: false), left unset = off.
       - key: ARMYHQ_TEST_PERSONNEL
         sync: false
       - key: LOG_LEVEL

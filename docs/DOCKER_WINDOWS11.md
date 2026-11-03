@@ -22,7 +22,7 @@ In File Explorer, open the `armyhq-v2.1.2` folder. Click the address bar, type `
 Use a sample-only password (at least 12 characters). You can set one in this PowerShell window:
 
 ```powershell
-$env:ARMYHQ_DEMO_PASSWORD = "Sample-Only-Change-123!"
+$env:ARMYHQ_SAMPLE_PASSWORD = "Sample-Only-Change-123!"
 docker compose -f docker-compose.yml -f docker-compose.local.yml up --build -d
 ```
 
@@ -38,7 +38,7 @@ The API health endpoint is:
 http://localhost:8000/api/v1/health/live/
 
 ## 6. Sample login
-The seed command creates synthetic accounts including `hqadmin`, `hqreports`, `auditor`, `bari.chief`, and `readonly`. They use the `ARMYHQ_DEMO_PASSWORD` value set above. Privileged roles require authenticator-app MFA enrollment on first sign-in. Use only the synthetic sample accounts.
+The seed command creates synthetic accounts including `hqadmin`, `hqreports`, `auditor`, `bari.chief`, and `readonly`. They use the `ARMYHQ_SAMPLE_PASSWORD` value set above. Privileged roles require authenticator-app MFA enrollment on first sign-in. Use only the synthetic sample accounts.
 
 ## 7. Useful Docker commands
 View logs:

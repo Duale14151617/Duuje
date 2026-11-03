@@ -51,18 +51,18 @@ cd frontend && npm test && npm run typecheck && npm run lint
 
 ## Deploy on Render
 `render.yaml` is a Blueprint: one Docker web service plus a Postgres database. The container runs, in order: `migrate`,
-`createcachetable`, `seed_reference_data`, `apply_army_structure --apply`, `seed_demo_data` (only when `ARMYHQ_DEMO_MODE=1`), `seed_test_personnel --from-env`, then gunicorn.
-Set in the Render dashboard: `FIELD_ENCRYPTION_KEY` (keep it safe: losing it makes encrypted records unreadable), `ARMYHQ_DEMO_PASSWORD`,
+`createcachetable`, `seed_reference_data`, `apply_army_structure --apply`, `seed_sample_data` (only when `ARMYHQ_SAMPLE_MODE=1`), `seed_test_personnel --from-env`, then gunicorn.
+Set in the Render dashboard: `FIELD_ENCRYPTION_KEY` (keep it safe: losing it makes encrypted records unreadable), `ARMYHQ_SAMPLE_PASSWORD`,
 and the switches below. See `RENDER_DEPLOY_GUIDE.md` and `docs/DEPLOY_ROLLBACK.md`.
 
 | Variable | Effect |
 |---|---|
-| `ARMYHQ_DEMO_MODE=1` | Creates the synthetic sample accounts and sample data (usernames in `docs/SETUP.md`, shared password from `ARMYHQ_DEMO_PASSWORD`; privileged sample roles enrol an authenticator app at first login). |
+| `ARMYHQ_SAMPLE_MODE=1` (older `ARMYHQ_DEMO_MODE` still works) | Creates the synthetic sample accounts and sample data (usernames in `docs/SETUP.md`, shared password from `ARMYHQ_SAMPLE_PASSWORD`; privileged sample roles enrol an authenticator app at first login). |
 | `ARMYHQ_TEST_PERSONNEL=150` | Keeps 150 synthetic Army people. Unset/0 deletes them all. |
 | `PERSONNEL_EXPORT_ENABLED`, `REPORT_EXPORT_ENABLED`, `INTEGRATIONS_ENABLED` | Stay 0 until the institution approves them. |
 
 ## Frontend on Netlify (no backend)
-`cd frontend && npm run build:demo` builds a standalone preview with built-in sample data (no backend); `API_ORIGIN=https://your-backend npm run build:netlify`
+`cd frontend && npm run build:preview` builds a standalone preview with built-in sample data (no backend); `API_ORIGIN=https://your-backend npm run build:netlify`
 builds against a real backend. Deploy `frontend/dist`, or connect the repo with Base directory `frontend`. See `docs/NETLIFY.md`.
 
 ## Army-only build
@@ -169,5 +169,5 @@ See `docs/SETUP.md` to run it and `docs/DEPLOY_ROLLBACK.md` for migrations and r
 
 
 ## Frontend on Netlify (2.1.2, no backend)
-`cd frontend && npm run build:demo` builds a standalone preview with built-in sample data (no backend); `API_ORIGIN=https://your-backend npm run build:netlify`
+`cd frontend && npm run build:preview` builds a standalone preview with built-in sample data (no backend); `API_ORIGIN=https://your-backend npm run build:netlify`
 builds against a real backend. Deploy `frontend/dist`, or connect the repo with Base directory `frontend`. See `docs/NETLIFY.md`.

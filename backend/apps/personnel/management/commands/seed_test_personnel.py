@@ -1,4 +1,4 @@
-"""Synthetic test personnel for demos and load/UX testing - clearly tagged and removable in one go.
+"""Synthetic test personnel for trials and load/UX testing - clearly tagged and removable in one go.
 
   python manage.py seed_test_personnel --count 150     add test people (idempotent: tops up to 150)
   python manage.py seed_test_personnel --delete        remove every test person (and their history/training rows)
@@ -74,8 +74,8 @@ def _units():
         cmd = OU.objects.filter(code=f"{r}-ARMY").first()
         if not cmd:
             continue
-        unit = OU.objects.filter(code=f"{r}-ARMY-DEMO-A").first() or OU.objects.create(
-            code=f"{r}-ARMY-DEMO-A", name_en="Synthetic Unit A", name_so="Cutubka Tijaabada A",
+        unit = OU.objects.filter(code=f"{r}-ARMY-SAMPLE-A").first() or OU.objects.create(
+            code=f"{r}-ARMY-SAMPLE-A", name_en="Synthetic Unit A", name_so="Cutubka Tijaabada A",
             level=OU.Level.UNIT, parent=cmd)
         units.append(unit)
     return units
@@ -165,7 +165,7 @@ def delete_test_personnel():
         from apps.personnel.models import DisciplinaryRecord, PersonnelDocument
         ids = list(Personnel.objects.filter(service_number__startswith=PREFIX).values_list("pk", flat=True))
         # Disciplinary entries are append-only and documents can never be deleted, so a test person who was given either
-        # (someone trying the screens on a demo) is kept rather than breaking the whole clean-up.
+        # (someone trying the screens on the sample data) is kept rather than breaking the whole clean-up.
         held = set(DisciplinaryRecord.objects.filter(personnel_id__in=ids).values_list("personnel_id", flat=True))
         held |= set(PersonnelDocument.objects.filter(personnel_id__in=ids).values_list("personnel_id", flat=True))
         ids = [i for i in ids if i not in held]

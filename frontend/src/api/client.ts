@@ -41,7 +41,7 @@ export function isJsonResponse(res: Pick<Response, "headers">): boolean {
 }
 
 export async function refreshCsrf(): Promise<void> {
-  if (import.meta.env.VITE_DEMO === "1") return; // the demo build has no server and no CSRF
+  if (import.meta.env.VITE_PREVIEW === "1") return; // the preview build has no server and no CSRF
   let r: Response;
   try {
     r = await fetch("/api/v1/auth/csrf/", { credentials: "same-origin" });
@@ -58,12 +58,12 @@ interface Options { method?: "GET" | "POST" | "PATCH" | "DELETE"; body?: unknown
 
 export async function api<T = unknown>(path: string, opts: Options = {}): Promise<T> {
   const method = opts.method ?? "GET";
-  if (import.meta.env.VITE_DEMO === "1") {
-    // Standalone demo: answer from the in-memory sample data instead of calling a server.
+  if (import.meta.env.VITE_PREVIEW === "1") {
+    // Standalone preview: answer from the in-memory sample data instead of calling a server.
     const query: Record<string, string> = {};
     for (const [k, v] of Object.entries(opts.query ?? {})) if (v !== undefined && v !== null) query[k] = String(v);
-    const { demoApi } = await import("../demo/mock");
-    return (await demoApi(method, path, query, opts.body)) as T;
+    const { previewApi } = await import("../preview/mock");
+    return (await previewApi(method, path, query, opts.body)) as T;
   }
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(opts.query ?? {})) {
@@ -104,26 +104,26 @@ export async function api<T = unknown>(path: string, opts: Options = {}): Promis
 }
 
 /** Multipart upload (CSV). The browser sets the multipart boundary, so no Content-Type header here. */
-/** Demo build only: photos "uploaded" this session, kept in memory as object URLs (nothing is sent anywhere). */
-export const demoPhotos = new Map<string, string>();
+/** Preview build only: photos "uploaded" this session, kept in memory as object URLs (nothing is sent anywhere). */
+export const previewPhotos = new Map<string, string>();
 
-/** URL of a person's photo. In the demo build it is the in-memory preview; otherwise the API endpoint. */
+/** URL of a person's photo. In the preview build it is the in-memory preview; otherwise the API endpoint. */
 export function photoUrl(personId: string, v: number): string {
-  if (import.meta.env.VITE_DEMO === "1") return demoPhotos.get(personId) ?? "";
+  if (import.meta.env.VITE_PREVIEW === "1") return previewPhotos.get(personId) ?? "";
   return `/api/v1/personnel/${personId}/photo/?v=${v}`;
 }
 
 export async function upload<T>(path: string, field: string, file: File, extra: Record<string, string> = {}): Promise<T> {
-  if (import.meta.env.VITE_DEMO === "1") {
+  if (import.meta.env.VITE_PREVIEW === "1") {
     const m = path.match(/^\/personnel\/([^/]+)\/photo\/upload\/$/);
     if (m) {
-      const old = demoPhotos.get(m[1]);
+      const old = previewPhotos.get(m[1]);
       if (old) URL.revokeObjectURL(old);
-      demoPhotos.set(m[1], URL.createObjectURL(file));
+      previewPhotos.set(m[1], URL.createObjectURL(file));
       return { has_photo: true } as T;
     }
-    const { demoUpload } = await import("../demo/mock");
-    return demoUpload() as T;
+    const { previewUpload } = await import("../preview/mock");
+    return previewUpload() as T;
   }
   const form = new FormData();
   for (const [k, v] of Object.entries(extra)) form.append(k, v);
@@ -147,8 +147,8 @@ export async function upload<T>(path: string, field: string, file: File, extra: 
 }
 
 export async function downloadCsv(path: string, query: Record<string, string>, filename: string): Promise<void> {
-  if (import.meta.env.VITE_DEMO === "1") {
-    const url = URL.createObjectURL(new Blob(["demo,sample\n"], { type: "text/csv" }));
+  if (import.meta.env.VITE_PREVIEW === "1") {
+    const url = URL.createObjectURL(new Blob(["preview,sample\n"], { type: "text/csv" }));
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
@@ -190,7 +190,7 @@ export async function fetchAll<T>(path: string, query: Record<string, string | n
 
 /** Multipart POST with several fields (service documents). Same CSRF retry and error handling as upload(). */
 export async function uploadForm<T>(path: string, form: FormData): Promise<T> {
-  if (import.meta.env.VITE_DEMO === "1") throw new ApiError(0, { code: "network", detail: "Not available in the demo build" });
+  if (import.meta.env.VITE_PREVIEW === "1") throw new ApiError(0, { code: "network", detail: "Not available in the preview build" });
   const send = () => fetch(`/api/v1${path}`, { method: "POST", credentials: "same-origin", headers: { "X-CSRFToken": csrfToken }, body: form });
   let res: Response;
   try {
@@ -210,7 +210,7 @@ export async function uploadForm<T>(path: string, form: FormData): Promise<T> {
 
 /** Download a protected file (service document) through the session; the server logs every download. */
 export async function downloadFile(path: string, filename: string): Promise<void> {
-  if (import.meta.env.VITE_DEMO === "1") throw new ApiError(0, { code: "network", detail: "Not available in the demo build" });
+  if (import.meta.env.VITE_PREVIEW === "1") throw new ApiError(0, { code: "network", detail: "Not available in the preview build" });
   let res: Response;
   try {
     res = await fetch(`/api/v1${path}`, { credentials: "same-origin" });

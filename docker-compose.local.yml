@@ -1,5 +1,5 @@
 # Local-only complete stack for Windows 11 + Docker Desktop.
-# Synthetic demo data only. Never use these credentials for a public deployment.
+# Synthetic sample data only. Never use these credentials for a public deployment.
 services:
   db:
     healthcheck:
@@ -23,8 +23,8 @@ services:
       POSTGRES_HOST: db
       POSTGRES_PORT: "5432"
       POSTGRES_SSLMODE: disable
-      ARMYHQ_DEMO_MODE: "1"
-      ARMYHQ_DEMO_PASSWORD: ${ARMYHQ_DEMO_PASSWORD:-Demo-Only-Change-123!}
+      ARMYHQ_SAMPLE_MODE: "1"
+      ARMYHQ_SAMPLE_PASSWORD: ${ARMYHQ_SAMPLE_PASSWORD:-Sample-Only-Change-123!}
       SECURE_SSL_REDIRECT: "0"
       TRUST_PROXY_HEADERS: "0"
     ports:

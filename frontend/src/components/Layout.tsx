@@ -191,7 +191,7 @@ export function Layout() {
           <button className="icon-btn" onClick={() => void logout()} aria-label={t("common.signOut")} title={t("common.signOut")}><Icon name="logout" size={18} /></button>
         </div>
       </header>
-      {import.meta.env.VITE_DEMO === "1" && <div className="demo-banner" role="note">{t("demo.banner")}</div>}
+      {import.meta.env.VITE_PREVIEW === "1" && <div className="preview-banner" role="note">{t("preview.banner")}</div>}
       <div className="scope-strip" aria-label={t("scope.label")}>
         {me && me.assignments.length > 0 ? (
           <ul>
