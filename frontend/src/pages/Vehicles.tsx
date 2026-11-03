@@ -12,6 +12,7 @@ import { UnitPicker } from "../components/UnitPicker";
 import { FleetPanel } from "../components/EquipmentPanels";
 import type { FleetAnalytics } from "../api/types";
 import { useI18n, type Key } from "../i18n";
+import { SpecEditor, SpecTable, VerificationChip } from "./Equipment";
 
 type Ownership = "state" | "private";
 const PLATE_PREFIX: Record<Ownership, string> = { state: "GD", private: "PL" };  // state property -> GD---, private -> PL---
@@ -20,8 +21,9 @@ interface Named { code: string; name_en: string; name_so: string }
 interface UnitB extends Named { id: string }
 interface Person { id: string; full_name: string; service_number: string | null; rank: Named; org_unit?: UnitB }
 interface Cat extends Named { id: string }
+interface RefModel { id: string; code: string; name: string; verification: string }
 interface VehicleRow {
-  id: string; vehicle_id: string; plate: string; plate_status: string; ownership: Ownership; category: Cat; vehicle_type: string; make: string; model: string;
+  id: string; vehicle_id: string; plate: string; plate_status: string; ownership: Ownership; category: Cat; reference_model: RefModel | null; vehicle_type: string; make: string; model: string;
   year: number | null; org_unit: UnitB; driver: Person | null; custodian: Person | null; location: string; status: string; condition: string;
   next_due_date: string | null; maintenance_overdue: boolean; disposal_pending: boolean; version: number;
 }
@@ -30,7 +32,9 @@ interface VehicleDetailT extends VehicleRow {
   notes: string; acquired_on: string | null; acquisition_ref: string; decommissioned_at: string | null;
   disposal: { requested_by: string; reason: string; authority_ref: string } | null;
   capabilities: Record<"edit" | "transfer" | "dispose" | "approve" | "cost", boolean>; assignment_history: HistoryEvent[];
+  specs: { name: string; value: string; unit: string }[]; reference_specs: { name: string; value: string; unit: string }[]; reference_photo_id: string | null;
 }
+interface Mount { id: string; item: { id: string; code: string; name: string; verification: string; category: string | null }; mount_position: string; notes: string; register_linked: boolean; serial: string | null; added_by: string }
 interface Maint { id: string; kind: string; state: string; performed_on: string; reported_issue: string; work_performed: string; workshop: string; next_due_date: string | null; reference: string; version: number; cost?: string | null; currency?: string }
 interface Doc { id: string; category: string; title: string; size_bytes: number; uploaded_at: string }
 interface Tally {
@@ -69,6 +73,7 @@ export function Vehicles() {
   const underMaintenance = sp.get("under_maintenance") === "1";
   const category = sp.get("category") ?? "";
   const ownership = sp.get("ownership") ?? "";
+  const refModel = sp.get("reference_model") ?? "";
   const setCategory = (v: string) => setParam("category", v);
   const setParam = (k: string, v: string) => { const n = new URLSearchParams(sp); if (v) n.set(k, v); else n.delete(k); setSp(n); setPage(1); };
   const [overdue, setOverdue] = useState(false);
@@ -79,22 +84,24 @@ export function Vehicles() {
   const [pageSize, setPageSize] = useState(25);
   const [registering, setRegistering] = useState(false);
   const cats = useFetch<{ results: Cat[] }>("/vehicles/categories/");
+  const models = useFetch<Page<RefModel>>("/equipment/", { kind: "vehicle_model", page_size: 100 });
   const st = useStatuses();
   const summary = useFetch<Summary>(unit ? "/vehicles/summary/" : null, { org_unit: unit });
   const analytics = useFetch<FleetAnalytics>("/vehicles/analytics/", { org_unit: unit || undefined });
   const list = useFetch<Page<VehicleRow>>("/vehicles/", {
-    q, status, category, ownership: ownership || undefined, group: group || undefined, condition: condition || undefined,
+    q, status, category, ownership: ownership || undefined, reference_model: refModel || undefined, group: group || undefined, condition: condition || undefined,
     needs_inspection: needsInspection ? 1 : undefined, under_maintenance: underMaintenance ? 1 : undefined, org_unit: unit || undefined, direct: direct ? 1 : undefined, page, page_size: pageSize === 25 ? undefined : pageSize,
     overdue: overdue ? 1 : undefined, no_driver: noDriver ? 1 : undefined, include_decommissioned: withDecom ? 1 : undefined,
   });
   const reset = <T,>(set: (v: T) => void) => (v: T) => { set(v); setPage(1); };
-  const filtered = !!(q || status || category || ownership || unit || group || condition || needsInspection || underMaintenance || overdue || noDriver || withDecom || direct);
+  const filtered = !!(q || status || category || ownership || refModel || unit || group || condition || needsInspection || underMaintenance || overdue || noDriver || withDecom || direct);
   const resetAll = () => { setQ(""); setStatus(""); setOverdue(false); setNoDriver(false); setWithDecom(false); setDirect(false); setSp({}); setPage(1); };
   const flags: [string, boolean, (v: boolean) => void][] = [["veh.onlyOverdue", overdue, setOverdue], ["fleet.requiringInspection", needsInspection, (v) => setParam("needs_inspection", v ? "1" : "")], ["fleet.underMaintenance", underMaintenance, (v) => setParam("under_maintenance", v ? "1" : "")], ["veh.onlyNoDriver", noDriver, setNoDriver], ["veh.showDecommissioned", withDecom, setWithDecom]];
 
   const columns: Column<VehicleRow>[] = [
     { id: "id", header: t("veh.col.vehicle"), width: 140, locked: true, sort: (v) => v.vehicle_id, cell: (v) => <Link to={`/vehicles/${v.id}`}>{v.vehicle_id}</Link> },
     { id: "category", header: t("veh.category"), width: 150, sort: (v) => name(v.category), cell: (v) => name(v.category) },
+    { id: "refmodel", header: t("veh.refModel"), width: 190, sort: (v) => v.reference_model?.name ?? "", cell: (v) => (v.reference_model ? <Link to={`/equipment/${v.reference_model.code}`}>{v.reference_model.name}</Link> : <span className="muted">—</span>) },
     { id: "plate", header: t("veh.col.plate"), width: 130, sort: (v) => v.plate, cell: (v) => v.plate || t(v.plate_status === "none" ? "veh.plateNone" : "veh.plateUnknown") },
     { id: "ownership", header: t("veh.ownership"), width: 140, sort: (v) => v.ownership, cell: (v) => t(v.ownership === "private" ? "veh.ownership.private" : "veh.ownership.state") },
     { id: "status", header: t("veh.status"), width: 170, sort: (v) => st.label(v.status),
@@ -117,9 +124,10 @@ export function Vehicles() {
         search={{ value: q, label: t("veh.search"), onChange: reset(setQ) }}
         filters={[
           { id: "category", label: t("veh.category"), value: category, onChange: reset(setCategory), options: (cats.data?.results ?? []).map((c) => ({ value: c.code, label: name(c) })) },
+          { id: "reference_model", label: t("veh.refModel"), value: refModel, onChange: (v) => setParam("reference_model", v), options: (models.data?.results ?? []).map((m) => ({ value: m.code, label: m.name })) },
           { id: "ownership", label: t("veh.ownership"), value: ownership, onChange: (v) => setParam("ownership", v), options: [{ value: "state", label: t("veh.ownership.state") }, { value: "private", label: t("veh.ownership.private") }] },
           { id: "status", label: t("veh.status"), value: status, onChange: reset(setStatus), options: st.list.map((x) => ({ value: x.code, label: name(x) })) },
-          { id: "group", label: t("fleet.group"), value: group, onChange: (v) => setParam("group", v), options: ["utility", "personnel_transport", "general_transport", "protected_transport", "other"].map((g) => ({ value: g, label: t(`fleet.group.${g}` as Key) })) },
+          { id: "group", label: t("fleet.group"), value: group, onChange: (v) => setParam("group", v), options: ["utility", "personnel_transport", "general_transport", "protected_transport", "combat_vehicle", "other"].map((g) => ({ value: g, label: t(`fleet.group.${g}` as Key) })) },
           { id: "condition", label: t("veh.condition"), value: condition, onChange: (v) => setParam("condition", v), options: CONDITIONS.map((c) => ({ value: c, label: t(`cond.${c}` as Key) })) },
         ]}
         advancedExtra={<>
@@ -139,7 +147,7 @@ export function Vehicles() {
         ]}
         onReset={resetAll} />
       {can("vehicles.configure") && <CategoryManager cats={cats.data?.results ?? []} onDone={cats.reload} />}
-      {registering && <RegisterForm unit={unit} cats={cats.data?.results ?? []} onDone={() => { setRegistering(false); list.reload(); summary.reload(); }} onCancel={() => setRegistering(false)} />}
+      {registering && <RegisterForm unit={unit} cats={cats.data?.results ?? []} models={models.data?.results ?? []} onDone={() => { setRegistering(false); list.reload(); summary.reload(); }} onCancel={() => setRegistering(false)} />}
       {can("vehicles.configure") && <StatusManager list={st.list} onDone={st.reload} />}
       {analytics.data && <div className="charts"><FleetPanel f={analytics.data} unit={unit || undefined} /></div>}
       {summary.data && <SummaryCards s={summary.data} onOpen={(id) => { setSp({ unit: id }); setPage(1); }} />}
@@ -191,9 +199,9 @@ function SummaryCards({ s, onOpen }: { s: Summary; onOpen: (id: string) => void 
   );
 }
 
-function RegisterForm({ unit, cats, onDone, onCancel }: { unit: string; cats: Cat[]; onDone: () => void; onCancel: () => void }) {
+function RegisterForm({ unit, cats, models, onDone, onCancel }: { unit: string; cats: Cat[]; models: RefModel[]; onDone: () => void; onCancel: () => void }) {
   const { t, name } = useI18n();
-  const [f, setF] = useState({ category: "", org_unit: unit, ownership: "state" as Ownership, plate: "", plate_status: "registered", vehicle_type: "", make: "", model: "", year: "", location: "", condition: "unknown" });
+  const [f, setF] = useState({ category: "", reference_model: "", org_unit: unit, ownership: "state" as Ownership, plate: "", plate_status: "registered", vehicle_type: "", make: "", model: "", year: "", location: "", condition: "unknown" });
   const [error, setError] = useState<unknown>(null);
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
   const prefix = PLATE_PREFIX[f.ownership];
@@ -207,8 +215,11 @@ function RegisterForm({ unit, cats, onDone, onCancel }: { unit: string; cats: Ca
   return (
     <form className="card" onSubmit={(e) => void submit(e)}>
       <ErrorNotice error={error} />
+      <Field label={t("veh.refModelPick")}>
+        <select value={f.reference_model} onChange={set("reference_model")}><option value="" />{models.map((m) => <option key={m.id} value={m.code}>{m.name}</option>)}</select>
+      </Field>
       <Field label={t("veh.category")}>
-        <select value={f.category} required onChange={set("category")}><option value="" />{cats.map((c) => <option key={c.id} value={c.code}>{name(c)}</option>)}</select>
+        <select value={f.category} required={!f.reference_model} onChange={set("category")}><option value="" />{cats.map((c) => <option key={c.id} value={c.code}>{name(c)}</option>)}</select>
       </Field>
       <UnitPicker label={t("veh.unit")} value={f.org_unit} required onChange={(id) => setF({ ...f, org_unit: id })} />
       <Field label={t("veh.ownership")}>
@@ -250,6 +261,9 @@ export function VehicleDetail() {
   const history = useFetch<{ results: HistoryEvent[] }>(`/vehicles/${id}/history/`);
   const maint = useFetch<{ results: Maint[]; cost_visible: boolean }>(`/vehicles/${id}/maintenance/`);
   const docs = useFetch<{ results: Doc[] }>(`/vehicles/${id}/documents/`);
+  const photos = useFetch<{ results: Doc[] }>(`/vehicles/${id}/photos/`);
+  const armament = useFetch<{ results: Mount[] }>(`/vehicles/${id}/armament/`);
+  const weapons = useFetch<Page<RefModel>>("/equipment/", { kind: "mounted_weapon", page_size: 100 });
   const [mode, setMode] = useState<Mode>(null);
   const [f, setF] = useState<Record<string, string>>({});
   const [q, setQ] = useState("");
@@ -261,7 +275,7 @@ export function VehicleDetail() {
   const cap = d.capabilities;
   const closed = d.status === "decommissioned";
   const set = (k: string) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
-  const reloadAll = () => { v.reload(); history.reload(); maint.reload(); };
+  const reloadAll = () => { v.reload(); history.reload(); maint.reload(); armament.reload(); };
 
   async function run(path: string, body: Record<string, unknown>) {
     setBusy(true); setError(null);
@@ -294,6 +308,7 @@ export function VehicleDetail() {
         <div className="stat"><span>{t("veh.plate")}</span><b>{d.plate || t(d.plate_status === "none" ? "veh.plateNone" : "veh.plateUnknown")}</b></div>
         <div className="stat"><span>{t("veh.ownership")}</span><b>{t(d.ownership === "private" ? "veh.ownership.private" : "veh.ownership.state")}</b></div>
         <div className="stat"><span>{t("veh.category")}</span><b>{name(d.category)}</b></div>
+        <div className="stat"><span>{t("veh.refModel")}</span><b>{d.reference_model ? <><Link to={`/equipment/${d.reference_model.code}`}>{d.reference_model.name}</Link> <VerificationChip v={d.reference_model.verification} /></> : t("veh.refModelNone")}</b></div>
         <div className="stat"><span>{t("veh.make")} / {t("veh.model")}</span><b>{[d.make, d.model, d.year].filter(Boolean).join(" ") || "—"}</b></div>
         <div className="stat"><span>{t("veh.unit")}</span><b>{name(d.org_unit)}</b></div>
         <div className="stat"><span>{t("veh.driver")}</span><b>{person(d.driver)}</b></div>
@@ -363,6 +378,36 @@ export function VehicleDetail() {
           <div className="row"><button type="submit" disabled={busy}>{t("veh.apply")}</button><button type="button" className="secondary" onClick={() => setMode(null)}>{t("common.cancel")}</button></div>
         </form>
       )}
+      <h2>{t("veh.photos")}</h2>
+      {(photos.data?.results ?? []).length === 0 && <p className="muted">{t("veh.noPhotos")}</p>}
+      <div className="row" style={{ flexWrap: "wrap", alignItems: "flex-start" }}>
+        {(photos.data?.results ?? []).map((x) => (
+          <figure key={x.id} style={{ margin: 0, maxWidth: 240 }}>
+            <img alt={x.title} src={`/api/v1/vehicles/${id}/documents/${x.id}/download/`} style={{ width: "100%", borderRadius: 6 }} loading="lazy" />
+            <figcaption className="muted">{x.title}</figcaption>
+            {cap.edit && !closed && <button type="button" className="secondary" disabled={busy} onClick={() => { const reason = window.prompt(t("veh.withdrawReason")); if (reason) { setBusy(true); void api(`/vehicles/${id}/documents/${x.id}/withdraw/`, { method: "POST", body: { reason } }).then(() => photos.reload()).catch(setError).finally(() => setBusy(false)); } }}>{t("veh.withdraw")}</button>}
+          </figure>
+        ))}
+        {(photos.data?.results ?? []).length === 0 && d.reference_photo_id && d.reference_model && <figure style={{ margin: 0, maxWidth: 240 }}><img alt={d.reference_model.name} src={`/api/v1/equipment/${d.reference_model.id}/photos/${d.reference_photo_id}/image/`} style={{ width: "100%", borderRadius: 6 }} loading="lazy" /><figcaption className="muted">{t("eq.photos")}: {d.reference_model.name}</figcaption></figure>}
+      </div>
+      {cap.edit && !closed && <DocumentUpload id={id} photo onDone={() => { photos.reload(); history.reload(); }} />}
+      <h2>{t("veh.specs")}</h2>
+      {cap.edit && !closed
+        ? <SpecEditor key={d.version} initial={d.specs} saveLabel={t("veh.saveSpecs")} onSave={async (rows) => { await api(`/vehicles/${id}/specifications/`, { method: "POST", body: { version: d.version, specs: rows } }); reloadAll(); }} />
+        : d.specs.length === 0 ? <p className="muted">{t("veh.noSpecs")}</p> : <SpecTable rows={d.specs} />}
+      {d.reference_specs.length > 0 && <><h3>{t("veh.refSpecs")}</h3><SpecTable rows={d.reference_specs} /></>}
+      <h2>{t("veh.armament")}</h2>
+      {(armament.data?.results ?? []).length === 0 && <p className="muted">{t("veh.noArmament")}</p>}
+      <ul className="list">
+        {(armament.data?.results ?? []).map((m) => (
+          <li key={m.id} className="item">
+            <b>{m.item.name}</b> {m.item.category && <span className="muted">({m.item.category})</span>} <VerificationChip v={m.item.verification} />
+            <p className="muted">{[m.mount_position, m.serial, m.register_linked && !m.serial ? t("veh.registerLinked") : null, m.notes].filter(Boolean).join(" · ") || "—"}</p>
+            {cap.edit && !closed && <button type="button" className="secondary" disabled={busy} onClick={() => { const reason = window.prompt(t("veh.reason")); if (reason) { setBusy(true); void api(`/vehicles/${id}/armament/${m.id}/remove/`, { method: "POST", body: { version: d.version, reason } }).then(reloadAll).catch(setError).finally(() => setBusy(false)); } }}>{t("veh.removeArmament")}</button>}
+          </li>
+        ))}
+      </ul>
+      {cap.edit && !closed && <ArmamentForm weapons={weapons.data?.results ?? []} onAdd={async (body) => { await api(`/vehicles/${id}/armament/add/`, { method: "POST", body: { version: d.version, ...body } }); reloadAll(); }} />}
       <h2>{t("veh.assignmentHistory")}</h2>
       <ul className="list">
         {d.assignment_history.map((e) => <li key={e.id} className="item"><b>{t(`vevent.${e.kind}` as Key)}</b><p className="muted">{(e.effective_date ?? e.at).slice(0, 10)} · {e.actor}{e.authority_ref ? ` · ${e.authority_ref}` : ""}</p></li>)}
@@ -407,9 +452,9 @@ export function VehicleDetail() {
   );
 }
 
-function DocumentUpload({ id, onDone }: { id: string; onDone: () => void }) {
+function DocumentUpload({ id, photo, onDone }: { id: string; photo?: boolean; onDone: () => void }) {
   const { t } = useI18n();
-  const [category, setCategory] = useState("registration");
+  const [category, setCategory] = useState(photo ? "photograph" : "registration");
   const [title, setTitle] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -425,13 +470,13 @@ function DocumentUpload({ id, onDone }: { id: string; onDone: () => void }) {
   }
   return (
     <form className="card" onSubmit={(e) => void submit(e)}>
-      <h3>{t("veh.uploadDocument")}</h3>
+      <h3>{photo ? t("veh.addPhoto") : t("veh.uploadDocument")}</h3>
       <ErrorNotice error={error} />
-      <Field label={t("veh.docCategory")}>
+      {!photo && <Field label={t("veh.docCategory")}>
         <select value={category} onChange={(e) => setCategory(e.target.value)}>{["registration", "service_report", "receipt", "handover", "inspection", "other"].map((c) => <option key={c} value={c}>{t(`vdoc.${c}` as Key)}</option>)}</select>
-      </Field>
+      </Field>}
       <Field label={t("veh.docTitle")}><input value={title} required maxLength={150} onChange={(e) => setTitle(e.target.value)} /></Field>
-      <Field label={t("veh.chooseFile")}><input type="file" required accept="application/pdf,image/jpeg,image/png" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></Field>
+      <Field label={t("veh.chooseFile")}><input type="file" required accept={photo ? "image/jpeg,image/png" : "application/pdf,image/jpeg,image/png"} onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></Field>
       <div className="row"><button type="submit" disabled={busy || !file}>{t("veh.upload")}</button></div>
     </form>
   );
@@ -478,6 +523,27 @@ function StatusManager({ list, onDone }: { list: StatusT[]; onDone: () => void }
       <Field label={t("veh.categoryNameSo")}><input value={f.name_so} maxLength={120} onChange={(e) => setF({ ...f, name_so: e.target.value })} /></Field>
       <label className="row"><input type="checkbox" style={{ width: "auto", minHeight: 0 }} checked={f.available} onChange={(e) => setF({ ...f, available: e.target.checked })} /><span>{t("veh.statusAvailable")}</span></label>
       <div className="row"><button type="submit">{t("veh.newStatus")}</button></div>
+    </form>
+  );
+}
+
+function ArmamentForm({ weapons, onAdd }: { weapons: RefModel[]; onAdd: (body: Record<string, string>) => Promise<void> }) {
+  const { t } = useI18n();
+  const [f, setF] = useState({ reference_item: "", mount_position: "", serial: "", notes: "" });
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+  async function submit(e: FormEvent) {
+    e.preventDefault(); setBusy(true); setError(null);
+    try { await onAdd(f); setF({ reference_item: "", mount_position: "", serial: "", notes: "" }); } catch (err) { setError(err); } finally { setBusy(false); }
+  }
+  return (
+    <form className="card" onSubmit={(e) => void submit(e)}>
+      <h3>{t("veh.addArmament")}</h3>
+      <ErrorNotice error={error} />
+      <Field label={t("veh.armamentItem")}><select value={f.reference_item} required onChange={(e) => setF({ ...f, reference_item: e.target.value })}><option value="" />{weapons.map((w) => <option key={w.id} value={w.code}>{w.name}</option>)}</select></Field>
+      <Field label={t("veh.mountPosition")}><input value={f.mount_position} maxLength={80} onChange={(e) => setF({ ...f, mount_position: e.target.value })} /></Field>
+      <Field label={t("veh.serial")}><input value={f.serial} maxLength={64} onChange={(e) => setF({ ...f, serial: e.target.value })} /></Field>
+      <div className="row"><button type="submit" disabled={busy}>{t("veh.addArmament")}</button></div>
     </form>
   );
 }

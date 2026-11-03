@@ -14,10 +14,11 @@ const unit = { id: "u1", code: "BN-1", name_en: "Battalion 1", name_so: "Urur 1"
 const row = {
   id: "11111111-1111-1111-1111-111111111111", vehicle_id: "VEH-000001", plate: "GD-001", plate_status: "registered", ownership: "state", category: cat, vehicle_type: "", make: "Toyota",
   model: "Hilux", year: 2015, org_unit: unit, driver: null, custodian: null, location: "Test depot", status: "operational", condition: "good", next_due_date: null,
-  maintenance_overdue: false, disposal_pending: false, version: 3,
+  maintenance_overdue: false, disposal_pending: false, version: 3, reference_model: null,
 };
 const detail = { ...row, notes: "", acquired_on: null, acquisition_ref: "", decommissioned_at: null, disposal: null, assignment_history: [],
-  capabilities: { edit: true, transfer: true, dispose: true, approve: true, cost: true } };
+  capabilities: { edit: true, transfer: true, dispose: true, approve: true, cost: true },
+  specs: [], reference_specs: [], reference_photo_id: null };
 const statuses = ["operational", "under_repair", "decommissioned", "on_loan"].map((code, i) => ({ id: `s${i}`, code, name_en: code === "on_loan" ? "On loan" : code, name_so: code, available: code === "operational", is_system: code !== "on_loan", active: true }));
 const tally = { total: 2, by_category: [{ ...cat, count: 2 }], by_status: { on_loan: 1, operational: 1 }, without_driver: 2, without_custodian: 2, overdue_maintenance: 0, unavailable: 1 };
 

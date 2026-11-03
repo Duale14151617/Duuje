@@ -22,7 +22,7 @@ from apps.personnel.models import Personnel
 from apps.personnel.services import NOT_SERVING
 
 from . import services as svc
-from .models import MaintenanceRecord, Vehicle, VehicleCategory, VehicleDocument, VehicleEvent, VehicleStatusType
+from .models import (MaintenanceRecord, Vehicle, VehicleArmament, VehicleCategory, VehicleDocument, VehicleEvent, VehicleStatusType)
 
 
 def _uid(value):
@@ -53,10 +53,15 @@ def _out(v, today=None):
     due = getattr(v, "next_due", None)
     today = today or timezone.localdate()
     return {"id": str(v.pk), "vehicle_id": v.vehicle_id, "plate": v.plate, "plate_status": v.plate_status, "ownership": v.ownership, "category": _cat(v.category),
+            "reference_model": _ref(v.reference_model),
             "vehicle_type": v.vehicle_type, "make": v.make, "model": v.model, "year": v.year, "org_unit": _unit_brief(v.org_unit),
             "driver": _person_brief(v.driver), "custodian": _person_brief(v.custodian), "location": v.location, "status": v.status,
             "condition": v.condition, "next_due_date": due, "maintenance_overdue": bool(due and due < today and v.status != "decommissioned"),
             "disposal_pending": bool(v.disposal_requested_at), "version": v.version}
+
+
+def _ref(i):
+    return None if i is None else {"id": str(i.pk), "code": i.code, "name": i.name, "verification": i.verification}
 
 
 def _event_out(e):
@@ -100,6 +105,8 @@ class VehicleViewSet(viewsets.GenericViewSet):
         "driver": ("vehicles.edit", "unit"), "custodian": ("vehicles.edit", "unit"), "location": ("vehicles.edit", "unit"),
         "status": ("vehicles.edit", "unit"), "history": ("vehicles.view", "unit"), "maintenance": ("vehicles.view", "unit"),
         "maintenance_add": ("vehicles.edit", "unit"), "maintenance_complete": ("vehicles.edit", "unit"),
+        "photos": ("vehicles.view", "unit"), "specifications": ("vehicles.edit", "unit"), "armament": ("vehicles.view", "unit"),
+        "armament_add": ("vehicles.edit", "unit"), "armament_remove": ("vehicles.edit", "unit"),
         "documents": ("vehicles.view", "unit"), "document_upload": ("vehicles.edit", "unit"), "document_download": ("vehicles.view", "unit"),
         "document_withdraw": ("vehicles.edit", "unit"), "propose_disposal": ("vehicles.dispose", "unit"),
         "approve_disposal": ("vehicles.approve", "unit"), "reject_disposal": ("vehicles.approve", "unit"),
@@ -113,7 +120,7 @@ class VehicleViewSet(viewsets.GenericViewSet):
         q = scope.unit_scope_q(self.request.user, "vehicles.view", "org_unit__")
         if q is None:
             return Vehicle.objects.none()
-        return svc.with_due(Vehicle.objects.filter(q)).select_related("category", "org_unit", "driver__rank", "custodian__rank")
+        return svc.with_due(Vehicle.objects.filter(q)).select_related("category", "org_unit", "driver__rank", "custodian__rank", "reference_model")
 
     def get_object(self):
         key = self.kwargs["pk"]
@@ -145,7 +152,7 @@ class VehicleViewSet(viewsets.GenericViewSet):
         if p.get("q"):
             q = p["q"].strip()[:60]
             key = svc.plate_key(q) or q
-            qs = qs.filter(Q(vehicle_id__icontains=q) | Q(plate_key__icontains=key) | Q(make__icontains=q) | Q(model__icontains=q)
+            qs = qs.filter(Q(vehicle_id__icontains=q) | Q(plate_key__icontains=key) | Q(make__icontains=q) | Q(model__icontains=q) | Q(reference_model__name__icontains=q)
                            | Q(driver__service_number__iexact=q) | Q(driver__full_name__icontains=q))
         if p.get("vehicle_id"):
             qs = qs.filter(vehicle_id__iexact=p["vehicle_id"].strip()[:20])
@@ -157,6 +164,8 @@ class VehicleViewSet(viewsets.GenericViewSet):
             qs = qs.filter(Q(category__code=p["category"]) | Q(category_id=_uid(p["category"])))
         if p.get("status"):
             qs = qs.filter(status=p["status"])
+        if p.get("reference_model"):
+            qs = qs.filter(Q(reference_model__code=p["reference_model"].lower()) | Q(reference_model_id=_uid(p["reference_model"])))
         if p.get("group") in {g.value for g in VehicleCategory.Group}:
             qs = qs.filter(category__group=p["group"])
         if p.get("condition") in svc.CONDITIONS:
@@ -198,6 +207,9 @@ class VehicleViewSet(viewsets.GenericViewSet):
                                "reason": v.disposal_reason, "authority_ref": v.disposal_authority_ref} if v.disposal_requested_at else None,
                   "decommissioned_at": v.decommissioned_at, "created_at": v.created_at, "updated_at": v.updated_at,
                   "capabilities": {c: self._can(f"vehicles.{c}", v.org_unit) for c in ("edit", "transfer", "dispose", "approve", "cost")},
+                  "specs": [{"name": x.name, "value": x.value, "unit": x.unit} for x in v.specs.all()],
+                  "reference_specs": ([{"name": x.name, "value": x.value, "unit": x.unit} for x in v.reference_model.specs.all()] if v.reference_model_id else []),
+                  "reference_photo_id": (str(ph.pk) if v.reference_model_id and (ph := v.reference_model.photos.filter(withdrawn_at__isnull=True).order_by("uploaded_at").first()) else None),
                   "assignment_history": [_event_out(e) for e in v.events.filter(kind__in=["registered", "unit_transfer", "driver_change", "custodian_change"])[:100]]})
         return Response(d)
 
@@ -443,7 +455,50 @@ class VehicleViewSet(viewsets.GenericViewSet):
     def documents(self, request, pk=None):
         v = self.get_object()
         record_read(request, "vehicle.read_documents", entity_type="vehicle", entity_id=v.pk, org_unit=v.org_unit)
-        return Response({"results": [_doc_out(d) for d in v.documents.filter(withdrawn_at__isnull=True)]})
+        return Response({"results": [_doc_out(d) for d in v.documents.filter(withdrawn_at__isnull=True).exclude(category="photograph")]})
+
+    @action(detail=True, methods=["get"])
+    def photos(self, request, pk=None):
+        """Photographs of this vehicle: documents in the 'photograph' category (same encrypted store, withdraw and audit as other documents)."""
+        v = self.get_object()
+        record_read(request, "vehicle.read_photos", entity_type="vehicle", entity_id=v.pk, org_unit=v.org_unit)
+        return Response({"results": [_doc_out(d) for d in v.documents.filter(withdrawn_at__isnull=True, category="photograph")]})
+
+    @action(detail=True, methods=["post"])
+    def specifications(self, request, pk=None):
+        d = json_body(request)
+        v = svc.set_specifications(request, self.get_object(), d, require_version(d))
+        return Response(self._fresh(v))
+
+    def _armament_out(self, m):
+        can_serial = m.asset_id is not None and scope.can(self.request.user, "weapons.view", unit=m.asset.org_unit)
+        return {"id": str(m.pk), "item": {"id": str(m.reference_item_id), "code": m.reference_item.code, "name": m.reference_item.name,
+                                          "verification": m.reference_item.verification,
+                                          "category": m.reference_item.weapon_category.name_en if m.reference_item.weapon_category_id else None},
+                "mount_position": m.mount_position, "notes": m.notes, "register_linked": m.asset_id is not None,
+                "serial": m.asset.identifier if can_serial else None, "added_by": m.added_by_username, "added_at": m.added_at}
+
+    @action(detail=True, methods=["get"])
+    def armament(self, request, pk=None):
+        v = self.get_object()
+        record_read(request, "vehicle.read_armament", entity_type="vehicle", entity_id=v.pk, org_unit=v.org_unit)
+        rows = v.armament.filter(removed_at__isnull=True).select_related("reference_item__weapon_category", "asset__org_unit")
+        return Response({"results": [self._armament_out(m) for m in rows]})
+
+    @action(detail=True, methods=["post"], url_path="armament/add")
+    def armament_add(self, request, pk=None):
+        d = json_body(request)
+        v, m = svc.add_armament(request, self.get_object(), d, require_version(d), lambda unit: scope.can(request.user, "weapons.view", unit=unit))
+        return Response({"vehicle": self._fresh(v), "record": self._armament_out(m)}, status=201)
+
+    @action(detail=True, methods=["post"], url_path=r"armament/(?P<aid>[0-9a-f\-]{36})/remove")
+    def armament_remove(self, request, pk=None, aid=None):
+        d = json_body(request)
+        obj = self.get_object()
+        m = VehicleArmament.objects.filter(pk=aid, vehicle=obj).first()
+        if m is None:
+            raise Http404
+        return Response(self._fresh(svc.remove_armament(request, obj, m, d, require_version(d))))
 
     @action(detail=True, methods=["post"], url_path="documents/upload")
     def document_upload(self, request, pk=None):

@@ -72,6 +72,10 @@ export function FleetPanel({ f, unit }: { f: FleetAnalytics; unit?: string }) {
       <BarList aria={t("fleet.byGroup")} rows={f.by_group.filter((g) => g.count > 0).map((g) => ({ key: g.code, label: t(`fleet.group.${g.code}` as Key), value: g.count, to: q(`group=${g.code}`) }))} />
       <h3 className="chart-sub">{t("fleet.byCategory")}</h3>
       <BarList aria={t("fleet.byCategory")} rows={f.by_category.filter((c) => c.count > 0).map((c) => ({ key: c.code, label: name(c), value: c.count, to: q(`category=${c.code}`) }))} />
+      {(f.by_model ?? []).length > 0 && <>
+        <h3 className="chart-sub">{t("fleet.byModel")}</h3>
+        <BarList aria={t("fleet.byModel")} rows={(f.by_model ?? []).map((m) => ({ key: m.code, label: m.name, value: m.count, to: q(`reference_model=${m.code}`) }))} />
+      </>}
       <h3 className="chart-sub">{t("fleet.byCondition")}</h3>
       <BarList aria={t("fleet.byCondition")} rows={conditionBars(f.by_condition, t, (c) => q(`condition=${c}`))} />
       {f.expenditure.visible && <MoneyList rows={f.expenditure.by_currency} label={t("fleet.repairSpend")} />}

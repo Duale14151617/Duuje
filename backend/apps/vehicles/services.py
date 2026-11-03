@@ -18,7 +18,8 @@ from apps.organization.models import OrganizationalUnit
 from apps.personnel.models import Personnel
 from apps.personnel.services import NOT_SERVING
 
-from .models import (MaintenanceRecord, Vehicle, VehicleCategory, VehicleCounter, VehicleDocument, VehicleEvent, VehicleStatusType)
+from .models import (MaintenanceRecord, Vehicle, VehicleArmament, VehicleCategory, VehicleCounter, VehicleDocument, VehicleEvent,
+                     VehicleSpecification, VehicleStatusType)
 
 V = Vehicle
 
@@ -87,6 +88,7 @@ def snapshot(v):
     return {"org_unit": str(v.org_unit_id), "driver": str(v.driver_id) if v.driver_id else None,
             "custodian": str(v.custodian_id) if v.custodian_id else None, "location": v.location, "status": v.status,
             "condition": v.condition, "plate": v.plate, "plate_status": v.plate_status, "ownership": v.ownership, "category": str(v.category_id),
+            "reference_model": v.reference_model.code if v.reference_model_id else None,
             "vehicle_type": v.vehicle_type, "make": v.make, "model": v.model, "year": v.year, "notes": v.notes}
 
 
@@ -133,6 +135,22 @@ def category_by(value):
     if cat is None:
         raise field_error("category", "category_unknown", "Unknown or inactive vehicle category.")
     return cat
+
+
+def reference_model_by(value):
+    """Catalogue entry (a vehicle model) by id or code. Empty means none. Never guessed from make/model text."""
+    if value in (None, ""):
+        return None
+    from apps.equipment.models import EquipmentItem
+    item = EquipmentItem.objects.filter(code=str(value).lower(), active=True, kind="vehicle_model").first()
+    if item is None:
+        try:
+            item = EquipmentItem.objects.filter(pk=value, active=True, kind="vehicle_model").first()
+        except Exception:
+            item = None
+    if item is None:
+        raise field_error("reference_model", "reference_unknown", "Unknown or inactive catalogue model.")
+    return item
 
 
 def _person(value, field, user, perm_unit_check):
@@ -184,6 +202,9 @@ def _year(d):
 
 @transaction.atomic
 def register(request, d, unit, can_reach):
+    ref = reference_model_by(d.get("reference_model"))
+    if ref is not None and not d.get("category") and ref.vehicle_category_id:
+        d = {**d, "category": ref.vehicle_category.code}  # the model's own classification is the default, never overriding a chosen one
     cat = category_by(d.get("category"))
     ownership = _ownership(d.get("ownership"))
     plate, key, pstatus = _plate(d.get("plate"), d.get("plate_status"), ownership)
@@ -203,7 +224,7 @@ def register(request, d, unit, can_reach):
         with transaction.atomic():
             v = V.objects.create(
                 vehicle_id=_next_vehicle_id(), plate=plate, plate_key=key, plate_status=pstatus, ownership=ownership, category=cat,
-                vehicle_type=_text(d, "vehicle_type", 60), make=_text(d, "make", 60), model=_text(d, "model", 60), year=_year(d),
+                reference_model=ref, vehicle_type=_text(d, "vehicle_type", 60), make=_text(d, "make", 60), model=_text(d, "model", 60), year=_year(d),
                 org_unit=unit, driver=driver, custodian=custodian, location=_text(d, "location", 200), status=status,
                 condition=condition, acquired_on=_date(d.get("acquired_on"), "acquired_on"),
                 acquisition_ref=_text(d, "acquisition_ref", 150), notes=_text(d, "notes", 1000),
@@ -227,6 +248,8 @@ def edit_details(request, vehicle, d, version):
     changes = {k: _text(d, k, n) for k, n in EDITABLE_TEXT.items() if k in d}
     if "category" in d:
         changes["category"] = category_by(d["category"])
+    if "reference_model" in d:
+        changes["reference_model"] = reference_model_by(d["reference_model"])
     if "year" in d:
         changes["year"] = _year(d)
     if "acquired_on" in d:
@@ -487,6 +510,8 @@ def add_document(request, vehicle, category, title, upload, maintenance=None):
              "image/jpeg" if head[:3] == b"\xff\xd8\xff" else None)  # by content, never by the client-supplied name or type
     if ctype is None:
         raise field_error("file", "unsupported_type", "Only PDF, JPEG or PNG files are accepted.")
+    if category == "photograph" and ctype == "application/pdf":
+        raise field_error("file", "unsupported_type", "A photograph must be a JPEG or PNG image.")
     doc = VehicleDocument.objects.create(
         vehicle=vehicle, maintenance=maintenance, category=category, title=title, content_enc=crypto.encrypt_bytes(data),
         content_type=ctype, size_bytes=len(data), sha256=hashlib.sha256(data).hexdigest(),
@@ -505,6 +530,80 @@ def withdraw_document(request, doc, reason):
     doc.save(update_fields=["withdrawn_at", "withdrawn_by_username", "withdrawn_reason"])
     _event(request, doc.vehicle, VehicleEvent.Kind.DOCUMENT, after={"document": str(doc.pk), "action": "withdrawn"}, reason=doc.withdrawn_reason)
     return doc
+
+
+# ---- specifications and mounted armament ---------------------------------------------------------------------------------------
+MAX_SPECS = 40
+
+
+@transaction.atomic
+def set_specifications(request, vehicle, d, version):
+    v = _lock(vehicle.pk, version)
+    if v.status == V.Status.DECOMMISSIONED:
+        raise field_error("status", "decommissioned", "A decommissioned vehicle is read-only.")
+    rows = d.get("specs")
+    if not isinstance(rows, list) or len(rows) > MAX_SPECS:
+        raise field_error("specs", "invalid", f"Send a list of at most {MAX_SPECS} specification lines.")
+    clean = []
+    for n, r in enumerate(rows):
+        r = r if isinstance(r, dict) else {}
+        clean.append({"name": _text(r, "name", 60, required=True), "value": _text(r, "value", 200, required=True), "unit": _text(r, "unit", 20), "sort_order": n})
+    before = [{"name": s.name, "value": s.value, "unit": s.unit} for s in v.specs.all()]
+    if before == [{k: c[k] for k in ("name", "value", "unit")} for c in clean]:
+        raise field_error("specs", "unchanged", "No change.")
+    v.specs.all().delete()
+    VehicleSpecification.objects.bulk_create([VehicleSpecification(vehicle=v, **c) for c in clean])
+    _save(v)
+    _event(request, v, VehicleEvent.Kind.SPECIFICATION, before={"specs": before}, after={"specs": clean}, reason=_text(d, "reason", 300))
+    return v
+
+
+@transaction.atomic
+def add_armament(request, vehicle, d, version, can_see_weapon):
+    """Record a weapon mounted on or built into the vehicle: a catalogue entry (what it is) and optionally the weapon-register serial."""
+    from apps.equipment.models import EquipmentItem
+    from apps.logistics.models import Asset
+    v = _lock(vehicle.pk, version)
+    if v.status == V.Status.DECOMMISSIONED:
+        raise field_error("status", "decommissioned", "A decommissioned vehicle is read-only.")
+    key = d.get("reference_item")
+    item = EquipmentItem.objects.filter(code=str(key).lower(), active=True, kind="mounted_weapon").first() if key else None
+    if item is None and key:
+        try:
+            item = EquipmentItem.objects.filter(pk=key, active=True, kind="mounted_weapon").first()
+        except Exception:
+            item = None
+    if item is None:
+        raise field_error("reference_item", "reference_unknown", "Choose a mounted weapon from the catalogue.")
+    asset = None
+    serial = _text(d, "serial", 64)
+    if serial:  # a serial must already exist in the weapon register, inside the caller's reach; it is never created here
+        asset = Asset.objects.select_related("org_unit", "category").filter(identifier=serial, category__code__startswith="weapon").first()
+        if asset is None or not can_see_weapon(asset.org_unit):
+            raise field_error("serial", "serial_unknown", "That serial is not in the weapon register for your units.")
+        if VehicleArmament.objects.filter(asset=asset, removed_at__isnull=True).exists():
+            raise field_error("serial", "already_mounted", "That weapon is already recorded on a vehicle.")
+    m = VehicleArmament.objects.create(vehicle=v, reference_item=item, asset=asset, mount_position=_text(d, "mount_position", 80),
+                                       notes=_text(d, "notes", 300), added_by_username=getattr(_actor(request), "username", ""))
+    _save(v)
+    _event(request, v, VehicleEvent.Kind.ARMAMENT, after={"action": "added", "armament": str(m.pk), "item": item.code, "serial": serial or None,
+                                                         "mount_position": m.mount_position})
+    return v, m
+
+
+@transaction.atomic
+def remove_armament(request, vehicle, mount, d, version):
+    v = _lock(vehicle.pk, version)
+    if v.status == V.Status.DECOMMISSIONED:
+        raise field_error("status", "decommissioned", "A decommissioned vehicle is read-only.")
+    if mount.removed_at:
+        raise field_error("armament", "already_removed", "Already removed.")
+    reason = _text(d, "reason", 300, required=True)
+    mount.removed_at, mount.removed_by_username, mount.removed_reason = timezone.now(), getattr(_actor(request), "username", ""), reason
+    mount.save(update_fields=["removed_at", "removed_by_username", "removed_reason"])
+    _save(v)
+    _event(request, v, VehicleEvent.Kind.ARMAMENT, after={"action": "removed", "armament": str(mount.pk), "item": mount.reference_item.code}, reason=reason)
+    return v
 
 
 # ---- derived figures --------------------------------------------------------------------------------------------------------
@@ -578,7 +677,11 @@ def fleet_analytics(qs, cost_q=None, today=None):
     by_cat = [{"code": r["category__code"], "name_en": r["category__name_en"], "name_so": r["category__name_so"], "group": r["category__group"], "count": r["n"]}
               for r in active.values("category__code", "category__name_en", "category__name_so", "category__group")
               .annotate(n=Count("pk")).order_by("category__sort_order", "category__code")]
+    by_model = [{"code": r["reference_model__code"], "name": r["reference_model__name"], "count": r["n"]}
+                for r in active.filter(reference_model__isnull=False).values("reference_model__code", "reference_model__name")
+                .annotate(n=Count("pk")).order_by("-n", "reference_model__name")]
     out = {
+        "by_model": by_model, "without_reference_model": active.filter(reference_model__isnull=True).count(),
         "total": total, "decommissioned": base.filter(status=V.Status.DECOMMISSIONED).count(),
         "by_group": [{"code": g.value, "count": by_group.get(g.value, 0)} for g in VehicleCategory.Group],
         "by_category": by_cat,

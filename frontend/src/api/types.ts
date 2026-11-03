@@ -78,6 +78,7 @@ export interface MoneyByCurrency { currency: string; total: string }
 export interface FleetAnalytics {
   total: number; decommissioned: number;
   by_group: { code: string; count: number }[];
+  by_model?: { code: string; name: string; count: number }[]; without_reference_model?: number;
   by_category: (NamedRef & { count: number; group: string })[];
   by_condition: Record<string, number>;
   by_status: Record<string, number>;

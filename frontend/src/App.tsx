@@ -13,6 +13,7 @@ import { Weapons } from "./pages/Weapons";
 import { Inventories } from "./pages/Inventories";
 import { Ppe } from "./pages/Ppe";
 import { VehicleDetail, Vehicles } from "./pages/Vehicles";
+import { Equipment, EquipmentDetail } from "./pages/Equipment";
 import { Holdings } from "./pages/Holdings";
 import { AmmoAccountability } from "./pages/AmmoAccountability";
 import { Survivors } from "./pages/Survivors";
@@ -71,6 +72,8 @@ export default function App() {
         <Route path="inventories" element={<Inventories />} />
         <Route path="vehicles" element={<Vehicles />} />
         <Route path="vehicles/:id" element={<VehicleDetail />} />
+        <Route path="equipment" element={<Equipment />} />
+        <Route path="equipment/:id" element={<EquipmentDetail />} />
         <Route path="holdings" element={<Holdings />} />
         <Route path="accountability" element={<AmmoAccountability />} />
         <Route path="survivors" element={<Survivors />} />

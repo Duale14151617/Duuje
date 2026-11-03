@@ -23,6 +23,7 @@ class VehicleCategory(models.Model):
         PERSONNEL_TRANSPORT = "personnel_transport"
         GENERAL_TRANSPORT = "general_transport"
         PROTECTED_TRANSPORT = "protected_transport"
+        COMBAT_VEHICLE = "combat_vehicle"
         OTHER = "other"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -111,6 +112,8 @@ class Vehicle(models.Model):
     # State property (GD plates) or private (PL plates). A registered plate must carry the prefix of its ownership.
     ownership = models.CharField(max_length=10, choices=Ownership.choices, default=Ownership.STATE)
     category = models.ForeignKey(VehicleCategory, on_delete=models.PROTECT, related_name="vehicles")
+    # Optional pointer to the Equipment Reference Catalogue entry this vehicle is an example of. Reference data only.
+    reference_model = models.ForeignKey("equipment.EquipmentItem", null=True, blank=True, on_delete=models.PROTECT, related_name="vehicles")
     vehicle_type = models.CharField(max_length=60, blank=True)
     make = models.CharField(max_length=60, blank=True)
     model = models.CharField(max_length=60, blank=True)
@@ -172,6 +175,8 @@ class VehicleEvent(AppendOnlyModel):
         DISPOSAL_REJECTED = "disposal_rejected"
         DECOMMISSIONED = "decommissioned"
         DOCUMENT = "document"
+        SPECIFICATION = "specification"
+        ARMAMENT = "armament"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     vehicle = models.ForeignKey(Vehicle, on_delete=models.PROTECT, related_name="events")
@@ -239,6 +244,7 @@ class VehicleDocument(models.Model):
         RECEIPT = "receipt"
         HANDOVER = "handover"
         INSPECTION = "inspection"
+        PHOTOGRAPH = "photograph"  # images only; shown as the vehicle's photographs, not among the supporting documents
         OTHER = "other"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -263,3 +269,43 @@ class VehicleDocument(models.Model):
     def delete(self, *args, **kwargs):  # history is kept: decommission instead of deleting (PostgreSQL also refuses it)
         raise AppendOnlyError("Vehicle register rows cannot be deleted.")
 
+
+
+class VehicleSpecification(models.Model):
+    """Facts about this particular vehicle (engine no., chassis no., colour, fitted equipment ...). The list is replaced in one audited step."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.PROTECT, related_name="specs")
+    name = models.CharField(max_length=60)
+    value = models.CharField(max_length=200)
+    unit = models.CharField(max_length=20, blank=True)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        db_table = "vehicle_specs"
+        ordering = ["sort_order", "name"]
+
+
+class VehicleArmament(models.Model):
+    """A weapon mounted on, or built into, a vehicle. It points at a catalogue entry (what it is) and, optionally, at the weapon-register
+    asset (which serial). The weapon register stays the only record of who holds a weapon; this row never changes it. Removed, never deleted."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.PROTECT, related_name="armament")
+    reference_item = models.ForeignKey("equipment.EquipmentItem", on_delete=models.PROTECT, related_name="mounts")
+    asset = models.ForeignKey("logistics.Asset", null=True, blank=True, on_delete=models.PROTECT, related_name="vehicle_mounts")
+    mount_position = models.CharField(max_length=80, blank=True)
+    notes = models.CharField(max_length=300, blank=True)
+    added_by_username = models.CharField(max_length=150, blank=True)
+    added_at = models.DateTimeField(auto_now_add=True)
+    removed_at = models.DateTimeField(null=True, blank=True)
+    removed_by_username = models.CharField(max_length=150, blank=True)
+    removed_reason = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        db_table = "vehicle_armament"
+        ordering = ["added_at"]
+        constraints = [models.UniqueConstraint(fields=["asset"], condition=Q(asset__isnull=False, removed_at__isnull=True), name="vehicle_armament_asset_one_mount")]
+
+    def delete(self, *args, **kwargs):
+        raise AppendOnlyError("Vehicle register rows cannot be deleted.")

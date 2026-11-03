@@ -62,6 +62,8 @@ PERMISSIONS = {
     "vehicles.approve": "Approve or reject a proposed vehicle disposal; cannot decide one's own proposal",
     "vehicles.cost": "See and record maintenance costs on vehicles in scope",
     "vehicles.configure": "Create and edit vehicle categories (headquarters)",
+    "equipment.manage": "Add and edit Equipment Reference Catalogue entries, specifications, photographs and mounted-weapon categories (headquarters)",
+    "equipment.verify": "Mark a catalogue entry verified or needs-review; cannot verify an entry one entered oneself (super administrator)",
     "attendance.view": "View attendance and absence records and summaries for personnel in scope",
     "attendance.record": "Record and amend daily attendance for personnel in scope (never changes personnel status)",
     "personnel.appointments_manage": "Appoint and end command appointments (Taliye Qaybeed, Taliye Urur ...) for units in scope; never grants access by itself",
@@ -122,7 +124,7 @@ SENSITIVE_PREFIXES = ("personnel.", "reports.view", "reports.submit", "reports.r
 HQ_ADMIN_RESERVED = frozenset({
     "system.full_access",                                                  # maintenance override
     "changes.approve", "org.structure_approve", "ranks.approve",           # approvals of hierarchy and catalogue changes
-    "logistics.approve", "logistics.restricted_approve", "logistics.restricted", "vehicles.approve",
+    "logistics.approve", "logistics.restricted_approve", "logistics.restricted", "vehicles.approve", "equipment.verify",
     "payroll.approve", "payroll.decide", "payroll.policy_confirm", "arrears.approve", "survivor.verify", "survivor.approve",
     "payment.prepare", "payment.authorize", "payment.execute", "payment.reconcile", "payment.details",   # money movement
     "personnel.confirm_death",                                             # confirming a death changes status to Died
@@ -359,6 +361,9 @@ class Command(BaseCommand):
             VehicleStatusType.objects.get_or_create(code=code, defaults={"name_en": en, "name_so": so, "available": avail, "is_system": True, "sort_order": order})
         for code, en, so, order in VEHICLE_CATEGORIES:
             VehicleCategory.objects.get_or_create(code=code, defaults={"name_en": en, "name_so": so, "sort_order": order, "group": VEHICLE_GROUPS.get(code, "other")})
+        from apps.equipment.models import EquipmentItem, MountedWeaponCategory
+        from apps.equipment.reference import seed_catalogue
+        seed_catalogue(VehicleCategory, MountedWeaponCategory, EquipmentItem)  # reference models and categories; created once, edits never overwritten
         for code, en, so, days in COURSES:
             Course.objects.get_or_create(code=code, defaults={"name_en": en, "name_so": so, "duration_days": days})
         self.stdout.write(self.style.SUCCESS(

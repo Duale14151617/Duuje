@@ -21,3 +21,16 @@ def append_only_trigger(table):
     ]
     reverse = [f"DROP TRIGGER IF EXISTS {table}_no_change ON {table}", f"DROP FUNCTION IF EXISTS {fn}()"]
     return migrations.RunPython(_runner(forward), _runner(reverse))
+
+
+def no_delete_trigger(table):
+    """PostgreSQL trigger that refuses DELETE on a table (records are switched off or withdrawn, never removed)."""
+    fn = f"{table}_no_delete"
+    forward = [
+        f"""CREATE OR REPLACE FUNCTION {fn}() RETURNS trigger AS $$
+        BEGIN RAISE EXCEPTION '{table} rows cannot be deleted'; END; $$ LANGUAGE plpgsql""",
+        f"""CREATE TRIGGER {table}_no_delete BEFORE DELETE ON {table}
+        FOR EACH ROW EXECUTE FUNCTION {fn}()""",
+    ]
+    reverse = [f"DROP TRIGGER IF EXISTS {table}_no_delete ON {table}", f"DROP FUNCTION IF EXISTS {fn}()"]
+    return migrations.RunPython(_runner(forward), _runner(reverse))
