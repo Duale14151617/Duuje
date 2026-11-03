@@ -23,9 +23,9 @@ class AnalyticsData(BaseApiTest):
         Rank.objects.filter(branch__code="ARMY", code="PA-03").update(approval_status="approved", name_so="x")
         self.rank = Rank.objects.get(branch__code="ARMY", code="PA-03")
         self.bari = OU.objects.create(code="BARI-ARMY-A", name_en="Bari A", level="unit", parent=self.unit("BARI-ARMY"))
-        self.karkaar = OU.objects.create(code="KARKAAR-ARMY-A", name_en="Karkaar A", level="unit", parent=self.unit("KARKAAR-ARMY"))
+        self.nugaal = OU.objects.create(code="NUGAAL-ARMY-A", name_en="Nugaal A", level="unit", parent=self.unit("NUGAAL-ARMY"))
         self.bari_people = [self.person(f"Bari {i}", self.bari) for i in range(7)]
-        self.karkaar_people = [self.person(f"Karkaar {i}", self.karkaar) for i in range(3)]
+        self.nugaal_people = [self.person(f"Nugaal {i}", self.nugaal) for i in range(3)]
 
     def person(self, name, unit, status="active"):
         return pers.create_personnel(None, full_name=name, phone="", service_number=None, org_unit=unit, rank=self.rank,
@@ -51,7 +51,7 @@ class PersonnelAnalyticsTests(AnalyticsData):
         r = self.client_for(self.make_user("hqr", "hq_reporting")).get(BASE + "personnel/")
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.data["by_status"]["total"], 10)
-        self.assertEqual({row["unit"]["code"]: row["count"] for row in r.data["by_child_unit"]["rows"]}, {"BARI": 7, "KARKAAR": 3})
+        self.assertEqual({row["unit"]["code"]: row["count"] for row in r.data["by_child_unit"]["rows"]}, {"BARI": 7, "NUGAAL": 3})
 
     def test_regional_chief_sees_only_their_region(self):
         c = self.client_for(self.make_user("chief", "regional_chief", unit="BARI"))
@@ -61,7 +61,7 @@ class PersonnelAnalyticsTests(AnalyticsData):
 
     def test_a_unit_outside_scope_is_not_found_not_forbidden(self):
         c = self.client_for(self.make_user("chief", "regional_chief", unit="BARI"))
-        other = c.get(f"{BASE}personnel/?unit={self.karkaar.pk}")
+        other = c.get(f"{BASE}personnel/?unit={self.nugaal.pk}")
         ghost = c.get(f"{BASE}personnel/?unit=00000000-0000-0000-0000-000000000000")
         self.assertEqual((other.status_code, ghost.status_code), (404, 404))
         self.assertEqual(other.json(), ghost.json())
@@ -111,7 +111,7 @@ class ReportsAnalyticsTests(AnalyticsData):
     def test_only_approved_reports_are_counted_and_pipeline_needs_reports_view(self):
         self.submission(self.bari)
         self.submission(self.bari, status="draft")
-        self.submission(self.karkaar)
+        self.submission(self.nugaal)
         r = self.client_for(self.make_user("hqr", "hq_reporting")).get(BASE + "reports/")
         self.assertEqual(r.data["approved_by_type"]["total"], 2)
         pipeline = {x["status"]: x["count"] for x in r.data["pipeline"]["by_status"]["rows"]}
@@ -120,7 +120,7 @@ class ReportsAnalyticsTests(AnalyticsData):
 
     def test_regional_scope_applies_to_reports(self):
         self.submission(self.bari)
-        self.submission(self.karkaar)
+        self.submission(self.nugaal)
         c = self.client_for(self.make_user("chief", "regional_chief", unit="BARI"))
         self.assertEqual(c.get(BASE + "reports/").data["approved_by_type"]["total"], 1)
 
@@ -145,7 +145,7 @@ class TrainingAnalyticsTests(AnalyticsData):
         TrainingRecord.objects.create(personnel=self.bari_people[0], course=course, start_date=today, status="completed", completed_on=today)
         TrainingRecord.objects.create(personnel=self.bari_people[1], course=course, start_date=today, status="in_progress")
         TrainingRecord.objects.create(personnel=self.bari_people[2], course=course, start_date=today, status="withdrawn")
-        TrainingRecord.objects.create(personnel=self.karkaar_people[0], course=course, start_date=today, status="completed", completed_on=today)
+        TrainingRecord.objects.create(personnel=self.nugaal_people[0], course=course, start_date=today, status="completed", completed_on=today)
         hq = self.client_for(self.make_user("hqr", "hq_reporting")).get(BASE + "training/")
         row = hq.data["by_course"]["rows"][0]
         self.assertEqual((row["count"], row["completion_rate"]), (4, 0.667))

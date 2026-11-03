@@ -18,11 +18,11 @@ class DashboardChartSeries(BaseApiTest):
         Rank.objects.filter(branch__code="ARMY", code="PA-03").update(approval_status="approved", name_so="x")
         self.rank = Rank.objects.get(branch__code="ARMY", code="PA-03")
         self.bari = OU.objects.create(code="BARI-ARMY-A", name_en="Bari A", level="unit", parent=self.unit("BARI-ARMY"))
-        self.karkaar = OU.objects.create(code="KARKAAR-ARMY-A", name_en="Karkaar A", level="unit", parent=self.unit("KARKAAR-ARMY"))
+        self.nugaal = OU.objects.create(code="NUGAAL-ARMY-A", name_en="Nugaal A", level="unit", parent=self.unit("NUGAAL-ARMY"))
         for i in range(7):  # 7 in Bari, 2 of them not active
             self.person(f"Bari {i}", self.bari, status="active" if i < 5 else "retired")
         for i in range(3):
-            self.person(f"Karkaar {i}", self.karkaar)
+            self.person(f"Nugaal {i}", self.nugaal)
 
     def person(self, name, unit, status="active"):
         return pers.create_personnel(None, full_name=name, phone="", service_number=None, org_unit=unit, rank=self.rank,
@@ -34,10 +34,10 @@ class DashboardChartSeries(BaseApiTest):
     def test_headcount_per_region_with_active_split_largest_first(self):
         resp = self.client_for(self.make_user("adm", "super_admin")).get(URL)
         rows = resp.data["personnel"]["by_region"]
-        self.assertEqual([r["code"] for r in rows][:2], ["BARI", "KARKAAR"])
+        self.assertEqual([r["code"] for r in rows][:2], ["BARI", "NUGAAL"])
         by = {r["code"]: r for r in rows}
         self.assertEqual((by["BARI"]["total"], by["BARI"]["active"]), (7, 5))
-        self.assertEqual((by["KARKAAR"]["total"], by["KARKAAR"]["active"]), (3, 3))
+        self.assertEqual((by["NUGAAL"]["total"], by["NUGAAL"]["active"]), (3, 3))
         self.assertEqual(sum(r["total"] for r in rows), resp.data["personnel"]["total"])
 
     def test_a_regional_reader_only_gets_their_own_region(self):

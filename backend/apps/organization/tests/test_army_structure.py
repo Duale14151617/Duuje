@@ -1,4 +1,4 @@
-"""Army organizational structure (requirements section 3). Army only: Navy units are never touched."""
+"""Army organizational structure (requirements section 3). Army only: other branches' units are never touched."""
 from io import StringIO
 
 from django.core.management import call_command
@@ -57,28 +57,18 @@ class ArmyStructureTests(TemplateBase):
         self.assertIn("already matches", again)
         self.assertEqual(OU.objects.count(), count)
 
-    def test_navy_is_untouched(self):
-        before = self.snapshot(["NAVY"])
+    def test_other_branch_is_untouched(self):
+        before = self.snapshot(["OTHER"])
         regions_before = OU.objects.filter(level="region").exclude(code="SANAAG").count()
         self.run_cmd(apply=True)
-        self.assertEqual(self.snapshot(["NAVY"]), before)
+        self.assertEqual(self.snapshot(["OTHER"]), before)
         self.assertEqual(OU.objects.filter(level="region").exclude(code="SANAAG").count(), regions_before)
-
-    def test_karkaar_is_retired_only_when_empty(self):
-        self.person("KARKAAR-ARMY", "Karkaar Soldier")
-        text = self.run_cmd(apply=True)
-        self.assertIn("KARKAAR-ARMY still holds 1", text)
-        self.assertTrue(OU.objects.get(code="KARKAAR-ARMY").active)
-        from apps.personnel.models import Personnel
-        Personnel.objects.filter(org_unit__code="KARKAAR-ARMY").update(status="retired")
-        self.run_cmd(apply=True)
-        self.assertFalse(OU.objects.get(code="KARKAAR-ARMY").active)
 
     def test_only_the_army_may_have_a_command_directly_under_headquarters(self):
         hq = OU.objects.get(level="headquarters")
         army = ServiceBranch.objects.get(code="ARMY")
         self.assertEqual(check_placement("branch_command", hq, army), army)
-        for branch in (ServiceBranch.objects.get(code="NAVY"),):
+        for branch in (ServiceBranch.objects.get(code="OTHER"),):
             with self.assertRaises(PlacementError) as cm:
                 check_placement("branch_command", hq, branch)
             self.assertEqual(cm.exception.code, "branch_parent_must_be_region")
@@ -101,7 +91,6 @@ class ArmyStructureTests(TemplateBase):
             urur = OU.objects.get(code=f"{region}-ARMY-G1-U1")
             self.assertEqual((guuto.unit_type.code, guuto.parent.code, guuto.branch.code, guuto.level), ("GUUTO", f"{region}-ARMY", "ARMY", "unit"))
             self.assertEqual((urur.unit_type.code, urur.parent.code, urur.branch.code), ("URUR", f"{region}-ARMY-G1", "ARMY"))
-        self.assertFalse(OU.objects.filter(code__startswith="KARKAAR-ARMY-G").exists())  # Karkaar is within Bari
 
     def test_raising_the_numbers_later_only_adds_and_is_idempotent(self):
         self.run_cmd(apply=True)
@@ -184,6 +173,6 @@ class HealthStructureTests(TemplateBase):
         self.run_cmd(apply=True)
         self.assertEqual(OU.objects.count(), count)  # idempotent
 
-    def test_navy_and_police_get_no_health_units(self):
+    def test_other_branches_get_no_health_units(self):
         self.run_cmd(apply=True)
         self.assertFalse(OU.objects.filter(code__contains="HEALTH").exclude(code__endswith="-ARMY-HEALTH").exists())

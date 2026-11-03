@@ -26,11 +26,11 @@ class IntegrationBase(BaseApiTest):
         Rank.objects.filter(branch__code="ARMY", code="PA-03").update(approval_status="approved", name_so="x")
         self.rank = Rank.objects.get(branch__code="ARMY", code="PA-03")
         self.bari = OU.objects.create(code="BARI-ARMY-A", name_en="Bari A", level="unit", parent=self.unit("BARI-ARMY"))
-        self.karkaar = OU.objects.create(code="KARKAAR-ARMY-A", name_en="Karkaar A", level="unit", parent=self.unit("KARKAAR-ARMY"))
+        self.nugaal = OU.objects.create(code="NUGAAL-ARMY-A", name_en="Nugaal A", level="unit", parent=self.unit("NUGAAL-ARMY"))
         for i in range(7):
             self.person(f"Bari {i}", self.bari)
         for i in range(2):
-            self.person(f"Karkaar {i}", self.karkaar)
+            self.person(f"Nugaal {i}", self.nugaal)
 
     def person(self, name, unit):
         return pers.create_personnel(None, full_name=name, phone="", service_number=None, org_unit=unit, rank=self.rank,
@@ -195,7 +195,7 @@ class ExternalApiTests(IntegrationBase):
         self.assertEqual(r.status_code, 200, r.content)
         self.assertEqual(r.json()["data"]["by_status"]["total"], 7)
         with override_settings(INTEGRATION_ALLOW_UNIT_FILTER=True):
-            other = self.machine(data["key"]).get(f"{EXT}analytics/personnel/?unit={self.karkaar.pk}")
+            other = self.machine(data["key"]).get(f"{EXT}analytics/personnel/?unit={self.nugaal.pk}")
             inside = self.machine(data["key"]).get(f"{EXT}analytics/personnel/?unit={self.bari.pk}")
         self.assertEqual((other.status_code, inside.status_code), (404, 200))
 
@@ -228,13 +228,13 @@ class ExternalApiTests(IntegrationBase):
 
     def test_small_cells_are_withheld(self):
         a = self.admin()
-        karkaar = self.make_client(admin=a, org_unit=str(self.unit("KARKAAR").pk))  # only 2 people
-        d = self.machine(karkaar["key"]).get(EXT + "analytics/personnel/").json()["data"]
+        nugaal = self.make_client(admin=a, org_unit=str(self.unit("NUGAAL").pk))  # only 2 people
+        d = self.machine(nugaal["key"]).get(EXT + "analytics/personnel/").json()["data"]
         self.assertIsNone(d["by_status"]["total"])
         self.assertTrue(d["by_status"]["suppressed"])
         self.assertIsNone(d["by_status"]["rows"][0]["count"])
         with override_settings(INTEGRATION_MIN_CELL=1):
-            d = self.machine(karkaar["key"]).get(EXT + "analytics/personnel/").json()["data"]
+            d = self.machine(nugaal["key"]).get(EXT + "analytics/personnel/").json()["data"]
         self.assertEqual(d["by_status"]["total"], 2)
 
     def test_expired_revoked_and_disabled_keys(self):

@@ -58,11 +58,11 @@ class TemplateBase(BaseApiTest):
 class SeededReferenceTests(TemplateBase):
     def test_regions_and_regional_army_commands(self):
         self.assertEqual(set(OU.objects.filter(level="region").values_list("name_en", flat=True)),
-                         {"Bari", "Karkaar", "Nugaal", "Mudug"})
+                         {"Bari", "Nugaal", "Mudug"})
         tg = OU.objects.filter(unit_type__code="TALISKA_GUUD")
-        self.assertEqual({u.code for u in tg}, {"BARI-ARMY", "KARKAAR-ARMY", "NUGAAL-ARMY", "MUDUG-ARMY"})
+        self.assertEqual({u.code for u in tg}, {"BARI-ARMY", "NUGAAL-ARMY", "MUDUG-ARMY"})
         self.assertTrue(all(u.level == "branch_command" and u.branch.code == "ARMY" for u in tg))
-        self.assertFalse(OU.objects.filter(branch__code__in=["NAVY"], unit_type__isnull=False).exists())
+        self.assertFalse(OU.objects.filter(branch__code__in=["OTHER"], unit_type__isnull=False).exists())
 
     def test_template_levels_and_reference_strengths(self):
         rows = [(t.code, t.tier, t.parent_type.code if t.parent_type else None, t.reference_min, t.reference_max,
@@ -130,9 +130,9 @@ class RankReplacementTests(TemplateBase):
         self.assertEqual(r.status_code, 400)
         self.assertIn("rank_inactive", self.codes(r, "rank"))
 
-    def test_navy_and_police_ranks_are_untouched(self):
-        navy = ServiceBranch.objects.get(code="NAVY")
-        r = Rank.objects.create(branch=navy, category="enlisted", code="N-1", name_en="Seaman", sort_order=1)
+    def test_other_branch_ranks_are_untouched(self):
+        other = ServiceBranch.objects.get(code="OTHER")
+        r = Rank.objects.create(branch=other, category="enlisted", code="X-1", name_en="Other rank", sort_order=1)
         apply_official_ranks(Rank, Personnel, ServiceBranch.objects.get(code="ARMY"), timezone.now())
         r.refresh_from_db()
         self.assertTrue(r.active)

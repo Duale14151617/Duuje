@@ -51,7 +51,7 @@ SAMPLE_USERS.setdefault("president", ("President / Commander-in-Chief", "command
 SAMPLE_USERS.setdefault("commander", ("Commander of the Puntland Defense Forces", "command_authority", "HQ", None))
 
 # The other regions get the same regional set Bari has (chief, branch admin, unit admin, reporter, custodians, trainer).
-OTHER_REGIONS = ("Karkaar", "Nugaal", "Mudug")
+OTHER_REGIONS = ("Nugaal", "Mudug")
 for _name in OTHER_REGIONS:
     _r, _k = _name.upper(), _name.lower()
     SAMPLE_USERS.setdefault(f"{_k}.chief", (f"{_name} Chief", "regional_chief", _r, None))
@@ -64,14 +64,14 @@ for _name in OTHER_REGIONS:
 
 
 # Health Department of each Army regional command: a head who manages the department's people, and a reporting officer.
-for _name in ("Bari", "Nugaal", "Mudug", "Sanaag"):  # the four Army regional commands (Karkaar is within Bari)
+for _name in ("Bari", "Nugaal", "Mudug", "Sanaag"):  # the four Army regional commands
     _r = _name.upper()
     SAMPLE_USERS.setdefault(f"{_name.lower()}.health", (f"{_name} Health Department Head", "unit_admin", f"{_r}-ARMY-HEALTH", None))
     SAMPLE_USERS.setdefault(f"{_name.lower()}.healthofficer", (f"{_name} Health Reporting Officer", "reporting_officer", f"{_r}-ARMY-HEALTH", None))
 
 # Regional finance pays that region's SALARIES (headquarters prepares and approves the monthly run). Four accounts per Army regional command, one
 # per step so nobody approves their own work: prepare, authorize, send (outside the system) and reconcile. Roles are assigned at the command.
-# A read-only auditor sits at the first battalion (Urur) of each command. Karkaar is within Bari.
+# A read-only auditor sits at the first battalion (Urur) of each command.
 for _name in ("Bari", "Nugaal", "Mudug", "Sanaag"):
     _k, _r = _name.lower(), _name.upper()
     SAMPLE_USERS.setdefault(f"{_k}.fin.prepare", (f"{_name} Finance: Prepare Payments", "payroll_officer", f"{_r}-ARMY", None))
@@ -90,7 +90,7 @@ SAMPLE_USERS.setdefault("survivor.verifier", ("Survivor-Benefit Verifier", "surv
 for _name in ("Bari", "Nugaal", "Mudug", "Sanaag"):
     SAMPLE_USERS.setdefault(f"{_name.lower()}.regcommander", (f"{_name} Regional Commander (Taliye Qaybeed)", "regional_commander", f"{_name.upper()}-ARMY", None))
 
-# One weapons custodian per Army regional command (Karkaar is within Bari): register, issue and take back weapons in that region only.
+# One weapons custodian per Army regional command: register, issue and take back weapons in that region only.
 for _name in ("Bari", "Nugaal", "Mudug", "Sanaag"):
     SAMPLE_USERS.setdefault(f"{_name.lower()}.weapons", (f"{_name} Weapons Custodian", "weapons_custodian", f"{_name.upper()}-ARMY", None))
 

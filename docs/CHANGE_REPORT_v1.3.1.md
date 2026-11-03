@@ -6,7 +6,7 @@ Two small fixes outside the addendum were unavoidable and are listed explicitly 
 ## What was added
 1. **Official Army ranks.** The 16 ranks, in the supplied order and spelling, are stored in the `ranks` table (managed
    through the existing Ranks page/API with its approval workflow and audit). The provisional US-style list is retired.
-2. **Regional commands.** Bari, Karkaar, Nugaal and Mudug already existed. Each region's Army branch command is now typed
+2. **Regional commands.** Bari, Nugaal and Mudug already existed. Each region's Army branch command is now typed
    **Taliska Guud**.
 3. **Hierarchy and reference strengths.** Unit types Taliska Guud, Qayb (6,000–7,000), Gaas (3,500; two per Qayb),
    Guuto (900–1,001), Urur (320–330), Horin (99), Koox (33), Unug (9) are database rows. Figures are reference only: no

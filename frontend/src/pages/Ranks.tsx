@@ -6,7 +6,7 @@ import { useAuth } from "../auth/AuthContext";
 import { Chip, ErrorNotice, Field, Loading, Notice } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
 
-const CATEGORIES = ["enlisted", "warrant", "officer", "unspecified"]; // the Police classes (general/senior/junior officer, inspector, nco, askari) are no longer offered
+const CATEGORIES = ["enlisted", "warrant", "officer", "unspecified"];
 
 function RankEditor({ rank, onDone }: { rank: Rank; onDone: () => void }) {
   const { t } = useI18n();

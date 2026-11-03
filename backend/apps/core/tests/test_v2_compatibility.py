@@ -106,7 +106,7 @@ class RoleCompatibilityTests(BaseApiTest):
         have = set(Role.objects.get(code="hq_admin").permissions.values_list("code", flat=True))
         sensitive = ("personnel.", "changes.approve", "reports.view", "reports.submit", "reports.review", "reports.summary", "logistics.view",
                      "logistics.manage", "logistics.restricted", "training.view", "training.manage", "analytics.", "org.structure_approve",
-                     "disciplinary.", "documents.", "reports.combined", "search.", "cid.")
+                     "disciplinary.", "documents.", "reports.combined", "search.", "restricted.")
         self.assertFalse([c for c in have if c.startswith(sensitive)])
         self.assertTrue({"integrations.view", "integrations.manage", "org.structure_propose"} <= have)
         self.assertNotIn("org.structure_approve", have)  # approving a structure change is a separate duty
@@ -123,7 +123,7 @@ class RouteCompatibilityTests(BaseApiTest):
         added = now - {tuple(r) for r in V14_ROUTES}
         self.assertEqual(added, {("analytics", "analytics"), ("integrations/clients", "integration-client"),
                                  ("organization/structure-changes", "structure-change"), ("organization/change-requests", "change-request"), ("operations/tasks", "unit-task"), ("logistics/suppliers", "food-supplier"), ("logistics/food/receipts", "food-receipt"), ("logistics/food/allocations", "food-allocation"), ("logistics/food/warnings", "food-warning"), ("logistics/food/options", "food-options"),
-                                 ("reports/combined", "report-combined"),  # combined Army and Navy report
+                                 ("reports/combined", "report-combined"),  # combined Army report
                                  ("attendance", "attendance"), ("weapons", "weapons"), ("vehicles", "vehicle"), ("logistics/ammunition", "ammunition"),
                                  ("survivor-cases", "survivor-case"), ("payroll/profiles", "payroll-profile"),
                                  ("payroll/runs", "payroll-run"), ("payroll/personnel", "payroll-personnel"),
@@ -150,10 +150,10 @@ class RouteCompatibilityTests(BaseApiTest):
         self.assertFalse(settings.INTEGRATIONS_ENABLED)
 
 
-V2_ADDED_MIGRATIONS = {  # migrations added to existing apps after v1.4 (2.0 structure changes, then the Police module)
+V2_ADDED_MIGRATIONS = {  # migrations added to existing apps after v1.4 (2.0 structure changes)
     "organization": ["0004_structure_change", "0005_unit_restricted", "0006_station_level",
-                     "0007_change_request", "0008_change_request_kinds", "0009_change_request_batch"],
-    "ranks": ["0004_add_command_ranks", "0005_police_rank_categories"],
+                     "0007_change_request", "0008_change_request_kinds", "0009_change_request_batch", "0011_remove_station_level"],
+    "ranks": ["0004_add_command_ranks", "0005_police_rank_categories", "0006_army_rank_categories"],
     "personnel": ["0003_personnelprofile", "0004_disciplinary_and_documents", "0005_supervisor_and_account",
                   "0006_death_record_and_statuses", "0007_command_appointments", "0008_attendance_support_category",
                   "0009_unit_tasks"],

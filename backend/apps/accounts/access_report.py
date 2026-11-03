@@ -11,7 +11,7 @@ from .models import Role, RoleAssignment, User
 
 AREAS = {  # permission prefix -> readable area
     "dashboard": "Dashboard", "org": "Organization", "ranks": "Ranks", "personnel": "Personnel", "reports": "Reports",
-    "training": "Training", "logistics": "Logistics", "analytics": "Analytics", "cid": "CID", "disciplinary": "Disciplinary",
+    "training": "Training", "logistics": "Logistics", "analytics": "Analytics", "restricted": "Restricted units", "disciplinary": "Disciplinary",
     "documents": "Documents", "payroll": "Payroll", "survivor": "Survivor benefits", "payment": "Payments", "arrears": "Arrears",
     "weapons": "Weapons", "attendance": "Attendance", "users": "Users and roles", "audit": "Audit log",
     "search": "Cross-service search", "integrations": "Integrations", "system": "System", "roles": "Roles",
@@ -48,8 +48,8 @@ def scope_of(a):
 
 def notes_for(perms, a):
     out = []
-    if "cid.access" in perms:
-        out.append("can reach restricted CID records")
+    if "restricted.access" in perms:
+        out.append("can reach restricted records")
     if "system.full_access" in perms:
         out.append("maintenance override: not hidden by module switches")
     if a.role.is_privileged:

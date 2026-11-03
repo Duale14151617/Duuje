@@ -11,14 +11,14 @@ class ScopeTests(BaseApiTest):
     def test_global_user_sees_whole_tree(self):
         c = self.client_for(self.make_user("hqr", "hq_reporting"))
         r = c.get("/api/v1/organization/units/?page_size=100")
-        self.assertEqual(r.data["count"], 1 + 4 + 8)  # headquarters, 4 regions, Army and Navy command in each
+        self.assertEqual(r.data["count"], 1 + 3 + 6)  # headquarters, 3 regions, Army and test-fixture command in each
 
     def test_regional_chief_is_confined_to_own_region(self):
         c = self.client_for(self.make_user("bari", "regional_chief", unit="BARI"))
         r = c.get("/api/v1/organization/units/?page_size=100")
         codes = self.codes_in(r)
         self.assertIn("BARI-ARMY", codes)
-        self.assertFalse({"NUGAAL", "NUGAAL-ARMY", "HQ", "MUDUG-NAVY"} & codes)
+        self.assertFalse({"NUGAAL", "NUGAAL-ARMY", "HQ", "MUDUG-OTHER"} & codes)
 
     def test_direct_lookup_and_edit_outside_scope_is_404(self):
         c = self.client_for(self.make_user("bari", "regional_chief", unit="BARI"))
@@ -38,8 +38,8 @@ class ScopeTests(BaseApiTest):
         c = self.client_for(self.make_user("armyadm", "branch_admin", unit="BARI", branch="ARMY"))
         codes = self.codes_in(c.get("/api/v1/organization/units/?page_size=100"))
         self.assertEqual(codes, {"BARI-ARMY"})
-        navy = self.unit("BARI-NAVY")
-        self.assertEqual(c.get(f"/api/v1/organization/units/{navy.pk}/").status_code, 404)
+        other = self.unit("BARI-OTHER")
+        self.assertEqual(c.get(f"/api/v1/organization/units/{other.pk}/").status_code, 404)
 
     def test_branch_admin_can_create_in_scope_but_not_outside(self):
         c = self.client_for(self.make_user("armyadm", "branch_admin", unit="BARI", branch="ARMY"))
@@ -48,7 +48,7 @@ class ScopeTests(BaseApiTest):
         r = c.post("/api/v1/organization/units/", body, format="json")
         self.assertEqual(r.status_code, 201, r.data)
         self.assertEqual(r.data["code"], "BARI-ARMY-U1")
-        for parent in ("BARI-NAVY", "NUGAAL-ARMY"):
+        for parent in ("BARI-OTHER", "NUGAAL-ARMY"):
             bad = c.post("/api/v1/organization/units/", {**body, "code": "X1", "parent": str(self.unit(parent).pk)},
                          format="json")
             self.assertEqual(bad.status_code, 400, parent)
@@ -69,7 +69,7 @@ class ScopeTests(BaseApiTest):
 
     def test_scope_engine_rules(self):
         chief = self.make_user("bari", "regional_chief", unit="BARI")
-        self.assertTrue(scope.can(chief, "org.view", unit=self.unit("BARI-NAVY")))
+        self.assertTrue(scope.can(chief, "org.view", unit=self.unit("BARI-OTHER")))
         self.assertFalse(scope.can(chief, "org.view", unit=self.unit("MUDUG")))
         self.assertFalse(scope.can(chief, "org.view"))  # no global grant
         self.assertFalse(scope.can(chief, "org.manage", unit=self.unit("BARI")))  # role lacks permission
@@ -80,7 +80,7 @@ class ScopeTests(BaseApiTest):
         user = self.make_user("hqarmy", "hq_reporting", unit="HQ", branch="ARMY")
         self.assertFalse(scope.can(user, "org.view"))
         self.assertTrue(scope.can(user, "org.view", unit=self.unit("MUDUG-ARMY")))
-        self.assertFalse(scope.can(user, "org.view", unit=self.unit("MUDUG-NAVY")))
+        self.assertFalse(scope.can(user, "org.view", unit=self.unit("MUDUG-OTHER")))
 
     def test_expired_assignment_grants_nothing(self):
         from datetime import date, timedelta

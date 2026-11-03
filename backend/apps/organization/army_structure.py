@@ -1,14 +1,14 @@
 """Army organizational structure as supplied by army personnel (meeting requirements, section 3). ARMY ONLY.
 
 Everything is DATA in the existing tables (units, unit types), created through the existing placement rules, so it stays
-configurable and can be restructured later with the normal tools. Navy units are never read or written here.
+configurable and can be restructured later with the normal tools.
 
 Shape created:
     System HQ
       Army Headquarters "Taliska Guud"         (Army branch command directly under the system HQ)
         Hogganka Ciidanka / Maaliyadda / Taakulada / Howlgelinta / Isgaarsiinta / Caafimaadka / Gaadiidka   (directorates)
       Regional commands "Qaybta ..." (Army branch command of each region, type Qayb)
-        Mudug & Cayn, Nugaal & Sool, Bari (Karkaar is within Bari), Sanaag
+        Mudug & Cayn, Nugaal & Sool, Bari, Sanaag
         Every regional command also gets Guuto (brigade) and Urur (battalion) units: one Guuto per command and one Urur per Guuto by
         default, raised later with `apply_army_structure --apply --guuto-per-command N --urur-per-guuto M` (additive: it only ever
         creates what is missing, never deletes or renames), or by authorized users with the normal unit tools.
@@ -194,18 +194,4 @@ def apply(OU, UnitType, ServiceBranch, Personnel, dry_run=True, guuto_per_comman
             if not dry_run:
                 OU.objects.create(code=mcode, name_so=f"Koox Caafimaad ({koox.name_so})", name_en=f"Medical team (Koox Caafimaad), {koox.name_en}",
                                   level="unit", parent=koox, unit_type=types.get("KOOX_MED"))
-
-    # Karkaar is within Bari: the Army has no separate Karkaar command. Retired only when nothing is left in it.
-    karkaar = OU.objects.filter(code="KARKAAR-ARMY", branch=army, active=True).first()
-    if karkaar is not None:
-        people = Personnel.objects.filter(org_unit__path__startswith=karkaar.path).exclude(
-            status__in=["retired", "discharged", "died"]).count()
-        kids = OU.objects.filter(parent=karkaar, active=True).count()
-        if people or kids:
-            out.append(("blocked", f"KARKAAR-ARMY still holds {people} serving personnel and {kids} active units; "
-                                   "transfer them into Qaybta Bari with the normal transfer tools, then run this again."))
-        else:
-            out.append(("deactivate_unit", "KARKAAR-ARMY"))
-            if not dry_run:
-                _bump(OU, karkaar.pk, active=False)
     return out

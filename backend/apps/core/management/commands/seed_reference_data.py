@@ -96,13 +96,13 @@ PERMISSIONS = {
     "integrations.manage": "Create, change, rotate and revoke integration clients (headquarters)",
     "org.structure_propose": "Propose and submit changes to organizational levels and strength standards (headquarters)",
     "org.structure_approve": "Approve or reject proposed structure changes (headquarters); cannot approve one's own proposal",
-    "search.cross_service": "Search personnel across all services (Army and Navy) within the records the user is otherwise allowed to see",
+    "search.cross_service": "Search personnel across all Army units within the records the user is otherwise allowed to see",
     "disciplinary.view": "View a person's disciplinary history in scope (encrypted, every view is audited)",
     "disciplinary.manage": "Add disciplinary entries and corrections in scope (entries are append-only)",
     "documents.view": "List and download service documents on personnel files in scope (every access is audited)",
     "documents.manage": "Upload and withdraw service documents on personnel files in scope",
-    "reports.combined": "See combined Army and Navy summaries (headquarters-wide; command authority). Aggregates only",
-    "cid.access": "Reach personnel records inside restricted units. Never implied by any other permission",
+    "reports.combined": "See combined Army summaries (headquarters-wide; command authority). Aggregates only",
+    "restricted.access": "Reach personnel records inside restricted units. Never implied by any other permission",
     "tasks.view": "View administrative tasks of units in scope",
     "tasks.manage": "Record, assign, start, complete and cancel administrative tasks of units in scope (headquarters administrators and super administrator)",
     "changes.propose": "Propose hierarchy-affecting changes (personnel transfers) with the Army order that authorizes them (headquarters); nothing applies until the super administrator approves",
@@ -115,7 +115,7 @@ PERMISSIONS = {
 SENSITIVE_PREFIXES = ("personnel.", "reports.view", "reports.submit", "reports.review", "reports.summary", "reports.export",
                       "logistics.view", "logistics.manage", "logistics.restricted", "logistics.reconcile",
                       "logistics.report", "logistics.approve", "training.view", "training.manage", "training.report", "analytics.",
-                      "org.structure_approve", "cid.", "search.", "disciplinary.", "documents.", "reports.combined", "attendance.", "weapons.", "vehicles.", "payroll.", "survivor.", "payment.", "arrears.", "changes.approve", "system.")
+                      "org.structure_approve", "restricted.", "search.", "disciplinary.", "documents.", "reports.combined", "attendance.", "weapons.", "vehicles.", "payroll.", "survivor.", "payment.", "arrears.", "changes.approve", "system.")
 # The headquarters administrator does the everyday work of the system (people, units, reports, stock, weapons, vehicles, training,
 # attendance, payroll preparation, accounts), because most of the force cannot run it themselves. What it can never hold is the
 # authority to APPROVE or to override: anything that would shift control away from the super administrator is reserved here.
@@ -128,7 +128,7 @@ HQ_ADMIN_RESERVED = frozenset({
     "payroll.approve", "payroll.decide", "payroll.policy_confirm", "arrears.approve", "survivor.verify", "survivor.approve",
     "payment.prepare", "payment.authorize", "payment.execute", "payment.reconcile", "payment.details",   # money movement
     "personnel.confirm_death",                                             # confirming a death changes status to Died
-    "cid.access", "search.cross_service", "reports.combined",              # restricted units and command-level views
+    "restricted.access", "search.cross_service", "reports.combined",              # restricted units and command-level views
     "disciplinary.view", "disciplinary.manage",                            # disciplinary history stays with branch administrators
     "integrations.manage",                                                 # API clients are a back door if misused
 })
@@ -155,7 +155,7 @@ ROLES = {
     "branch_admin": ("Branch administrator", "Maamulaha laanta", True, True, ["region", "branch_command"],
                      BASIC + ["org.manage", "personnel.view", "personnel.manage", "personnel.import", "reports.view",
                       "reports.submit", "reports.review", "reports.summary"]),
-    "unit_admin": ("Unit administrator", "Maamulaha cutubka", True, False, ["unit", "branch_command", "station"],
+    "unit_admin": ("Unit administrator", "Maamulaha cutubka", True, False, ["unit", "branch_command"],
                    BASIC + ["org.manage", "personnel.view", "personnel.manage", "reports.view", "reports.submit"]),
     "reporting_officer": ("Reporting officer", "Sarkaalka warbixinta", False, False, [],
                           BASIC + ["personnel.view", "reports.view", "reports.submit"]),
@@ -173,7 +173,7 @@ ROLES = {
                            ["dashboard.view", "org.view", "org.structure_approve"]),
     # The two highest command appointments (President / Commander-in-Chief; Commander of the Puntland Defense Forces) are
     # ranks in the Army catalogue; ACCESS is by role, so assign this role to those two people. Read-only oversight, HQ-wide,
-    # across the services. Deliberately has no cid.access.
+    # across the services. Deliberately has no restricted.access.
     "command_authority": ("Command authority", "Awoodda taliska", True, False, ["headquarters"],
                           BASIC + ["personnel.view", "reports.view", "reports.summary", "analytics.view",
                           "search.cross_service"]),
@@ -193,7 +193,7 @@ ROLES = {
     # Taliye Guuto / Taliye Urur: record attendance for their unit and below, and make the unit situation report (attendance,
     # personnel status, ammunition issued and remaining). Assigned per unit; link it to the command appointment so that it ends with it.
     "unit_commander": ("Unit commander (Taliye Guuto / Taliye Urur)", "Taliyaha cutubka (Taliye Guuto / Taliye Urur)", False, False,
-                       ["unit", "station"], BASIC + ["personnel.view", "attendance.view", "attendance.record", "reports.view", "reports.submit",
+                       ["unit"], BASIC + ["personnel.view", "attendance.view", "attendance.record", "reports.view", "reports.submit",
                                           "logistics.view", "logistics.restricted", "weapons.view", "vehicles.view"]),
     # Taliye Qaybeed: sees what the heads of the Guuto and Urur in the region have posted (reports, attendance, personnel). Assigned at the
     # regional command (a Qayb). View only: reviewing or approving the reports is a separate authority.
@@ -236,8 +236,8 @@ APPOINTMENT_TYPES = [
     ("TALIYE_URUR", "Taliye Urur", "Urur commander (Taliye Urur)", "URUR", True),
     ("ABAANDUULE", "Abaanduule", "Abaanduule (Battalion Executive Officer / Second-in-Command)", "URUR", False),
 ]
-BRANCHES = [("ARMY", "Army", "Ciidanka Dhulka"), ("NAVY", "Navy", "Ciidanka Badda")]
-REGIONS = ["Bari", "Karkaar", "Nugaal", "Mudug"]
+BRANCHES = [("ARMY", "Army", "Ciidanka Dhulka")]
+REGIONS = ["Bari", "Nugaal", "Mudug"]
 
 # Army ranks live in apps/ranks/catalogue.py (the 16 official Puntland Army ranks, as supplied).
 # The organizational template lives in apps/organization/reference.py.

@@ -36,9 +36,9 @@ history, documents and audit trail all stay.
 (`personnel.view_subordinate`). Supervisor and login link are fields on the personnel record, with one shared rulebook (same service, strictly senior, in
 the editor's reach, no loop, retired ranks never compared) and a bulk CSV tool.
 
-**Army structure (Army only, Police and Navy untouched).** `manage.py apply_army_structure` (dry run by default, idempotent, audited): Taliska Guud as an
+**Army structure (Army only).** `manage.py apply_army_structure` (dry run by default, idempotent, audited): Taliska Guud as an
 Army command under the system HQ, seven directorates (Hogganka Ciidanka, Maaliyadda, Taakulada, Howlgelinta, Isgaarsiinta, Caafimaadka, Gaadiidka), the
-regional commands Qaybta Mudug & Cayn, Nugaal & Sool, Bari, Sanaag (new region Sanaag; Karkaar is within Bari and is retired only when empty), and Urur office
+regional commands Qaybta Mudug & Cayn, Nugaal & Sool, Bari, Sanaag (new region Sanaag), and Urur office
 unit types. For **each of the four regional commands** (Mudug & Cayn, Nugaal & Sool, Bari, Sanaag) it also creates one Guuto (brigade, e.g. `BARI-ARMY-G1`) and one Urur (battalion, e.g. `BARI-ARMY-G1-U1`) each, and every Urur gets its five battalion sections as real units (`...-U1-OPS` Operations/Howlgelin, `-ADMIN` Administrative Office, `-FIN` Finance, `-SUPPLY` Logistics and Supply, `-MED` Medical Unit). Taliye Urur (commander) and Abaanduule (executive officer) are appointed on the Urur unit itself. To add more later run
 `apply_army_structure --apply --guuto-per-command N --urur-per-guuto M` (1 to 20; additive, never deletes or renames) or use the normal unit tools.
 

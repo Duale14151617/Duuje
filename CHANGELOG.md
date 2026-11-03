@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Police and Navy fully removed; Karkaar region removed.** The Police retirement command (`retire_police`), the Police gate and
+  `POLICE_MODULE_ENABLED` setting in the scope engine, the station unit level and the Police rank categories are gone. The restricted-unit
+  permission `cid.access` is now `restricted.access` (re-synced to roles by `seed_reference_data`). Two choices-only migrations
+  (`organization/0011`, `ranks/0006`) keep `makemigrations --check` clean. Old databases that still hold Police, Navy or Karkaar rows are
+  no longer filtered: deactivate or delete those rows by hand before upgrading.
+
 - **Stored sample labels renamed from DEMO to SAMPLE (no deletion).** New command `python manage.py rename_sample_data [--apply]` (dry run by default, idempotent) renames what the sample seed stored under the old labels: unit codes `*-ARMY-DEMO-A` -> `*-ARMY-SAMPLE-A`, service numbers `DEMO-0001` -> `SAMPLE-0001`, "Demo Person NN" names, asset identifiers and descriptions, weapon makes, custody authority references and sample account names. It runs at start-up before `seed_sample_data` (Dockerfile), so the seed finds the new labels and does not create duplicates; a row that would clash with an existing value is skipped and reported. Append-only records (stock and PPE movements, soldier rounds, history, audit) are never altered, so older entries there keep the old wording. The seed now writes the SAMPLE labels. New test `test_rename_sample_data.py`.
 - **Code-level "demo" names renamed to "sample" / "preview" (existing Render deployment keeps working).** Command `seed_demo_data` is now `seed_sample_data`; environment variables are `ARMYHQ_SAMPLE_MODE`, `ARMYHQ_SAMPLE_PASSWORD` and `ARMYHQ_SAMPLE_RESET`, and **the old `ARMYHQ_DEMO_*` names still work** (the new name wins if both are set), so no change is needed in the Render dashboard. Frontend: `npm run build:preview`, `VITE_PREVIEW`, `.env.preview`, `src/preview/`, `DEMO_SCRIPT.md` is now `PRESENTATION_SCRIPT.md`, and the interface text keys are `preview.banner`, `dash.sampleBanner`, `dash.sampleTitle`, `common.sampleBuild`. Deliberately NOT renamed: the Render resource and database names in `render.yaml` (a Blueprint rename would create a new service and an empty database), and data already stored by the seeds (unit codes `*-ARMY-DEMO-A`, service numbers `DEMO-0001`, asset identifiers `DEMO-...`), which would need a data migration.
 - **"Pilot" and "demo" wording removed from the product text.** The login and app footers, README, deployment guides and the dashboard/preview notices now describe a fully functional system deployed on Render (still on synthetic data until the Army approves real records). Deliberately unchanged because renaming them would break the running Render deployment or the code: environment variables (`ARMYHQ_DEMO_MODE`, `ARMYHQ_DEMO_PASSWORD`), the `seed_demo_data` command, `render.yaml` resource names (`armyhq-demo`, `armyhq-demo-db`), the `build:demo` script and `VITE_DEMO` flag, and past changelog entries.
@@ -151,13 +157,12 @@
 - Tests: `attendance/tests/test_attendance.py`. Not run at time of writing (no Django here).
 
 ## Unreleased: Army organizational structure and command appointments (requirements step 2)
-- **Army only.** The Police and Navy structures are not read or changed. Death and statuses (step 1) still apply to all personnel.
+- **Army only.** The Police structure is not read or changed. Death and statuses (step 1) still apply to all personnel.
 - Structure as data: `manage.py apply_army_structure` (dry run by default, `--apply` to write, idempotent, audited). It creates the Army
   headquarters **Taliska Guud** (an Army command directly under the system HQ), the seven directorates (Hogganka Ciidanka, Maaliyadda,
   Taakulada, Howlgelinta, Isgaarsiinta, Caafimaadka, Gaadiidka), turns the Army regional commands into **Qaybta Mudug & Cayn, Nugaal & Sool,
   Bari, Sanaag** (new region Sanaag), and adds Urur office unit types (Howlgelin, Xafiiska Ururka, Maamulka Lacagta, Saadka, Xubinta
-  Caafimaadka). Karkaar is within Bari: `KARKAAR-ARMY` is retired only when nothing serving is left in it, otherwise the command reports
-  what to transfer first. Demo deployments apply it automatically from `seed_demo_data`; a real deployment runs it deliberately.
+  Caafimaadka). Demo deployments apply it automatically from `seed_demo_data`; a real deployment runs it deliberately.
 - Placement: only the Army may have a command directly under the headquarters; a Qayb may be a regional command (branch-command level).
   One existing test that asserted the old rule was updated.
 - Command appointments (`AppointmentType`, `CommandAppointment`, migration personnel 0007): Taliye Qaybeed, Taliye Guuto, Taliye Urur,

@@ -63,7 +63,7 @@ def _scoped(user, code):
 def _team(user):
     """Rows a `personnel.view_team` holder may see: their own record plus the people who report directly to them.
 
-    The assignment's unit/branch limits and the Police / CID gates still apply (same engine as every other read), so a
+    The assignment's unit/branch limits and the restricted-unit gate still apply (same engine as every other read), so a
     member can never reach a record their assignment could not reach. Nobody is found when the account is not linked to a
     personnel record: no link, no access."""
     q = scope.unit_scope_q(user, "personnel.view_team", "org_unit__")
@@ -561,11 +561,11 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
                    metadata={"document": str(doc.pk)})
         return Response({"withdrawn": True})
 
-    # --- cross-service search (Army + Police in one query) -------------------------------------------------
+    # --- cross-service search (all services in one query) -------------------------------------------------
     @action(detail=False, methods=["get"], url_path="search")
     def cross_search(self, request):
         """One database query over every service. Needs `search.cross_service`, and still returns only people the caller may
-        see: the personnel scope (branch limits, Police gate, restricted CID units) is applied to the same queryset, so a
+        see: the personnel scope (branch limits, restricted units) is applied to the same queryset, so a
         user can never find a record here that the personnel list would hide."""
         text = (request.query_params.get("q") or "").strip()
         if len(text) < 2:

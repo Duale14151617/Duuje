@@ -12,8 +12,8 @@ class RankSwapTests(BaseApiTest):
         super().setUp()
         self.admin = self.client_for(self.make_user("rankmgr", "super_admin"))
         self.pol = {r.code: r for r in Rank.objects.filter(branch__code="ARMY")}  # Army ranks PA-01...PA-18, in order of precedence
-        self.army = Rank.objects.create(branch=ServiceBranch.objects.get(code="NAVY"), category="enlisted", code="N-1",
-                                        name_en="Seaman", sort_order=1)  # a rank of another branch
+        self.army = Rank.objects.create(branch=ServiceBranch.objects.get(code="OTHER"), category="enlisted", code="X-1",
+                                        name_en="Other rank", sort_order=1)  # a rank of another branch
 
     def swap(self, c, a, b):
         return c.post(URL + "swap/", {"first": str(a.pk), "second": str(b.pk)}, format="json")

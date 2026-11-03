@@ -30,7 +30,7 @@ from apps.personnel.models import Personnel, PersonnelHistory, PersonnelProfile
 from apps.ranks.models import Rank
 
 PREFIX = "TST-"
-REGIONS = ("BARI", "KARKAAR", "NUGAAL", "MUDUG")
+REGIONS = ("BARI", "NUGAAL", "MUDUG")
 
 MALE = ["Abdirahman", "Abdullahi", "Abdiweli", "Abdikarim", "Abdinasir", "Abdisalam", "Abdulkadir", "Abshir", "Ahmed", "Ali",
         "Bashir", "Barre", "Dahir", "Elmi", "Farah", "Fuad", "Guled", "Hassan", "Hersi", "Hussein", "Ibrahim",
@@ -82,7 +82,7 @@ def _units():
 
 
 def _placeholder_photo(rng):
-    """Neutral silhouette on a navy backdrop (clearly not a real face) at the app's 360x450 portrait size."""
+    """Neutral silhouette on a dark blue backdrop (clearly not a real face) at the app's 360x450 portrait size."""
     w, h = profile_svc.PHOTO_SIZE
     img = Image.new("RGB", (w, h), rng.choice(BACKDROPS))
     d = ImageDraw.Draw(img)

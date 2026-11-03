@@ -20,13 +20,13 @@ class PersonnelBase(BaseApiTest):
     @classmethod
     def setUpTestData(cls):
         super().setUpTestData()
-        army, navy = ServiceBranch.objects.get(code="ARMY"), ServiceBranch.objects.get(code="NAVY")
+        army, other = ServiceBranch.objects.get(code="ARMY"), ServiceBranch.objects.get(code="OTHER")
         # PA-04 stays a draft so the "rank not approved" rules can be exercised; the others are approved officially.
         Rank.objects.filter(branch=army, code="PA-04").update(approval_status="draft")
-        Rank.objects.create(branch=navy, category="enlisted", code="N-1", name_en="Seaman", name_so="x",
+        Rank.objects.create(branch=other, category="enlisted", code="X-1", name_en="Other rank", name_so="x",
                             approval_status="approved", sort_order=1)
         for code, parent in (("BARI-ARMY-A", "BARI-ARMY"), ("BARI-ARMY-B", "BARI-ARMY"),
-                             ("NUGAAL-ARMY-A", "NUGAAL-ARMY"), ("BARI-NAVY-A", "BARI-NAVY")):
+                             ("NUGAAL-ARMY-A", "NUGAAL-ARMY"), ("BARI-OTHER-A", "BARI-OTHER")):
             OU.objects.create(code=code, name_en=code.title(), level="unit", parent=OU.objects.get(code=parent))
 
     def rank(self, code, branch="ARMY"):
@@ -62,10 +62,10 @@ class AccessTests(PersonnelBase):
 
     def test_lists_are_limited_to_scope(self):
         self.person("BARI-ARMY-A", "Bari Army Person")
-        self.person("BARI-NAVY-A", "Bari Navy Person", rank="N-1", branch="NAVY")
+        self.person("BARI-OTHER-A", "Bari Other Person", rank="X-1", branch="OTHER")
         self.person("NUGAAL-ARMY-A", "Nugaal Army Person")
         names = lambda r: {p["full_name"] for p in r.data["results"]}
-        self.assertEqual(names(self.chief("BARI").get(URL)), {"Bari Army Person", "Bari Navy Person"})
+        self.assertEqual(names(self.chief("BARI").get(URL)), {"Bari Army Person", "Bari Other Person"})
         self.assertEqual(names(self.manager().get(URL)), {"Bari Army Person"})
         self.assertEqual(names(self.chief("NUGAAL").get(URL)), {"Nugaal Army Person"})
 
@@ -120,13 +120,13 @@ class CreateAndRuleTests(PersonnelBase):
         r = self.manager().post(URL, self.body(unit="NUGAAL-ARMY-A"), format="json")
         self.assertEqual(r.status_code, 400)
         self.assertIn("out_of_scope", self.codes(r, "org_unit"))
-        r = self.manager().post(URL, self.body(unit="BARI-NAVY-A"), format="json")  # other branch, same region
+        r = self.manager().post(URL, self.body(unit="BARI-OTHER-A"), format="json")  # other branch, same region
         self.assertIn("out_of_scope", self.codes(r, "org_unit"))
 
     def test_invalid_rank_branch_combinations(self):
         c = self.manager()
-        navy_rank = str(self.rank("N-1", "NAVY").pk)
-        self.assertIn("rank_branch_mismatch", self.codes(c.post(URL, self.body(rank=navy_rank), format="json"), "rank"))
+        other_rank = str(self.rank("X-1", "OTHER").pk)
+        self.assertIn("rank_branch_mismatch", self.codes(c.post(URL, self.body(rank=other_rank), format="json"), "rank"))
         draft = str(self.rank("PA-04").pk)
         self.assertIn("rank_not_approved", self.codes(c.post(URL, self.body(rank=draft), format="json"), "rank"))
         self.assertIn("unit_level_invalid", self.codes(
@@ -191,7 +191,7 @@ class UpdateAndHistoryTests(PersonnelBase):
         self.assertIn("future_date", self.codes(r, "effective_date"))
         r = c.post(f"{url}transfer/", {"org_unit": str(self.unit("NUGAAL-ARMY-A").pk), "version": 1}, format="json")
         self.assertIn("out_of_scope", self.codes(r, "org_unit"))
-        r = self.chief().post(f"{url}transfer/", {"org_unit": str(self.unit("BARI-NAVY-A").pk), "version": 1}, format="json")
+        r = self.chief().post(f"{url}transfer/", {"org_unit": str(self.unit("BARI-OTHER-A").pk), "version": 1}, format="json")
         self.assertIn("branch_change_not_supported", self.codes(r, "org_unit"))
         r = c.post(f"{url}change-rank/", {"rank": str(self.rank("PA-04").pk), "version": 1}, format="json")
         self.assertIn("rank_not_approved", self.codes(r, "rank"))

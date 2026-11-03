@@ -6,7 +6,7 @@ authoring environment (no network, no Django/npm packages). Run them first. Migr
 `makemigrations --check`.
 
 ## Limitations
-- Rank catalogue: the Army list is the 16 official ranks supplied in the 1.3.1 addendum (Navy/Police ranks are not seeded).
+- Rank catalogue: the Army list is the 16 official ranks supplied in the 1.3.1 addendum.
   The provisional US-style list was retired (see the 1.3.1 notes below).
 - Somali UI text is a draft and needs review by a qualified translator and institutional terminology owners.
 - Organization units cannot be moved/re-parented after creation (path-based scope). Deleting units is not supported (deactivate).
@@ -81,7 +81,7 @@ Hardening only (no new product modules). Read `docs/SECURITY.md` for findings, f
   personnel are ever created to fill vacancies. Actual strength counts personnel still in service (not retired or
   discharged) in the unit and everything below it, and is shown only where the viewer has personnel.view for that unit.
 - **"Taliska Guud" is modelled as the regional Army command** (the existing branch-command unit of the Army in each
-  region). Existing Army regional commands are tagged automatically; Navy and Police commands are not.
+  region). Existing Army regional commands are tagged automatically.
 - **Template is checked, never enforced.** Two Gaas per Qayb, parent/child order and the designated Horin Sahan /
   Urur Sahan and Sanco are reported on the Structure page as findings. Only two structural rules are hard errors:
   a type must fit its level (Taliska Guud on a branch command, all others on units) and a child type must be deeper than

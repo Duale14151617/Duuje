@@ -58,7 +58,7 @@ lines already prepared are never rewritten).
 ## Not done
 - Frontend screens now exist for payments, arrears and pay decisions (Payroll page tabs, English and draft Somali). Still **no screen** for the policy settings (`/payroll/policy/` is API only, apart from the deduction tiers read by the decision form), and no screen for entering salary components.
 - No export of payroll or beneficiary data exists, by design (nothing to authorise).
-- Payroll is headquarters-level ("global" grants) and covers Army and Police personnel alike; whether Police payroll must be separate is undecided.
+- Payroll is headquarters-level ("global" grants) and covers all Army personnel.
 - Negative (reversal) lines cannot be paid or collected through the payment workflow; recoveries are not modelled.
 - Supporting documents are stored as reference strings, not uploaded files.
 

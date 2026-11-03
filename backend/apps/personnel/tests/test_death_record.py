@@ -211,18 +211,18 @@ class DeathAccessTests(DeathBase):
 
 
 class AllServicesTests(DeathBase):
-    """Statuses and the death record apply to every service's personnel (a Navy person stands in for the non-Army path)."""
+    """Statuses and the death record apply to every service's personnel (a person of the test-fixture branch stands in for the non-Army path)."""
 
     def setUp(self):
         super().setUp()
         self.admin = self.client_for(self.make_user("sa", "super_admin"))
-        self.sailor = self.person("BARI-NAVY-A", "Sailor One", rank="N-1", branch="NAVY")
+        self.other_person = self.person("BARI-OTHER-A", "Other Branch One", rank="X-1", branch="OTHER")
 
     def test_jailed_works_in_other_services(self):
-        r = self.admin.post(f"{URL}{self.sailor.pk}/change-status/", {"status": "jailed", "version": self.sailor.version}, format="json")
+        r = self.admin.post(f"{URL}{self.other_person.pk}/change-status/", {"status": "jailed", "version": self.other_person.version}, format="json")
         self.assertEqual(r.status_code, 200)
-        self.assertEqual(Personnel.objects.get(pk=self.sailor.pk).status, "jailed")
+        self.assertEqual(Personnel.objects.get(pk=self.other_person.pk).status, "jailed")
 
     def test_death_can_be_reported_in_other_services(self):
-        r = self.admin.post(f"{URL}{self.sailor.pk}/death/report/", {"date_of_death": date.today().isoformat()}, format="json")
+        r = self.admin.post(f"{URL}{self.other_person.pk}/death/report/", {"date_of_death": date.today().isoformat()}, format="json")
         self.assertEqual(r.status_code, 201)

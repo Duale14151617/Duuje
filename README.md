@@ -66,9 +66,8 @@ and the switches below. See `RENDER_DEPLOY_GUIDE.md` and `docs/DEPLOY_ROLLBACK.m
 builds against a real backend. Deploy `frontend/dist`, or connect the repo with Base directory `frontend`. See `docs/NETLIFY.md`.
 
 ## Army-only build
-This build is Army-only. The Police code was taken out and is kept in `police-archive.zip`, delivered separately from this repo (see its README to put it back).
-A database that still has Police data is cleaned by `python manage.py retire_police --apply` (switches it off, deletes nothing; the Dockerfile runs it at start-up).
-Useful commands: `create_command_authority`, `report_duplicate_identities`, `seed_test_personnel`, `retire_police`, `access_report`.
+This build is Army-only.
+Useful commands: `create_command_authority`, `report_duplicate_identities`, `seed_test_personnel`, `access_report`.
 
 ## Documentation
 `docs/SETUP.md` (run it), `docs/DEPLOY_ROLLBACK.md` (migrations and rollback), `docs/RUNBOOK.md` (backup, restore, monitoring, incidents),
@@ -83,8 +82,8 @@ shared data tables, personnel profile tabs, the redesigned dashboard) is listed 
   forced password change, session revocation (disable, role revoke, admin "sign out everywhere").
 - Users, roles, permissions, scoped role assignments (subtree of the organization + optional service branch,
   validity dates). Deny by default; every check is server-side.
-- Configurable organization: HQ → region → branch command → unit. Seeded: Bari, Karkaar, Nugaal, Mudug;
-  Army, Navy.
+- Configurable organization: HQ → region → branch command → unit. Seeded: Bari, Nugaal, Mudug;
+  Army.
 - Rank catalogue (service-specific, English/Somali, draft/approved), managed in the database. The Army list is the
   16 official Puntland Army ranks (Dable ... Sarreye Guud), stored as supplied with no invented translations.
 - Organizational template for the Army: Taliska Guud (regional command), Qayb, Gaas, Guuto, Urur, Horin, Koox, Unug,

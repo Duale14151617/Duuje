@@ -14,7 +14,7 @@ const region = (code: string | null, total: number, active: number): RegionHeadc
 
 describe("RegionChart", () => {
   it("sizes each bar against the largest region and splits active from not active", () => {
-    const { container } = wrap(<RegionChart rows={[region("BARI", 10, 8), region("KARKAAR", 5, 5)]} />);
+    const { container } = wrap(<RegionChart rows={[region("BARI", 10, 8), region("NUGAAL", 5, 5)]} />);
     const rows = container.querySelectorAll(".hb-row");
     expect(rows).toHaveLength(2);
     const seg = (row: Element, cls: string) => (row.querySelector(`.hb-seg.${cls}`) as HTMLElement).style.width;

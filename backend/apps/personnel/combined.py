@@ -1,9 +1,8 @@
-"""Combined cross-service report: Army and Navy strength side by side, aggregates only.
+"""Combined cross-service report: Army strength, aggregates only.
 
 Needs `reports.combined` (headquarters-wide: command authority, super_admin). It is computed with exactly the same scope
 rules as every other personnel-data report, so:
-  * the retired Police service is never shown;
-  * restricted units (CID) are left out unless the caller also holds `cid.access`, and the response says so.
+  * restricted units are left out unless the caller also holds `restricted.access`, and the response says so.
 No person-level rows are ever returned.
 """
 from collections import defaultdict
@@ -68,8 +67,6 @@ def build(user) -> dict:
     out_branches = []
     for bid, b in sorted(per_branch.items(), key=lambda kv: branches[kv[0]].code):
         info = branches[bid]
-        if info.code == "POLICE":  # retired service: never shown
-            continue
         out_branches.append({**_named(info), "total": b["total"], "serving": b["serving"],
                              "by_status": dict(b["by_status"]), "by_rank_category": dict(b["by_rank_category"]),
                              "units": unit_counts.get(info.code, 0)})
@@ -80,15 +77,15 @@ def build(user) -> dict:
     totals = {"total": sum(b["total"] for b in out_branches), "serving": sum(b["serving"] for b in out_branches)}
     return {
         "generated_at": timezone.now().isoformat(),
-        # True when restricted units (CID) exist but this caller may not see inside them, so the totals leave them out.
-        "excludes_restricted_units": "cid.access" not in scope.permission_codes(user)
+        # True when restricted units exist but this caller may not see inside them, so the totals leave them out.
+        "excludes_restricted_units": "restricted.access" not in scope.permission_codes(user)
         and OrganizationalUnit.objects.filter(restricted=True).exists(),
         "totals": totals, "branches": out_branches, "regions": out_regions,
     }
 
 
 class CombinedReportViewSet(viewsets.GenericViewSet):
-    """Army and Navy strength in one view. Read-only, aggregates only, audited on every view."""
+    """Army strength in one view. Read-only, aggregates only, audited on every view."""
 
     permission_classes = [ScopedPermission]
     pagination_class = None

@@ -1,7 +1,7 @@
 """Sensitive personnel-file records: disciplinary history and service documents.
 
 Both are encrypted at rest (Fernet, FIELD_ENCRYPTION_KEY), scoped like the rest of the personnel data (including the
-Police gate and restricted CID units, see apps/accounts/scope.py), and audited on every view and every change by the
+restricted-unit gate, see apps/accounts/scope.py), and audited on every view and every change by the
 views that call these functions. Nothing here writes the audit trail itself except where noted.
 """
 import hashlib
@@ -19,7 +19,7 @@ from apps.core.errors import field_error
 from .models import DisciplinaryRecord, Personnel, PersonnelDocument
 
 # ---------------------------------------------------------------- disciplinary history
-# Draft category list: confirm the wording with the Police / Army personnel authorities.
+# Draft category list: confirm the wording with the Army personnel authorities.
 DISCIPLINARY_CATEGORIES = ["verbal_warning", "written_warning", "reprimand", "fine", "suspension", "demotion",
                            "dismissal", "other"]
 

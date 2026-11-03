@@ -10,7 +10,7 @@ hide rules. Dashboard cards: 2 columns on phones, 4 from 720px, `minmax(0,1fr)`.
 Files: `frontend/src/components/Layout.tsx`, `useMedia.ts`, `Icon.tsx`, `src/styles.css`, `src/i18n/{en,so,so_improved}.ts`, `e2e/smoke.spec.ts`.
 
 ## 2. Demo accounts
-`demo.` prefix removed from usernames (existing accounts are renamed in place); Karkaar, Nugaal and Mudug get the same regional
+`demo.` prefix removed from usernames (existing accounts are renamed in place); Nugaal and Mudug get the same regional
 set as Bari. File: `backend/apps/accounts/management/commands/seed_demo_data.py`.
 
 ## 3. Test personnel (removable)

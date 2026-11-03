@@ -9,7 +9,7 @@ import { Chip, ErrorNotice, Field, Loading, Pager } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
 
 const PARENT_LEVELS: Record<string, string[]> = {
-  region: ["headquarters"], branch_command: ["region", "headquarters"], unit: ["branch_command", "unit"], station: ["branch_command"],
+  region: ["headquarters"], branch_command: ["region", "headquarters"], unit: ["branch_command", "unit"],
 };
 
 function TypeField({ level, types, value, onChange }: {

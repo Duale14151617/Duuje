@@ -17,19 +17,18 @@ For the actual users, usernames and scopes in your database run:
 | `hq_reporting` | Headquarters reporting user | no | headquarters | 11 |
 | `regional_chief` | Regional chief | yes | region | 17 |
 | `branch_admin` | Branch administrator | yes | region, branch_command (needs a branch) | 23 |
-| `unit_admin` | Unit administrator | no | unit, branch_command, station | 11 |
+| `unit_admin` | Unit administrator | no | unit, branch_command | 11 |
 | `reporting_officer` | Reporting officer | no | any level | 6 |
 | `logistics_custodian` | Logistics custodian | no | any level | 6 |
 | `training_admin` | Training administrator | no | any level | 6 |
 | `restricted_custodian` | Restricted equipment custodian | yes | any level | 7 |
 | `logistics_reviewer` | Institutional logistics reviewer | yes | headquarters | 4 |
 | `structure_approver` | Structure approver | yes | headquarters | 3 |
-| `cid_officer` | CID officer | yes | region, branch_command, unit (needs a branch) | 12 |
 | `command_authority` | Command authority | yes | headquarters | 10 |
 | `auditor` | Auditor | yes | headquarters | 3 |
 | `super_admin` | Super administrator | yes | headquarters | 71 |
 | `member` | Member (non-commanding) | no | any level | 4 |
-| `unit_commander` | Unit commander (Taliye Guuto / Taliye Urur) | no | unit, station | 11 |
+| `unit_commander` | Unit commander (Taliye Guuto / Taliye Urur) | no | unit | 11 |
 | `regional_commander` | Regional commander (Taliye Qaybeed) | yes | branch_command | 6 |
 | `weapons_custodian` | Weapons custodian | yes | branch_command, unit | 8 |
 | `payroll_officer` | Payroll officer | yes | headquarters | 9 |
@@ -100,7 +99,7 @@ MFA required: yes. Assigned at: region, branch_command; must be limited to one b
 
 ### Unit administrator (`unit_admin`)
 
-MFA required: no. Assigned at: unit, branch_command, station.
+MFA required: no. Assigned at: unit, branch_command.
 
 - **Dashboard:** `dashboard.view` See the dashboard
 - **Logistics:** `logistics.view` View stock and assets (non-restricted categories) in scope
@@ -159,30 +158,18 @@ MFA required: yes. Assigned at: headquarters.
 - **Dashboard:** `dashboard.view` See the dashboard
 - **Organization:** `org.view` View organization structure in scope; `org.structure_approve` Approve or reject proposed structure changes (headquarters); cannot approve one's own proposal
 
-### CID officer (`cid_officer`)
-
-MFA required: yes. Assigned at: region, branch_command, unit; must be limited to one branch.
-
-- **CID:** `cid.access` Reach personnel records inside restricted units. Never implied by any other permission
-- **Dashboard:** `dashboard.view` See the dashboard
-- **Disciplinary:** `disciplinary.view` View a person's disciplinary history in scope (encrypted, every view is audited); `disciplinary.manage` Add disciplinary entries and corrections in scope (entries are append-only)
-- **Documents:** `documents.view` List and download service documents on personnel files in scope (every access is audited); `documents.manage` Upload and withdraw service documents on personnel files in scope
-- **Organization:** `org.view` View organization structure in scope
-- **Personnel:** `personnel.view` View personnel records in scope; `personnel.manage` Create/edit personnel, transfers, rank and status changes in scope
-- **Ranks:** `ranks.view` View rank catalogue
-- **Reports:** `reports.view` View requests/reports in scope; `reports.submit` Prepare and submit requests/reports in scope
 
 ### Command authority (`command_authority`)
 
 MFA required: yes. Assigned at: headquarters.
 
 - **Analytics:** `analytics.view` Open analytics (each section still needs its own report/personnel/logistics/training permission)
-- **Cross-service search:** `search.cross_service` Search personnel across all services (Army and Navy) within the records the user is otherwise allowed to see
+- **Cross-service search:** `search.cross_service` Search personnel across all Army units within the records the user is otherwise allowed to see
 - **Dashboard:** `dashboard.view` See the dashboard
 - **Organization:** `org.view` View organization structure in scope
 - **Personnel:** `personnel.view` View personnel records in scope
 - **Ranks:** `ranks.view` View rank catalogue
-- **Reports:** `reports.view` View requests/reports in scope; `reports.summary` See approved regional/headquarters summaries in scope; `reports.combined` See combined Army and Navy summaries (headquarters-wide; command authority). Aggregates only
+- **Reports:** `reports.view` View requests/reports in scope; `reports.summary` See approved regional/headquarters summaries in scope; `reports.combined` See combined Army summaries (headquarters-wide; command authority). Aggregates only
 
 ### Auditor (`auditor`)
 
@@ -200,8 +187,8 @@ MFA required: yes. Assigned at: headquarters.
 - **Arrears:** `arrears.manage` Record and verify arrears claims (earlier unpaid salary), kept apart from payroll and survivor benefits; `arrears.approve` Approve arrears claims (never one you recorded or verified)
 - **Attendance:** `attendance.view` View attendance and absence records and summaries for personnel in scope; `attendance.record` Record and amend daily attendance for personnel in scope (never changes personnel status)
 - **Audit log:** `audit.view` Read audit events
-- **CID:** `cid.access` Reach personnel records inside restricted units. Never implied by any other permission
-- **Cross-service search:** `search.cross_service` Search personnel across all services (Army and Navy) within the records the user is otherwise allowed to see
+- **Restricted:** `restricted.access` Reach personnel records inside restricted units. Never implied by any other permission
+- **Cross-service search:** `search.cross_service` Search personnel across all Army units within the records the user is otherwise allowed to see
 - **Dashboard:** `dashboard.view` See the dashboard
 - **Disciplinary:** `disciplinary.view` View a person's disciplinary history in scope (encrypted, every view is audited); `disciplinary.manage` Add disciplinary entries and corrections in scope (entries are append-only)
 - **Documents:** `documents.view` List and download service documents on personnel files in scope (every access is audited); `documents.manage` Upload and withdraw service documents on personnel files in scope
@@ -212,7 +199,7 @@ MFA required: yes. Assigned at: headquarters.
 - **Payroll:** `payroll.view` View salary profiles, payroll runs and payment status (headquarters finance); `payroll.manage` Propose salary profiles; prepare, submit and adjust payroll runs; `payroll.approve` Approve salary profiles and payroll runs (never your own work); `payroll.review` Record pay decisions for suspended and jailed personnel (a record only: never changes pay by itself); `payroll.decide` Approve or reject pay decisions for suspended and jailed personnel (never your own entry); `payroll.policy_confirm` Confirm or later revise a payroll or survivor policy value, with authority reference and reason (policy authority)
 - **Personnel:** `personnel.view` View personnel records in scope; `personnel.view_team` View your own personnel record and your direct subordinates' records (read-only, within the assignment's scope); `personnel.appointments_manage` Appoint and end command appointments (Taliye Qaybeed, Taliye Urur ...) for units in scope; never grants access by itself; `personnel.record_death` Report a death and attach supporting evidence for personnel in scope (does not change status by itself); `personnel.confirm_death` Confirm a reported death, which sets the status to Died (must be a different officer from the reporter); `personnel.manage` Create/edit personnel, transfers, rank and status changes in scope; `personnel.import` Import personnel from CSV in scope; `personnel.export` Export personnel to CSV in scope (also needs PERSONNEL_EXPORT_ENABLED)
 - **Ranks:** `ranks.view` View rank catalogue; `ranks.manage` Edit rank catalogue entries; `ranks.approve` Approve rank catalogue entries
-- **Reports:** `reports.view` View requests/reports in scope; `reports.submit` Prepare and submit requests/reports in scope; `reports.review` Review, approve, reject or return reports in scope; `reports.summary` See approved regional/headquarters summaries in scope; `reports.export` Export summaries (also needs REPORT_EXPORT_ENABLED); `reports.configure` Configure request/report types; `reports.combined` See combined Army and Navy summaries (headquarters-wide; command authority). Aggregates only
+- **Reports:** `reports.view` View requests/reports in scope; `reports.submit` Prepare and submit requests/reports in scope; `reports.review` Review, approve, reject or return reports in scope; `reports.summary` See approved regional/headquarters summaries in scope; `reports.export` Export summaries (also needs REPORT_EXPORT_ENABLED); `reports.configure` Configure request/report types; `reports.combined` See combined Army summaries (headquarters-wide; command authority). Aggregates only
 - **Roles:** `roles.assign` Assign and revoke scoped roles
 - **Survivor benefits:** `survivor.view` View survivor-benefit cases and beneficiaries; `survivor.manage` Open survivor cases, register beneficiaries, propose allocations, raise disputes; `survivor.verify` Verify or reject beneficiaries and mark a case verified; `survivor.approve` Authorize survivor allocations and close cases (never your own proposal)
 - **System:** `system.full_access` Maintenance override: reach every part of the system even where a module switch (for example a module switch being off) would hide it. Super administrator only; every action stays in the audit log
@@ -231,7 +218,7 @@ MFA required: no. Assigned at: any level.
 
 ### Unit commander (Taliye Guuto / Taliye Urur) (`unit_commander`)
 
-MFA required: no. Assigned at: unit, station.
+MFA required: no. Assigned at: unit.
 
 - **Attendance:** `attendance.view` View attendance and absence records and summaries for personnel in scope; `attendance.record` Record and amend daily attendance for personnel in scope (never changes personnel status)
 - **Dashboard:** `dashboard.view` See the dashboard
@@ -336,7 +323,7 @@ MFA required: no. Assigned at: any level.
 | `attendance.record` | Record and amend daily attendance for personnel in scope (never changes personnel status) |
 | `attendance.view` | View attendance and absence records and summaries for personnel in scope |
 | `audit.view` | Read audit events |
-| `cid.access` | Reach personnel records inside restricted units. Never implied by any other permission |
+| `restricted.access` | Reach personnel records inside restricted units. Never implied by any other permission |
 | `dashboard.view` | See the dashboard |
 | `disciplinary.manage` | Add disciplinary entries and corrections in scope (entries are append-only) |
 | `disciplinary.view` | View a person's disciplinary history in scope (encrypted, every view is audited) |
@@ -378,7 +365,7 @@ MFA required: no. Assigned at: any level.
 | `ranks.approve` | Approve rank catalogue entries |
 | `ranks.manage` | Edit rank catalogue entries |
 | `ranks.view` | View rank catalogue |
-| `reports.combined` | See combined Army and Navy summaries (headquarters-wide; command authority). Aggregates only |
+| `reports.combined` | See combined Army summaries (headquarters-wide; command authority). Aggregates only |
 | `reports.configure` | Configure request/report types |
 | `reports.export` | Export summaries (also needs REPORT_EXPORT_ENABLED) |
 | `reports.review` | Review, approve, reject or return reports in scope |
@@ -386,7 +373,7 @@ MFA required: no. Assigned at: any level.
 | `reports.summary` | See approved regional/headquarters summaries in scope |
 | `reports.view` | View requests/reports in scope |
 | `roles.assign` | Assign and revoke scoped roles |
-| `search.cross_service` | Search personnel across all services (Army and Navy) within the records the user is otherwise allowed to see |
+| `search.cross_service` | Search personnel across all Army units within the records the user is otherwise allowed to see |
 | `survivor.approve` | Authorize survivor allocations and close cases (never your own proposal) |
 | `survivor.manage` | Open survivor cases, register beneficiaries, propose allocations, raise disputes |
 | `survivor.verify` | Verify or reject beneficiaries and mark a case verified |

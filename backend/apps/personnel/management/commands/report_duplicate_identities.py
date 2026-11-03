@@ -3,7 +3,7 @@
   python manage.py report_duplicate_identities
 
 The creation checks only stop NEW duplicates. Run this once after deploying them to find ones that already exist (for
-example the same person entered once in Army and once in Police). It prints record ids and services, never names or phone
+example the same person entered under two different services). It prints record ids and services, never names or phone
 numbers, so the output is safe to paste into a ticket; look the people up in the application.
 """
 from collections import defaultdict

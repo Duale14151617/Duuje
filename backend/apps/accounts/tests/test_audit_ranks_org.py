@@ -103,9 +103,9 @@ class RankTests(BaseApiTest):
                                       "name_en": "Dup"}, format="json")
         self.assertEqual(r.status_code, 400)
         self.assertIn("rank_code_taken", self.codes(r, "code"))
-        navy = army.__class__.objects.get(code="NAVY")
-        r = c.post("/api/v1/ranks/", {"branch": str(navy.pk), "category": "enlisted", "code": "E-1",
-                                      "name_en": "Seaman Recruit"}, format="json")
+        other = army.__class__.objects.get(code="OTHER")
+        r = c.post("/api/v1/ranks/", {"branch": str(other.pk), "category": "enlisted", "code": "E-1",
+                                      "name_en": "Other Recruit"}, format="json")
         self.assertEqual(r.status_code, 201, r.data)
 
 
@@ -136,9 +136,9 @@ class OrganizationRuleTests(BaseApiTest):
                                                    "parent": str(self.unit("HQ").pk)}, format="json")
         self.assertEqual(r.status_code, 201, r.data)
         r = c.post("/api/v1/organization/units/", {"code": "u-1", "name_en": "U1", "level": "unit",
-                                                   "parent": str(self.unit("BARI-NAVY").pk)}, format="json")
+                                                   "parent": str(self.unit("BARI-OTHER").pk)}, format="json")
         self.assertEqual(r.status_code, 201, r.data)
-        self.assertEqual(str(r.data["branch"]), str(self.unit("BARI-NAVY").branch_id))
+        self.assertEqual(str(r.data["branch"]), str(self.unit("BARI-OTHER").branch_id))
 
     def test_structure_is_immutable_and_versioned(self):
         c = self.client_for(self.make_user("adm", "hq_admin"))

@@ -26,8 +26,7 @@ class RankViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
     }
 
     def get_queryset(self):
-        # The Police service is not part of this build: its ranks are never listed (they stay in the database, switched off, nothing deleted).
-        qs = Rank.objects.select_related("branch").exclude(branch__code="POLICE")
+        qs = Rank.objects.select_related("branch")
         p = self.request.query_params
         if uuid_param(self.request, "branch"):
             qs = qs.filter(branch=uuid_param(self.request, "branch"))

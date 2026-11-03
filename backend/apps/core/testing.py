@@ -17,6 +17,14 @@ class BaseApiTest(APITestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("seed_reference_data", verbosity=0)
+        # Test-only fixture: a second service branch with one command per region, so the branch-scoping rules can be
+        # exercised. It is not part of the seeded system, which is Army only.
+        other = ServiceBranch.objects.get_or_create(code="OTHER", defaults={"name_en": "Other branch (test fixture)"})[0]
+        for region in OrganizationalUnit.objects.filter(level=OrganizationalUnit.Level.REGION):
+            OrganizationalUnit.objects.get_or_create(
+                code=f"{region.code}-OTHER", defaults={
+                    "name_en": f"{region.name_en} Other command (test)", "name_so": f"{region.name_en} Other command (test)",
+                    "level": OrganizationalUnit.Level.BRANCH, "parent": region, "branch": other})
 
     def setUp(self):
         cache.clear()  # reset login throttles between tests

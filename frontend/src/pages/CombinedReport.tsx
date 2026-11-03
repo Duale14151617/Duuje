@@ -3,7 +3,7 @@ import { useFetch } from "../api/useFetch";
 import { ErrorNotice, Loading, Notice, formatDate } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
 
-/** Army and Navy strength side by side. Aggregates only; the server audits every view. */
+/** Army strength. Aggregates only; the server audits every view. */
 export function CombinedReport() {
   const { t, lang, name, tr } = useI18n();
   const r = useFetch<Data>("/reports/combined/");

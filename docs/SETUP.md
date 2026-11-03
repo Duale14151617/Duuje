@@ -16,7 +16,6 @@ python manage.py makemigrations --check   # migrations were hand-written; this m
 python manage.py migrate
 python manage.py createcachetable         # login throttling cache
 python manage.py seed_reference_data      # permissions, roles, branches, regions, DRAFT ranks (idempotent)
-python manage.py retire_police --apply  # only for databases created before Police was removed (switches Police off, deletes nothing)
 python manage.py apply_army_structure --apply   # Army HQ, directorates, 4 regional commands, Guuto/Urur and battalion sections (idempotent, additive)
 
 # First real administrator (prompts for a password; first login forces password change + MFA enrolment)
@@ -29,9 +28,9 @@ python manage.py seed_sample_data
 python manage.py runserver
 ```
 Sample users: `hqadmin`, `hqreports`, `auditor`, `bari.chief`, `nugaal.chief`,
-`bari.armyadmin`, `bari.unitadmin`, `logistics`, `readonly`. Karkaar, Nugaal and Mudug each have the same regional set
+`bari.armyadmin`, `bari.unitadmin`, `logistics`, `readonly`. Nugaal and Mudug each have the same regional set
 as Bari, named `<region>.chief`, `.armyadmin`, `.unitadmin`, `.reporter`, `.logistics`, `.restricted`, `.trainer`
-(for example `karkaar.chief`, `mudug.reporter`). Privileged ones must enrol
+(for example `nugaal.chief`, `mudug.reporter`). Privileged ones must enrol
 an authenticator app (TOTP) at first sign-in. Compare what each user can see to check scoping.
 
 Personnel needs approved ranks. In the sample setup, `seed_sample_data` approves a few Army ranks with placeholder Somali names

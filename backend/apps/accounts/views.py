@@ -32,7 +32,7 @@ from .serializers import (AssignmentCreateSerializer, AssignmentSerializer, Logi
                           PasswordResetSerializer,
                           RoleSerializer, UserCreateSerializer, UserSerializer, UserUpdateSerializer,
                           check_password_strength)
-from .services import other_admins_exist, police_role_ids, revoke_user_sessions
+from .services import other_admins_exist, revoke_user_sessions
 
 MAX_FAILED_LOGINS = 5
 LOCK_MINUTES = 15
@@ -270,8 +270,8 @@ class RoleViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     permission_map = {"list": ("users.view", "global")}
     pagination_class = None
 
-    def get_queryset(self):  # the Police service (CID included) was removed from this build
-        return Role.objects.exclude(pk__in=police_role_ids()).prefetch_related("permissions")
+    def get_queryset(self):
+        return Role.objects.prefetch_related("permissions")
 
 
 class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin,

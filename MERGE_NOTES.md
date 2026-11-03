@@ -15,8 +15,7 @@ Security note: BREAK_GLASS_ENABLED defaults to True in settings. Death confirmat
 
 ## Police cleanup
 Removed (archived in police-archive.zip): police.py, police_structure.py, police_appointments.py, police_catalogue.py, apply_police_structure and approve_police_ranks commands, five test_police_* files, three Police docs, pmpf.jpg and puntland-police.jpg (root and frontend/public), remove_police_files.sh.
-Kept on purpose: retire_police.py (the Dockerfile runs it at start-up), the POLICE_MODULE_ENABLED=False gate in scope.py and settings.py, migrations, the "station" unit level, and two i18n error keys. Removing any of these would need a migration or would expose old Police rows in existing databases.
-Added: accounts/tests/test_retired_police_gate.py (two tests that keep guarding the gate; builds its own minimal Police fixture).
+Later removed as well: retire_police.py, the Police gate in scope.py and settings.py, the station unit level and the Police rank categories (see CHANGELOG).
 Still NOT RUN (no Django here): run the test suite and makemigrations --check.
 
 ## CI fixes after the first test run (723 tests, 7 failures)

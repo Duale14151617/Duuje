@@ -51,7 +51,7 @@ class UnitViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         if p.get("active") in ("true", "false"):
             qs = qs.filter(active=p["active"] == "true")
         elif self.action == "list" and p.get("include_inactive") != "1":
-            qs = qs.filter(active=True)  # a retired service (for example Police) no longer appears in lists, trees or drop-downs
+            qs = qs.filter(active=True)  # retired units no longer appear in lists, trees or drop-downs
         if p.get("q"):
             qs = qs.filter(Q(code__icontains=p["q"]) | Q(name_en__icontains=p["q"]) | Q(name_so__icontains=p["q"]))
         for param, field in (("unit_type", "unit_type"), ("designation", "designations")):
@@ -59,7 +59,7 @@ class UnitViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
             if value:
                 qs = qs.filter(**{field: value})
         if p.get("placeable") == "1":  # units people can be assigned to
-            qs = qs.filter(level__in=["branch_command", "unit", "station"])
+            qs = qs.filter(level__in=["branch_command", "unit"])
         return qs.select_related("parent", "branch").prefetch_related("designations")
 
     TREE_LIMIT = 2000
@@ -69,7 +69,7 @@ class UnitViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         """Read-only picture of one unit (Guuto, Urur, section...): strength counted once, sub-unit totals, commanders.
 
         Every person has exactly one unit, so `total` = `direct` + the sum of the sub-units' totals: nobody is counted twice.
-        Only people the caller may count are included (personnel.view or changes.propose, with the Police/CID gates applied).
+        Only people the caller may count are included (personnel.view or changes.propose, with the restricted-unit gate applied).
         Aggregates only; names appear only for callers who may see personnel (or HQ administrators preparing a request)."""
         from collections import Counter
 
@@ -184,7 +184,7 @@ class ServiceBranchViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mix
     def get_queryset(self):
         qs = ServiceBranch.objects.all()
         if self.action == "list" and self.request.query_params.get("include_inactive") != "1":
-            qs = qs.filter(active=True)  # a retired service (for example Police) no longer appears in lists or drop-downs
+            qs = qs.filter(active=True)  # retired units no longer appear in lists or drop-downs
         return qs
 
     @transaction.atomic

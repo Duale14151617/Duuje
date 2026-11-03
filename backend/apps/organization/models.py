@@ -109,14 +109,13 @@ class PlacementError(ValueError):
 
 
 class OrganizationalUnit(models.Model):
-    """Configurable hierarchy: HQ -> region -> branch command -> unit (units may nest); Police commands may also hold stations."""
+    """Configurable hierarchy: HQ -> region -> branch command -> unit (units may nest)."""
 
     class Level(models.TextChoices):
         HQ = "headquarters"
         REGION = "region"
         BRANCH = "branch_command"
         UNIT = "unit"
-        STATION = "station"  # Police station: sits directly under a regional Police command and holds personnel
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     code = models.CharField(max_length=64, unique=True)
@@ -136,7 +135,7 @@ class OrganizationalUnit(models.Model):
     strength_exception_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
                                               on_delete=models.SET_NULL, related_name="+")
     strength_exception_at = models.DateTimeField(null=True, blank=True)
-    # Confidential unit (e.g. CID). Records in it (and in units below it) are visible only to roles holding `cid.access`,
+    # Confidential unit. Records in it (and in units below it) are visible only to roles holding `restricted.access`,
     # whatever the rest of their scope is. Enforced server-side in apps/accounts/scope.py.
     restricted = models.BooleanField(default=False)
     active = models.BooleanField(default=True)
@@ -193,7 +192,7 @@ def check_placement(level, parent, branch):
         if branch is None:
             raise PlacementError("branch_required")
         # The Army headquarters (Taliska Guud) is an Army command directly under the system headquarters; every other
-        # branch command (and all Police/Navy commands) still sits under a region exactly as before.
+        # branch command still sits under a region exactly as before.
         if parent.level == L.HQ and branch.code == "ARMY":
             return branch
         if parent.level != L.REGION:
@@ -203,11 +202,6 @@ def check_placement(level, parent, branch):
         if parent.level not in (L.BRANCH, L.UNIT):
             raise PlacementError("unit_parent_invalid")
         return parent.branch  # units inherit the service branch of their parent
-    if level == L.STATION:
-        # Stations exist only under a regional Police command (never under Army/Navy, never under another unit).
-        if parent.level != L.BRANCH or parent.branch is None or parent.branch.code != "POLICE":
-            raise PlacementError("station_parent_must_be_police_command")
-        return parent.branch
     raise PlacementError("invalid_level")
 
 

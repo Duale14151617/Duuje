@@ -12,13 +12,6 @@ class Rank(models.Model):
         WARRANT = "warrant"
         OFFICER = "officer"
         UNSPECIFIED = "unspecified"  # the official Puntland Army list is not split into these classes
-        # Police classes from Article 23 (Order of Precedence), Law No. 2 of 23 Dec 1972 - historical baseline only.
-        GENERAL_OFFICER = "general_officer"
-        SENIOR_OFFICER = "senior_officer"
-        JUNIOR_OFFICER = "junior_officer"
-        INSPECTOR = "inspector"
-        NCO = "nco"
-        ASKARI = "askari"
 
     class Approval(models.TextChoices):
         DRAFT = "draft"

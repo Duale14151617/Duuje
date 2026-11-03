@@ -82,12 +82,6 @@ class AssignmentSerializer(serializers.ModelSerializer):
 class AssignmentCreateSerializer(serializers.Serializer):
     role = serializers.SlugRelatedField(slug_field="code", queryset=Role.objects.all())
 
-    def validate_role(self, role):
-        from .services import is_police_label
-        if is_police_label(role.code) or is_police_label(role.name_en):
-            raise serializers.ValidationError([serializers.ErrorDetail("This role is no longer available.", code="role_retired")])
-        return role
-
     org_unit = serializers.PrimaryKeyRelatedField(queryset=OrganizationalUnit.objects.filter(active=True))
     branch = serializers.PrimaryKeyRelatedField(
         queryset=ServiceBranch.objects.filter(active=True), required=False, allow_null=True)

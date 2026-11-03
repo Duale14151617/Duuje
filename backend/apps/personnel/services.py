@@ -40,7 +40,7 @@ def check_assignment(unit, rank, allow_draft_rank=False):
     """Business rules tying a person's unit and rank together.
 
     `allow_draft_rank` exists ONLY for clearly tagged synthetic sample people (seed_test_personnel, opt-in); no API path sets it."""
-    if unit.level not in (OrganizationalUnit.Level.BRANCH, OrganizationalUnit.Level.UNIT, OrganizationalUnit.Level.STATION):
+    if unit.level not in (OrganizationalUnit.Level.BRANCH, OrganizationalUnit.Level.UNIT):
         raise RuleError("unit_level_invalid", "org_unit")
     if not unit.active:
         raise RuleError("unit_inactive", "org_unit")
@@ -63,7 +63,7 @@ NOT_SERVING = (Personnel.Status.RETIRED, Personnel.Status.DISCHARGED, Personnel.
 
 
 def duplicate_check(name_key, phone_key, unit, exclude_pk=None):
-    """Identity check across ALL services (Army, Navy, Police). Returns a rule code or None:
+    """Identity check across ALL services. Returns a rule code or None:
 
       "duplicate_identity"  BLOCK, no override: same name AND same phone as someone still serving in a different service.
                             One person cannot be on two services' active rolls.
@@ -237,8 +237,7 @@ def audit_denied_duplicate(request, kind):
 
 # ---------------------------------------------------------------- reporting lines (supervisor / login link)
 #
-# Seniority is the rank's `sort_order` inside one service: HIGHER = MORE SENIOR (Army: Dable=1 ... President=18; the Police
-# catalogue is stored in the same direction). Retired provisional ranks are parked at sort_order >= 1000 and are inactive:
+# Seniority is the rank's `sort_order` inside one service: HIGHER = MORE SENIOR (Army: Dable=1 ... President=18). Retired provisional ranks are parked at sort_order >= 1000 and are inactive:
 # they are NOT comparable (they would otherwise look like the most senior rank in the force), so a person holding one
 # must be given a current rank before a reporting line can be set for them.
 def seniority(rank):

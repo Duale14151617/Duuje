@@ -43,7 +43,7 @@ export interface Finding {
 }
 export interface Branch extends Named { id: string; code: string; active: boolean; version: number }
 export interface Rank extends Named {
-  id: string; branch: string; category: "enlisted" | "warrant" | "officer" | "unspecified" | "general_officer" | "senior_officer" | "junior_officer" | "inspector" | "nco" | "askari"; code: string; sort_order: number;
+  id: string; branch: string; category: "enlisted" | "warrant" | "officer" | "unspecified"; code: string; sort_order: number;
   approval_status: "draft" | "approved"; approved_at: string | null; active: boolean; version: number;
 }
 export interface UserRow {

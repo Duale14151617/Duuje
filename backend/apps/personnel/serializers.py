@@ -62,7 +62,7 @@ class _Basics(serializers.Serializer):
 
 class PersonnelCreateSerializer(_Basics):
     org_unit = serializers.PrimaryKeyRelatedField(queryset=OrganizationalUnit.objects.all())
-    rank = serializers.PrimaryKeyRelatedField(queryset=Rank.objects.exclude(branch__code="POLICE"))
+    rank = serializers.PrimaryKeyRelatedField(queryset=Rank.objects.all())
     status = serializers.ChoiceField(choices=sorted(svc.STATUSES), default="active")
     effective_date = serializers.DateField(required=False, allow_null=True)
     confirm_duplicate = serializers.BooleanField(required=False, default=False)
@@ -191,7 +191,7 @@ class TransferSerializer(_Workflow):
 
 
 class RankChangeSerializer(_Workflow):
-    rank = serializers.PrimaryKeyRelatedField(queryset=Rank.objects.exclude(branch__code="POLICE"))
+    rank = serializers.PrimaryKeyRelatedField(queryset=Rank.objects.all())
 
     def validate(self, attrs):
         p, rank = self.instance, attrs["rank"]
