@@ -67,7 +67,7 @@ builds against a real backend. Deploy `frontend/dist`, or connect the repo with 
 
 ## Army-only build
 This build is Army-only.
-Useful commands: `create_command_authority`, `report_duplicate_identities`, `seed_test_personnel`, `access_report`.
+Useful commands: `create_command_authority`, `report_duplicate_identities`, `seed_test_personnel`, `remove_legacy_structure`, `access_report`.
 
 ## Documentation
 `docs/SETUP.md` (run it), `docs/DEPLOY_ROLLBACK.md` (migrations and rollback), `docs/RUNBOOK.md` (backup, restore, monitoring, incidents),
