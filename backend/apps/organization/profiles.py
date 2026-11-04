@@ -318,6 +318,23 @@ def chart(user, include_inactive=False):
                 parent = nodes[cand.pk]
                 break
         (parent["children"] if parent else roots).append(nodes[u.pk])
+    # General Headquarters comes first and carries the regional commands (they sit side by side in the unit tree, but
+    # operationally they answer to it); then regions, brigades, battalions, each level ordered by code.
+    ghq = next((n for n in roots if n["formation_role"] == "ghq"), None)
+    if ghq is not None:
+        rest = [n for n in roots if n is not ghq]
+        ghq["children"] = rest + ghq["children"]
+        for n in rest:
+            for k in ("total", "active", "inactive"):
+                ghq[k] += n[k]
+        roots = [ghq]
+    order = {r: i for i, r in enumerate(CHART_ROLES)}
+
+    def sort(ns):
+        ns.sort(key=lambda n: (order.get(n["formation_role"], 9), n["code"]))
+        for n in ns:
+            sort(n["children"])
+    sort(roots)
     return {"count": len(nodes), "roots": roots, "counts_complete": counting_q(user) is not None}
 
 
@@ -381,6 +398,8 @@ def analytics(user, root=None):
         missing = [r for r in ("commander", "deputy") if r not in h]
         if missing:
             gaps.append({**_brief_unit(u), "missing": missing})
+    for rows in by_formation.values():
+        rows.sort(key=lambda r: r["code"])
     leadership = {"units": len(chart_units), "with_commander": with_cmd, "with_deputy": with_dep,
                   "vacancies": gaps[:200], "vacancies_total": len(gaps)}
 

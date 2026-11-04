@@ -219,6 +219,10 @@ class ChartAndAnalyticsTests(OrgStructureBase):
                 hit = find(n["children"], code)
                 if hit:
                     return hit
+        roots = r.json()["roots"]
+        self.assertEqual([n["formation_role"] for n in roots], ["ghq"])  # General Headquarters first, on top
+        kids = roots[0]["children"]
+        self.assertTrue(kids and all(k["formation_role"] == "regional" for k in kids))  # then the regional commands
         node = find(r.json()["roots"], "BARI-ARMY-U9")
         self.assertIsNotNone(node)
         self.assertEqual((node["total"], node["active"], node["inactive"]), (2, 1, 1))
