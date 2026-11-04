@@ -360,8 +360,8 @@ export function PersonnelDetail() {
             </div>
           )}
         </section>
-      {p && <PersonDepartment person={p} onSaved={done} />}
       )}
+      {p && <PersonDepartment person={p} onSaved={done} />}
       {p && mode && <ChangeForm person={p} mode={mode} onDone={done} />}
       {p && (
         <>
