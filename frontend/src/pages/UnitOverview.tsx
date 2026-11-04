@@ -120,6 +120,13 @@ function EstablishDepartment({ unitId, established, onDone }: { unitId: string; 
     try { await api("/organization/unit-departments/", { method: "POST", body: { unit: unitId, department: pick } }); setPick(""); onDone(); }
     catch (err) { setError(err); }
   }
+  async function addAll() {
+    setError(null);
+    try {
+      for (const d of options.filter((x) => x.active)) await api("/organization/unit-departments/", { method: "POST", body: { unit: unitId, department: d.id } });
+      onDone();
+    } catch (err) { setError(err); onDone(); }
+  }
   return (
     <div className="card">
       <h3>{t("org2.establish")}</h3>
@@ -129,6 +136,7 @@ function EstablishDepartment({ unitId, established, onDone }: { unitId: string; 
           <option value="" />{options.map((d) => <option key={d.id} value={d.id}>{name(d)}</option>)}
         </select>
         <button type="button" disabled={!pick} onClick={() => void add()}>{t("org2.establish")}</button>
+        <button type="button" className="secondary" onClick={() => void addAll()}>{t("org2.establishAll")}</button>
       </div>
     </div>
   );

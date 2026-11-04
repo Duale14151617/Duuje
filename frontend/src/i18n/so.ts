@@ -2229,4 +2229,5 @@ export const so: Record<keyof typeof en, string> = {
   "err.department_already_established": "Cutubkan waaxdaas hore ayuu u leeyahay.",
   "err.department_has_open_offices": "Marka hore dhammee magacaabista madaxa iyo ku-xigeenka waaxdan.",
   "err.department_invalid": "Waaxdaas lama isticmaali karo.",
+  "org2.establishAll": "Aasaas dhammaan waaxaha",
 };

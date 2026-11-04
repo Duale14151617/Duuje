@@ -2225,4 +2225,5 @@ export const en = {
   "err.department_already_established": "This unit already has that department.",
   "err.department_has_open_offices": "End the head and deputy appointments of this department first.",
   "err.department_invalid": "That department cannot be used.",
+  "org2.establishAll": "Establish all departments",
 } as const;

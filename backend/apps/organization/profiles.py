@@ -391,14 +391,13 @@ def analytics(user, root=None):
 
 
 def establish_standard_departments():
-    """Establish the seven standard departments in General Headquarters. Additive and idempotent: it only creates what is
-    missing, so a department an administrator has retired stays retired. No people and no appointments are created."""
-    ghq = OrganizationalUnit.objects.filter(code=GHQ_UNIT_CODE).first()
-    if ghq is None:
-        return []
-    made = []
-    for dept in Department.objects.filter(code__in=STANDARD_DEPARTMENTS, active=True):
-        _, created = UnitDepartment.objects.get_or_create(unit=ghq, department=dept)
-        if created:
-            made.append(dept.code)
-    return made
+    """Establish the seven standard departments in every headquarters, region, regional command, brigade and battalion.
+    Additive and idempotent: it only creates what is missing, so a department an administrator has retired stays retired.
+    No people and no appointments are created. Returns the number of departments established."""
+    units = OrganizationalUnit.objects.filter(active=True).filter(
+        Q(unit_type__formation_role__in=CHART_ROLES) | Q(level__in=("headquarters", "region")))
+    depts = list(Department.objects.filter(code__in=STANDARD_DEPARTMENTS, active=True))
+    have = set(UnitDepartment.objects.filter(unit__in=units).values_list("unit_id", "department_id"))
+    new = [UnitDepartment(unit_id=u, department=d) for u in units.values_list("pk", flat=True) for d in depts if (u, d.pk) not in have]
+    UnitDepartment.objects.bulk_create(new)
+    return len(new)

@@ -33,9 +33,9 @@ class Command(BaseCommand):
             with transaction.atomic():
                 made = profiles.establish_standard_departments()
                 if made:
-                    record("org.departments_established", entity_type="organization", metadata={"unit": profiles.GHQ_UNIT_CODE, "departments": made})
-            for code in made:
-                self.stdout.write(f"APPLIED establish_department: {profiles.GHQ_UNIT_CODE} {code}")
+                    record("org.departments_established", entity_type="organization", metadata={"count": made})
+            if made:
+                self.stdout.write(f"APPLIED establish_departments: {made} standard departments established across headquarters, regions, brigades and battalions")
         for action, detail in lines:
             self.stdout.write(f"{'APPLIED' if apply and action != 'blocked' else 'WOULD' if not apply else 'NOTE'} {action}: {detail}")
         if not lines:

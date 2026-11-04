@@ -48,6 +48,10 @@ class ReferenceTests(OrgStructureBase):
         self.assertTrue({"COMMAND_ADMIN", "HR", "MEDICAL", "FINANCE", "LOGISTICS", "COMMUNICATIONS", "TRAINING"} <= codes)
         ghq = OU.objects.get(code="ARMY-HQ")
         self.assertEqual(UnitDepartment.objects.filter(unit=ghq, active=True).count(), 7)
+        for code in ("BARI-ARMY", "BARI-ARMY-G1", "BARI-ARMY-U1"):  # regional command, brigade and battalion are ready too
+            unit = OU.objects.filter(code=code).first()
+            if unit is not None:
+                self.assertEqual(UnitDepartment.objects.filter(unit=unit, active=True).count(), 7, code)
         self.assertFalse(Personnel.objects.filter(org_unit=ghq).exists())  # nobody is created or assigned
         self.assertFalse(appt_svc.CommandAppointment.objects.exists())     # and nobody is appointed
 
