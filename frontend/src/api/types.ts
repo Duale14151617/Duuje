@@ -348,7 +348,7 @@ export interface OrgOffice {
   holder: { id: string; full_name: string; service_number: string | null; rank: { code: string; name_en: string; name_so: string } } | null;
 }
 export interface OrgBucket { total: number; active: number; inactive: number }
-export interface OrgUnitBrief extends Named { id: string; code: string; level: string; unit_type: string | null; formation_role: string; active: boolean }
+export interface OrgUnitBrief extends Named { id: string; code: string; level: string; unit_type: string | null; formation_role: string; is_active: boolean }
 export interface OrgRankRow { rank: { id: string; code: string; name_en: string; name_so: string }; sort_order: number; count: number }
 export interface OrgFunction { department: DepartmentBrief | null; count: number; active: number; people: OrgPerson[] | null; roster_hidden: boolean }
 export interface UnitProfile {

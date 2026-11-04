@@ -185,7 +185,7 @@ export function UnitOverview() {
       </p>
       <PageHeader title={<>{title} {o.unit.formation_role && <Chip>{t(`org2.role.${o.unit.formation_role}` as Key)}</Chip>}</>}
         subtitle={<>{o.unit.code}{o.unit.parent ? <> · {t("org2.parent")}: <Link to={`/units/${o.unit.parent.id}`}>{name(o.unit.parent)}</Link></> : null}
-          {!o.unit.active ? <> · <Chip tone="draft">{t("tree.inactive")}</Chip></> : null}{o.unit.restricted ? <> · <Chip tone="draft">{t("dept.restricted")}</Chip></> : null}</>}
+          {!o.unit.is_active ? <> · <Chip tone="draft">{t("tree.inactive")}</Chip></> : null}{o.unit.restricted ? <> · <Chip tone="draft">{t("dept.restricted")}</Chip></> : null}</>}
         actions={<ExportPdfButton build={pdf} filename={`unit-${o.unit.code}`} />} />
       {!o.counts_complete && <Notice>{t("uo.noCounts")}</Notice>}
       <Tabs tabs={tabs} value={tab} onChange={setTab} label={title} controls idPrefix="unit" />

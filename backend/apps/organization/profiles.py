@@ -98,7 +98,7 @@ def _bucket(rows):
 def _brief_unit(u):
     return {"id": str(u.pk), "code": u.code, "name_en": u.name_en, "name_so": u.name_so, "level": u.level,
             "unit_type": u.unit_type.code if u.unit_type_id else None,
-            "formation_role": (u.unit_type.formation_role if u.unit_type_id else "") or "", "active": u.active}
+            "formation_role": (u.unit_type.formation_role if u.unit_type_id else "") or "", "is_active": u.active}
 
 
 def _brief_department(d):

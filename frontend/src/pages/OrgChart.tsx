@@ -18,7 +18,7 @@ function Node({ node, depth }: { node: ChartNode; depth: number }) {
         <Link to={`/units/${node.id}`}>{name(node)}</Link>
         <Chip>{t(`org2.role.${node.formation_role}` as Key)}</Chip>
         <span className="muted">{node.code}</span>
-        {!node.active && <Chip tone="draft">{t("tree.inactive")}</Chip>}
+        {!node.is_active && <Chip tone="draft">{t("tree.inactive")}</Chip>}
         <span className="counts muted">
           <span>{t("org2.total")}: <b>{node.total}</b></span>
           <span>{t("org2.active")}: <b>{node.active}</b></span>
