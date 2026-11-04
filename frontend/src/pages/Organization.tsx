@@ -122,7 +122,7 @@ function AddUnit({ branches, onDone }: { branches: Branch[]; onDone: () => void 
     setError(null);
     try {
       await api("/organization/units/", { method: "POST", body: {
-        level, parent: parent || null, branch: level === "branch_command" ? branch || null : null,
+        level, parent: parent || null, branch: level === "branch_command" ? (branches.length === 1 ? branches[0].id : branch) || null : null,
         code, name_en: nameEn, name_so: nameSo,
         ...(unitType ? { unit_type: unitType } : {}), ...(level === "unit" && desigs.length ? { designations: desigs } : {}) } });
       onDone();
@@ -140,7 +140,7 @@ function AddUnit({ branches, onDone }: { branches: Branch[]; onDone: () => void 
       <UnitPicker key={level} label={t("org.parent")} value={parent} required
                   params={level === "unit" ? { placeable: 1 } : { placeable: undefined, level: PARENT_LEVELS[level][0] }}
                   onChange={(id) => setParent(id)} />
-      {level === "branch_command" && (
+      {level === "branch_command" && branches.length !== 1 && (
         <Field label={t("org.branch")}>
           <select value={branch} onChange={(e) => setBranch(e.target.value)} required>
             <option value="" />

@@ -110,12 +110,14 @@ export function Ranks() {
       <h1>{t("ranks.title")}</h1>
       <Notice>{t("ranks.draftNotice")}</Notice>
       <div className="grid" style={{ marginBottom: "1rem" }}>
-        <Field label={t("ranks.branch")}>
-          <select value={branch} onChange={(e) => setBranch(e.target.value)}>
-            <option value="">{t("common.all")}</option>
-            {branches.data?.results.map((b) => <option key={b.id} value={b.id}>{name(b)}</option>)}
-          </select>
-        </Field>
+        {(branches.data?.results.length ?? 0) > 1 && (
+          <Field label={t("ranks.branch")}>
+            <select value={branch} onChange={(e) => setBranch(e.target.value)}>
+              <option value="">{t("common.all")}</option>
+              {branches.data?.results.map((b) => <option key={b.id} value={b.id}>{name(b)}</option>)}
+            </select>
+          </Field>
+        )}
         <Field label={t("ranks.category")}>
           <select value={category} onChange={(e) => setCategory(e.target.value)}>
             <option value="">{t("common.all")}</option>

@@ -29,7 +29,7 @@ const NAV_SECTIONS: { key: string; title?: Key; to: string[] }[] = [
   { key: "units", title: "nav.group.units", to: ["/organization", "/institutions", "/structure", "/tree", "/structure-changes", "/units", "/change-requests"] },
   { key: "people", title: "nav.group.people", to: ["/personnel", "/search", "/attendance", "/training", "/ranks"] },
   { key: "pay", title: "nav.group.pay", to: ["/payroll", "/survivors"] },
-  { key: "reporting", title: "nav.group.reporting", to: ["/combined", "/reports", "/summary", "/analytics", "/tasks"] },
+  { key: "reporting", title: "nav.group.reporting", to: ["/reports", "/summary", "/analytics", "/tasks"] },
   { key: "logistics", title: "nav.group.logistics", to: ["/logistics", "/ammunition", "/ppe", "/weapons", "/vehicles", "/food"] },
   { key: "admin", title: "nav.group.admin", to: ["/users", "/integrations", "/audit"] },
 ];
@@ -50,7 +50,6 @@ export function Layout() {
     { to: "/structure-changes", icon: "swap", label: "nav.structureChanges", show: can("org.structure_propose") || can("org.structure_approve") },
     { to: "/personnel", icon: "users", label: "nav.personnel", show: can("personnel.view") || can("personnel.view_team") },
     { to: "/search", icon: "search", label: "nav.search", show: can("search.cross_service") },
-    { to: "/combined", icon: "list", label: "nav.combined", show: can("reports.combined") },
     { to: "/reports", icon: "file", label: "nav.reports", show: can("reports.view") },
     { to: "/summary", icon: "list", label: "nav.summary", show: can("reports.summary") },
     { to: "/logistics", icon: "box", label: "nav.logistics", show: ["logistics.view", "logistics.restricted", "logistics.configure", "logistics.approve", "logistics.restricted_approve", "logistics.report"].some(can) },
@@ -200,7 +199,7 @@ export function Layout() {
                 <strong>{name(a.role)}</strong>
                 <span className="path">
                   <span>{name(a.org_unit)}</span>
-                  <span>{a.branch ? name(a.branch) : t("scope.allBranches")}</span>
+                  {a.branch && <span>{name(a.branch)}</span>}
                 </span>
                 {a.valid_until && <div className="muted">{t("scope.until", { date: a.valid_until })}</div>}
               </li>
@@ -272,7 +271,7 @@ export function Layout() {
         )}
         <Outlet />
       </main>
-      <footer className="muted small" style={{ textAlign: "center", padding: "1rem" }}>{t("app.name")} · Fully functional system deployed on Render</footer>
+      <footer className="muted small" style={{ textAlign: "center", padding: "1rem" }}>{t("app.name")} · {t("app.footer")}</footer>
     </div>
   );
 }

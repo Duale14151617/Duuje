@@ -44,13 +44,33 @@ class RemoveLegacyStructureTests(BaseApiTest):
         self.assertFalse(ServiceBranch.objects.filter(code="NAVY").exists())
         self.assertIn("nothing to remove", self.run_cmd("--apply", "--purge"))
 
-    def test_a_unit_that_still_holds_people_is_kept_switched_off(self):
+    def person_in_old_army(self, name):
         rank = Rank.objects.get(branch__code="ARMY", code="PA-03")
         Rank.objects.filter(pk=rank.pk).update(approval_status="approved", name_so="x")
-        pers.create_personnel(None, full_name="Kept Person", phone="", service_number=None, org_unit=self.old_army,
-                              rank=Rank.objects.get(pk=rank.pk), status="active", effective_date=None)
+        return pers.create_personnel(None, full_name=name, phone="", service_number=None, org_unit=self.old_army,
+                                     rank=Rank.objects.get(pk=rank.pk), status="active", effective_date=None)
+
+    def test_people_of_the_removed_region_move_to_bari_with_history_and_audit(self):
+        from apps.audit.models import AuditEvent
+        from apps.personnel.models import Personnel, PersonnelHistory
+        person = self.person_in_old_army("Moved Person")
+        self.assertIn("would move", self.run_cmd())          # dry run reports it
+        self.assertEqual(Personnel.objects.get(pk=person.pk).org_unit.code, "KARKAAR-ARMY")
+        self.run_cmd("--apply", "--purge")
+        moved = Personnel.objects.get(pk=person.pk)
+        self.assertEqual(moved.org_unit.code, "BARI-ARMY")
+        self.assertEqual(moved.version, person.version + 1)
+        self.assertTrue(PersonnelHistory.objects.filter(personnel=person, field="org_unit", new_label=moved.org_unit.name_en,
+                                                         reason="Region merged into Bari").exists())
+        self.assertTrue(AuditEvent.objects.filter(action="personnel.region_merge_transfer", entity_id=str(person.pk)).exists())
+        self.assertFalse(OU.objects.filter(code__in=["KARKAAR", "KARKAAR-ARMY"]).exists())  # nobody left, so they are deleted
+
+    def test_a_deceased_file_is_not_moved_and_keeps_its_unit_switched_off(self):
+        from apps.personnel.models import Personnel
+        person = self.person_in_old_army("Deceased Person")
+        Personnel.objects.filter(pk=person.pk).update(status="died")
         text = self.run_cmd("--apply", "--purge")
         self.assertIn("still sit in switched-off units", text)
-        kept = OU.objects.get(code="KARKAAR-ARMY")
-        self.assertFalse(kept.active)
+        self.assertEqual(Personnel.objects.get(pk=person.pk).org_unit.code, "KARKAAR-ARMY")
+        self.assertFalse(OU.objects.get(code="KARKAAR-ARMY").active)
         self.assertTrue(OU.objects.filter(code="KARKAAR").exists())  # its parent cannot go while a child remains

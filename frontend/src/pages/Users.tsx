@@ -155,7 +155,7 @@ export function UserDetail() {
               <div>
                 <h2>{name(a.role)}</h2>
                 <span className="muted">
-                  {name(a.org_unit)} › {a.branch ? name(a.branch) : t("scope.allBranches")}
+                  {name(a.org_unit)}{a.branch ? ` › ${name(a.branch)}` : ""}
                   {a.valid_until ? ` · ${t("scope.until", { date: a.valid_until })}` : ""}
                 </span>
               </div>
@@ -181,12 +181,14 @@ export function UserDetail() {
               {units.data?.results.map((x) => <option key={x.id} value={x.id}>{"\u00a0\u00a0".repeat(x.depth)}{name(x)}</option>)}
             </select>
           </Field>
-          <Field label={t("org.branch")}>
-            <select value={branch} onChange={(e) => setBranch(e.target.value)}>
-              <option value="">{t("scope.allBranches")}</option>
-              {branches.data?.results.map((b) => <option key={b.id} value={b.id}>{name(b)}</option>)}
-            </select>
-          </Field>
+          {(branches.data?.results.length ?? 0) > 1 && (
+            <Field label={t("org.branch")}>
+              <select value={branch} onChange={(e) => setBranch(e.target.value)}>
+                <option value="">{t("scope.allBranches")}</option>
+                {branches.data?.results.map((b) => <option key={b.id} value={b.id}>{name(b)}</option>)}
+              </select>
+            </Field>
+          )}
           <div className="grid">
             <Field label={t("users.validFrom")}><input type="date" value={validFrom} onChange={(e) => setValidFrom(e.target.value)} /></Field>
             <Field label={t("users.validUntil")}><input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} /></Field>

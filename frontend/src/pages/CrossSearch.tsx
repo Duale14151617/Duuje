@@ -7,7 +7,7 @@ import { useI18n, type Key } from "../i18n";
 
 interface SearchResult { counts: Record<string, number>; total: number; truncated: boolean; results: Person[] }
 
-/** One query over every service the user is authorised for (every service). The server applies the same scope as the personnel list. */
+/** One query over the personnel the user is authorised for. The server applies the same scope as the personnel list. */
 export function CrossSearch() {
   const { t, name } = useI18n();
   const [sp] = useSearchParams();
@@ -27,7 +27,7 @@ export function CrossSearch() {
       {data && (
         <>
           <p>
-            {Object.entries(data.counts).map(([code, n]) => <Chip key={code} tone="draft">{code} · {n}</Chip>)}{" "}
+            {Object.keys(data.counts).length > 1 && Object.entries(data.counts).map(([code, n]) => <Chip key={code} tone="draft">{code} · {n}</Chip>)}{" "}
             {data.truncated && <span className="muted">{t("srch.truncated")}</span>}
           </p>
           {data.total === 0 && <p>{t("srch.none")}</p>}

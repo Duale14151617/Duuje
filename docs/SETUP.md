@@ -16,7 +16,7 @@ python manage.py makemigrations --check   # migrations were hand-written; this m
 python manage.py migrate
 python manage.py createcachetable         # login throttling cache
 python manage.py seed_reference_data      # permissions, roles, branches, regions, DRAFT ranks (idempotent)
-python manage.py remove_legacy_structure --apply --purge  # only for databases seeded before Navy and Karkaar were dropped (switches them off, deletes what nothing refers to)
+python manage.py remove_legacy_structure --apply --purge  # only for databases seeded before Navy and Karkaar were dropped (moves Karkaar's Army people to Bari, switches both off, deletes what nothing refers to)
 python manage.py apply_army_structure --apply   # Army HQ, directorates, 4 regional commands, Guuto/Urur and battalion sections (idempotent, additive)
 
 # First real administrator (prompts for a password; first login forces password change + MFA enrolment)

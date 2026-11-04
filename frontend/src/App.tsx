@@ -24,7 +24,6 @@ import { AssetDetail, LogisticsHome, ReconDetail, StockDetail } from "./pages/Lo
 import { TrainingHome, TrainingRecordDetail } from "./pages/Training";
 import { Notifications } from "./pages/Notifications";
 import { CrossSearch } from "./pages/CrossSearch";
-import { CombinedReport } from "./pages/CombinedReport";
 import { ReportDetail, ReportForm, ReportList } from "./pages/Reports";
 import { Summary } from "./pages/Summary";
 import { Organization } from "./pages/Organization";
@@ -83,7 +82,7 @@ export default function App() {
         <Route path="personnel/reporting-lines" element={<ReportingLines />} />
         <Route path="personnel/:id" element={<PersonnelDetail />} />
         <Route path="search" element={<CrossSearch />} />
-        <Route path="combined" element={<CombinedReport />} />
+        <Route path="combined" element={<Navigate to="/reports" replace />} />
         <Route path="reports" element={<ReportList />} />
         <Route path="reports/new" element={<ReportForm />} />
         <Route path="reports/:id/edit" element={<ReportForm />} />
