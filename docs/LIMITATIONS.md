@@ -6,6 +6,7 @@ authoring environment (no network, no Django/npm packages). Run them first. Migr
 `makemigrations --check`.
 
 ## Limitations
+- Unit suggestions (add personnel form) infer a unit's trade from its type and from words in its code and names (see `apps/organization/placement_hints.py`). Rename or add keywords there if the army's unit names differ; the Somali specialty labels are working translations. The specialty is not stored and the CSV import does not use it.
 - Rank catalogue: the Army list is the 16 official ranks supplied in the 1.3.1 addendum.
   The provisional US-style list was retired (see the 1.3.1 notes below).
 - Somali UI text is a draft and needs review by a qualified translator and institutional terminology owners.

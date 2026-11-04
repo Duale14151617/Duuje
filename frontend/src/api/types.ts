@@ -110,6 +110,7 @@ export interface PersonBrief {
 export interface Person {
   id: string; service_number: string | null; full_name: string; phone: string; branch: BranchBrief;
   org_unit: UnitBrief; rank: RankBrief; status: PersonnelStatus; version: number;
+  department?: DepartmentBrief | null;
   /** Reporting line. Present on the detail screen only for people who may read this person's unit. */
   supervisor_id?: string | null;
   supervisor?: PersonBrief | { id: string; restricted: true } | null;
@@ -268,12 +269,13 @@ export interface DeathRecordOut {
   evidence?: DeathEvidence[];
 }
 
-export interface AppointmentTypeOut { id: string; code: string; name_en: string; name_so: string; unit_type: string | null; exclusive: boolean }
+export interface AppointmentTypeOut { id: string; code: string; name_en: string; name_so: string; unit_type: string | null; role?: string; exclusive: boolean }
 export interface AppointmentOut {
   id: string; appointment_type: { id: string; code: string; name_en: string; name_so: string };
   org_unit: { id: string; code: string; name_en: string; name_so: string };
   effective_from: string; effective_to: string | null; authority_ref: string; current: boolean; created_by: string;
   ended_at: string | null; ended_by: string; end_reason: string; has_access_link: boolean;
+  department?: { id: string; code: string; name_en: string; name_so: string } | null;
 }
 
 export interface FoodSupplier { id: string; name: string; phone: string; address: string; notes: string; active: boolean; version: number }
@@ -330,3 +332,52 @@ export interface UnitTaskOut {
   events?: { kind: string; from_status: string; to_status: string; note: string; actor: string; at: string }[];
 }
 export interface TaskMember { id: string; full_name: string; service_number: string | null; rank: string; unit: string }
+
+// ---- organizational structure (departments, unit profiles, chart, analytics)
+export interface DepartmentBrief extends Named { id: string; code: string; restricted: boolean }
+export interface Department extends Named {
+  id: string; code: string; description_en: string; description_so: string; restricted_roster: boolean; sort_order: number; active: boolean; version: number;
+}
+export interface FormationRoleRow extends Named { id: string; code: string; tier: number; formation_role: string; active: boolean; version: number }
+export interface OrgPerson {
+  id: string; full_name: string; service_number: string | null; status: string; rank: { id: string; code: string; name_en: string; name_so: string };
+  department: DepartmentBrief | null; org_unit: UnitBrief;
+}
+export interface OrgOffice {
+  id: string; type: string; type_en: string; type_so: string; role: string; effective_from: string; department: DepartmentBrief | null;
+  holder: { id: string; full_name: string; service_number: string | null; rank: { code: string; name_en: string; name_so: string } } | null;
+}
+export interface OrgBucket { total: number; active: number; inactive: number }
+export interface OrgUnitBrief extends Named { id: string; code: string; level: string; unit_type: string | null; formation_role: string; active: boolean }
+export interface OrgRankRow { rank: { id: string; code: string; name_en: string; name_so: string }; sort_order: number; count: number }
+export interface OrgFunction { department: DepartmentBrief | null; count: number; active: number; people: OrgPerson[] | null; roster_hidden: boolean }
+export interface UnitProfile {
+  unit: OrgUnitBrief & { restricted: boolean; version: number; parent: OrgUnitBrief | null };
+  breadcrumb: { id: string; code: string; name_en: string; name_so: string }[];
+  leadership: { commander: OrgOffice[]; deputy: OrgOffice[]; administrative: OrgOffice[]; other: OrgOffice[] };
+  departments: { department: DepartmentBrief; established: boolean; head: OrgOffice | null; deputy: OrgOffice | null; staff: number; active: number; inactive: number }[];
+  unassigned_department: OrgBucket & { by_status: Record<string, number> };
+  medical: OrgFunction; finance: OrgFunction;
+  children: (OrgUnitBrief & OrgBucket & { direct: number })[];
+  stats: OrgBucket & { direct: number; by_status: Record<string, number> };
+  by_rank: OrgRankRow[];
+  can: { name: boolean; manage: boolean; appoint: boolean; restricted: boolean };
+  counts_complete: boolean;
+}
+export interface DepartmentProfile {
+  unit: OrgUnitBrief; department: DepartmentBrief & { description_en: string; description_so: string };
+  established: boolean; head: OrgOffice | null; deputy: OrgOffice | null; stats: OrgBucket & { by_status: Record<string, number> };
+  staff: OrgPerson[] | null; assigned: OrgPerson[] | null; staff_total: number; assigned_total: number; roster_hidden: boolean;
+  can: { name: boolean; manage: boolean; appoint: boolean };
+}
+export interface ChartNode extends OrgUnitBrief, OrgBucket { children: ChartNode[] }
+export interface OrgAnalytics {
+  totals: OrgBucket & { by_status: Record<string, number> };
+  by_formation: Record<string, (OrgUnitBrief & OrgBucket & { parent_id: string | null })[]>;
+  departments: { department: DepartmentBrief; established_in: number; with_head: number; with_deputy: number; total: number; active: number; inactive: number }[];
+  unassigned_department: OrgBucket;
+  leadership: { units: number; with_commander: number; with_deputy: number; vacancies: (OrgUnitBrief & { missing: string[] })[]; vacancies_total: number };
+  by_rank: OrgRankRow[]; counts_complete: boolean;
+}
+export interface UnitDepartmentRow { id: string; unit: string; department: Department; note: string; active: boolean; version: number }
+export interface AppointmentTypeRow extends Named { id: string; code: string; unit_type: string | null; role: string; exclusive: boolean }

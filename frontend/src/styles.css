@@ -901,3 +901,17 @@ main:has(> .dash) { max-width: 80rem; }
 .chart-stats a { text-decoration: none; }
 .chart-stats a:hover { text-decoration: underline; }
 .money-line { margin: .75rem 0 0; font-size: .85rem; }
+
+/* organizational structure: tiles, bars, chart */
+.org-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); gap: .75rem; margin-bottom: 1rem; }
+.org-tile { border: 1px solid var(--line); border-radius: 8px; padding: .6rem .75rem; display: flex; flex-direction: column; background: var(--paper); }
+.org-tile b { font-size: 1.5rem; line-height: 1.2; }
+.org-bar { display: grid; grid-template-columns: minmax(8rem, 14rem) 1fr 3rem; gap: .5rem; align-items: center; padding-block: .2rem; }
+.org-bar-track { height: .6rem; border-radius: 4px; background: var(--line); overflow: hidden; }
+.org-bar-fill { display: block; height: 100%; background: currentColor; color: var(--accent-text); border-radius: 4px; }
+.org-bar-value { text-align: right; }
+.org-chart ul { list-style: none; margin: 0; padding-left: 1.1rem; border-left: 1px solid var(--line); }
+.org-chart > ul { padding-left: 0; border-left: 0; }
+.org-node { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; padding-block: .25rem; }
+.org-node .counts { margin-left: auto; display: flex; gap: .75rem; }
+@media (max-width: 600px) { .org-bar { grid-template-columns: 1fr 3rem; } .org-bar-track { grid-column: 1 / -1; grid-row: 2; } }

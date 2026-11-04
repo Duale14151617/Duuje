@@ -28,6 +28,10 @@ class Personnel(models.Model):
     branch = models.ForeignKey("organization.ServiceBranch", on_delete=models.PROTECT, related_name="+")
     org_unit = models.ForeignKey("organization.OrganizationalUnit", on_delete=models.PROTECT, related_name="personnel")
     rank = models.ForeignKey("ranks.Rank", on_delete=models.PROTECT, related_name="+")
+    # Functional department (medical, finance, logistics ...). Optional: existing records have none until an administrator
+    # assigns one. Independent of the unit, so a transfer keeps it.
+    department = models.ForeignKey("organization.Department", null=True, blank=True, on_delete=models.PROTECT,
+                                   related_name="personnel")
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.ACTIVE)
     # Reporting line: the person this one reports to. Drives the `personnel.view_team` rule (own record + direct subordinates).
     supervisor = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="subordinates")
@@ -43,7 +47,8 @@ class Personnel(models.Model):
         ordering = ["full_name", "id"]
         indexes = [models.Index(fields=["org_unit", "status"], name="personnel_unit_status"),
                    models.Index(fields=["status"], name="personnel_status"),
-                   models.Index(fields=["full_name", "id"], name="personnel_name_id")]
+                   models.Index(fields=["full_name", "id"], name="personnel_name_id"),
+                   models.Index(fields=["org_unit", "department"], name="personnel_unit_dept")]
         constraints = [
             models.UniqueConstraint(fields=["service_number"], condition=Q(service_number__isnull=False),
                                     name="personnel_service_number_unique"),
@@ -76,6 +81,7 @@ class PersonnelHistory(AppendOnlyModel):
         RANK = "rank"
         ORG_UNIT = "org_unit"
         STATUS = "status"
+        DEPARTMENT = "department"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     personnel = models.ForeignKey(Personnel, on_delete=models.PROTECT, related_name="history")
@@ -199,6 +205,13 @@ class DeathRecord(models.Model):
         raise AppendOnlyError("Death records cannot be deleted; withdraw a mistaken report instead.")
 
 
+APPOINTMENT_ROLE_CHOICES = [
+    ("commander", "Commander"), ("deputy", "Deputy commander"), ("administrative", "Administrative leadership"),
+    ("department_head", "Head of department"), ("department_deputy", "Deputy head of department"), ("other", "Other"),
+]
+DEPARTMENT_ROLES = ("department_head", "department_deputy")
+
+
 class AppointmentType(models.Model):
     """A command appointment title (Taliye Qaybeed, Taliye Urur ...). Data, not code: add or retire titles without a release.
     An appointment is NOT a rank, NOT an organizational assignment and NOT an application role: it records who holds a command
@@ -210,6 +223,9 @@ class AppointmentType(models.Model):
     name_so = models.CharField(max_length=120, blank=True)
     unit_type = models.ForeignKey("organization.UnitType", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
     exclusive = models.BooleanField(default=True, help_text="Only one current holder per unit.")
+    # What the office is, for unit profiles: commander, deputy, administrative lead, or head/deputy of a department
+    # (department offices carry a department on the appointment). "other" offices are listed but not classed.
+    role = models.CharField(max_length=20, choices=APPOINTMENT_ROLE_CHOICES, default="other")
     active = models.BooleanField(default=True)
     version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -229,6 +245,8 @@ class CommandAppointment(models.Model):
     personnel = models.ForeignKey(Personnel, on_delete=models.PROTECT, related_name="appointments")
     org_unit = models.ForeignKey("organization.OrganizationalUnit", on_delete=models.PROTECT, related_name="+")
     appointment_type = models.ForeignKey(AppointmentType, on_delete=models.PROTECT, related_name="appointments")
+    # Set only for department offices (head / deputy of a department established in org_unit).
+    department = models.ForeignKey("organization.Department", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
     exclusive = models.BooleanField(default=True)  # copied from the type when created, so the database can enforce it
     effective_from = models.DateField()
     effective_to = models.DateField(null=True, blank=True)
@@ -247,7 +265,9 @@ class CommandAppointment(models.Model):
         ordering = ["-effective_from", "-created_at"]
         constraints = [
             models.UniqueConstraint(fields=["org_unit", "appointment_type"], name="appointment_one_open_exclusive",
-                                    condition=models.Q(ended_at__isnull=True, exclusive=True)),
+                                    condition=models.Q(ended_at__isnull=True, exclusive=True, department__isnull=True)),
+            models.UniqueConstraint(fields=["org_unit", "appointment_type", "department"], name="appointment_one_open_exclusive_dept",
+                                    condition=models.Q(ended_at__isnull=True, exclusive=True, department__isnull=False)),
             models.CheckConstraint(condition=models.Q(effective_to__isnull=True) | models.Q(effective_to__gte=models.F("effective_from")),
                                    name="appointment_dates_ordered"),
         ]

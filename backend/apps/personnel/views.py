@@ -19,7 +19,8 @@ from apps.core.concurrency import require_version, versioned_update
 from apps.core.errors import field_error
 from apps.core.negotiation import IgnoreNegotiation
 from apps.core.params import uuid_param
-from apps.organization.models import OrganizationalUnit
+from apps.organization.models import Department, OrganizationalUnit
+from apps.organization import profiles as org_profiles
 
 from . import appointments as appt_svc
 from . import death as death_svc
@@ -47,12 +48,35 @@ def _filter(qs, request):
     unit_id = uuid_param(request, "org_unit")
     if unit_id:
         unit = OrganizationalUnit.objects.filter(pk=unit_id).first()
-        qs = qs.filter(org_unit__path__startswith=unit.path) if unit else qs.none()
+        if unit and p.get("direct") == "1":
+            qs = qs.filter(org_unit=unit)  # only the people assigned to this very unit, not those in its sub-units
+        else:
+            qs = qs.filter(org_unit__path__startswith=unit.path) if unit else qs.none()
     if p.get("status"):
         qs = qs.filter(status=p["status"])
     if p.get("no_supervisor") == "1":
         qs = qs.filter(supervisor__isnull=True)
-    return qs
+    dept = uuid_param(request, "department")
+    if dept:
+        qs = qs.filter(department_id=dept)
+    if p.get("no_department") == "1":
+        qs = qs.filter(department__isnull=True)
+    return _order(qs, p.get("ordering", ""))
+
+
+# Sortable columns of the personnel directory (`?ordering=name`, `?ordering=-rank` ...). Rank sorts senior first.
+_ORDERING = {"name": ("full_name",), "rank": ("-rank__sort_order",), "service_number": ("service_number",), "status": ("status",),
+             "department": ("department__sort_order", "department__code"), "unit": ("org_unit__code",)}
+
+
+def _order(qs, value):
+    key = value.lstrip("-")
+    if key not in _ORDERING:
+        return qs
+    fields = _ORDERING[key]
+    if value.startswith("-"):
+        fields = tuple(f[1:] if f.startswith("-") else "-" + f for f in fields)
+    return qs.order_by(*fields, "full_name", "id")
 
 
 def _scoped(user, code):
@@ -78,9 +102,10 @@ def _team(user):
 def _readable(user):
     """Everything this user may read: unit-wide `personnel.view` scope, plus the own-record / direct-subordinate rows."""
     base = _scoped(user, "personnel.view")
-    if not scope.has_anywhere(user, "personnel.view_team"):
-        return base
-    return Personnel.objects.filter(Q(pk__in=base.values("pk")) | Q(pk__in=_team(user).values("pk")))
+    if scope.has_anywhere(user, "personnel.view_team"):
+        base = Personnel.objects.filter(Q(pk__in=base.values("pk")) | Q(pk__in=_team(user).values("pk")))
+    # Named staff of restricted departments (finance, medical) need `departments.view_restricted`; own record and direct reports stay visible.
+    return org_profiles.apply_roster_gate(user, base)
 
 
 def _brief(p):
@@ -160,7 +185,7 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
     def get_queryset(self):
         # Scope lives in the queryset: out-of-scope people are simply not found.
         return _filter(_readable(self.request.user), self.request).select_related(
-            "branch", "org_unit", "rank")
+            "branch", "org_unit", "rank", "department")
 
     def retrieve(self, request, *args, **kwargs):
         person = self.get_object()
@@ -168,7 +193,7 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
         return Response(_detail(request, person))
 
     def _out(self, person):
-        person = Personnel.objects.select_related("branch", "org_unit", "rank").get(pk=person.pk)
+        person = Personnel.objects.select_related("branch", "org_unit", "rank", "department").get(pk=person.pk)
         return Response(_detail(self.request, person))
 
     # --- create / edit ---------------------------------------------------
@@ -179,9 +204,11 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
         with transaction.atomic():
             person = svc.create_personnel(
                 request.user, full_name=d["full_name"], phone=d.get("phone", ""), service_number=d.get("service_number"),
-                org_unit=d["org_unit"], rank=d["rank"], status=d["status"], effective_date=d.get("effective_date"))
+                org_unit=d["org_unit"], rank=d["rank"], status=d["status"], effective_date=d.get("effective_date"),
+                department=d.get("department"))
             record("personnel.create", request=request, entity_type="personnel", entity_id=person.pk,
-                   metadata={"unit": str(person.org_unit_id), "duplicate_confirmed": bool(d.get("confirm_duplicate"))})
+                   metadata={"unit": str(person.org_unit_id), "duplicate_confirmed": bool(d.get("confirm_duplicate")),
+                             "department": person.department.code if person.department_id else None})
         resp = self._out(person)
         resp.status_code = 201
         return resp
@@ -265,13 +292,13 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
         rows = AppointmentType.objects.filter(active=True).select_related("unit_type")
         return Response({"results": [{"id": str(t.pk), "code": t.code, "name_en": t.name_en, "name_so": t.name_so,
                                       "unit_type": t.unit_type.code if t.unit_type_id else None,
-                                      "exclusive": t.exclusive} for t in rows]})
+                                      "role": t.role, "exclusive": t.exclusive} for t in rows]})
 
     @action(detail=False, methods=["get"], url_path="appointments")
     def appointment_list(self, request):
         """Appointments of people the caller may read. ?org_unit=<id> (that unit and below), ?current=1."""
         qs = CommandAppointment.objects.filter(personnel__in=_readable(request.user).values("pk")).select_related(
-            "appointment_type", "org_unit", "personnel__rank")
+            "appointment_type", "org_unit", "personnel__rank", "department")
         unit = uuid_param(request, "org_unit")
         if unit:
             base = OrganizationalUnit.objects.filter(pk=unit).first()
@@ -284,7 +311,7 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
     def person_appointments(self, request, pk=None):
         person = self.get_object()
         _audit_team_read(request, person, "appointments")
-        rows = person.appointments.select_related("appointment_type", "org_unit")
+        rows = person.appointments.select_related("appointment_type", "org_unit", "department")
         return Response({"results": [appt_svc.out(a) for a in rows]})
 
     @action(detail=True, methods=["post"], url_path="appointments/add")
@@ -299,6 +326,11 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
             raise field_error("org_unit", "org_unit_invalid", "That unit cannot be used.")  # unknown and out-of-scope read alike
         if atype is None:
             raise field_error("appointment_type", "appointment_type_invalid", "That appointment cannot be used.")
+        department = None
+        if d.get("department"):
+            department = Department.objects.filter(pk=d["department"]).first()
+            if department is None:
+                raise field_error("department", "department_not_established", "That department cannot be used.")
         assignment = None
         if d.get("role_assignment"):
             assignment = RoleAssignment.objects.select_related("user").filter(pk=d["role_assignment"]).first()
@@ -307,13 +339,14 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
         with transaction.atomic():
             try:
                 appt = appt_svc.create(request.user, person, unit, atype, d["effective_from"], d.get("effective_to"),
-                                       d.get("authority_ref", ""), assignment)
+                                       d.get("authority_ref", ""), assignment, department=department)
             except svc.RuleError as exc:
                 raise _rule_to_400(exc)
             record("personnel.appointment_created", request=request, entity_type="personnel", entity_id=person.pk,
                    metadata={"appointment": str(appt.pk), "type": atype.code, "unit": unit.code,
+                             "department": department.code if department else None,
                              "effective_from": d["effective_from"].isoformat(), "access_linked": assignment is not None})
-        appt = CommandAppointment.objects.select_related("appointment_type", "org_unit").get(pk=appt.pk)
+        appt = CommandAppointment.objects.select_related("appointment_type", "org_unit", "department").get(pk=appt.pk)
         return Response(appt_svc.out(appt), status=201)
 
     @action(detail=True, methods=["post"], url_path=r"appointments/(?P<appointment_id>[0-9a-f-]{36})/end")

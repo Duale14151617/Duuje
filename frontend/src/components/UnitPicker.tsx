@@ -8,9 +8,9 @@ import { Field } from "./ui";
  * Searchable unit selector. A national structure has thousands of units, so a plain dropdown of "the first 100"
  * cannot reach most of them: type part of a name or code, then choose from the matches.
  */
-export function UnitPicker({ label, value, onChange, params, required, allowAll, exclude }: {
+export function UnitPicker({ label, value, onChange, params, required, allowAll, exclude, extra }: {
   label: string; value: string; onChange: (id: string, unit: Unit | null) => void;
-  params?: Record<string, string | number | undefined>; required?: boolean; allowAll?: boolean; exclude?: string;
+  params?: Record<string, string | number | undefined>; required?: boolean; allowAll?: boolean; exclude?: string; extra?: Unit | null;
 }) {
   const { t, name } = useI18n();
   const [q, setQ] = useState("");
@@ -19,7 +19,8 @@ export function UnitPicker({ label, value, onChange, params, required, allowAll,
   useEffect(() => { const h = setTimeout(() => setDebounced(q.trim()), 250); return () => clearTimeout(h); }, [q]);
   const list = useFetch<Page<Unit>>("/organization/units/", { placeable: 1, active: "true", page_size: 100, q: debounced, ...params });
   const options = (list.data?.results ?? []).filter((u) => u.id !== exclude);
-  const showChosen = chosen && chosen.id === value && !options.some((u) => u.id === value);
+  const shown = chosen && chosen.id === value ? chosen : extra && extra.id === value ? extra : null;  // `extra`: a unit the parent set, for example from a suggestion
+  const showChosen = shown && !options.some((u) => u.id === value);
   return (
     <>
       <input type="search" value={q} onChange={(e) => setQ(e.target.value)} maxLength={100}
@@ -28,7 +29,7 @@ export function UnitPicker({ label, value, onChange, params, required, allowAll,
         <select value={value} required={required}
                 onChange={(e) => { const u = options.find((x) => x.id === e.target.value) ?? null; setChosen(u); onChange(e.target.value, u); }}>
           {allowAll ? <option value="">{t("common.all")}</option> : <option value="" />}
-          {showChosen && <option value={chosen.id}>{name(chosen)}</option>}
+          {showChosen && shown && <option value={shown.id}>{name(shown)}</option>}
           {options.map((u) => <option key={u.id} value={u.id}>{name(u)} · {u.code}</option>)}
         </select>
       </Field>

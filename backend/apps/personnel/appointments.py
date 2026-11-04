@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from apps.accounts.services import revoke_user_sessions
 
-from .models import AppointmentType, CommandAppointment, Personnel
+from .models import DEPARTMENT_ROLES, AppointmentType, CommandAppointment, Personnel
 from .services import NOT_SERVING, RuleError, outranks
 
 
@@ -21,7 +21,7 @@ def is_current(a, today=None):
     return a.ended_at is None and a.effective_from <= today and (a.effective_to is None or a.effective_to >= today)
 
 
-def create(actor, person, org_unit, atype, effective_from, effective_to=None, authority_ref="", assignment=None):
+def create(actor, person, org_unit, atype, effective_from, effective_to=None, authority_ref="", assignment=None, department=None):
     if person.status in NOT_SERVING:
         raise RuleError("person_not_serving", "personnel")
     if not atype.active or not org_unit.active:
@@ -30,16 +30,25 @@ def create(actor, person, org_unit, atype, effective_from, effective_to=None, au
         raise RuleError("appointment_unit_mismatch", "org_unit")  # e.g. a Taliye Urur belongs to an Urur
     if effective_to is not None and effective_to < effective_from:
         raise RuleError("appointment_dates", "effective_to")
+    # Department offices (head / deputy of a department) name a department that the unit has established; no other office may.
+    if atype.role in DEPARTMENT_ROLES:
+        from apps.organization.models import UnitDepartment
+        if department is None:
+            raise RuleError("department_required", "department")
+        if not department.active or not UnitDepartment.objects.filter(unit=org_unit, department=department, active=True).exists():
+            raise RuleError("department_not_established", "department")
+    elif department is not None:
+        raise RuleError("department_not_allowed", "department")
     if assignment is not None:
         if assignment.revoked_at is not None or person.account_id is None or assignment.user_id != person.account_id:
             raise RuleError("assignment_mismatch", "role_assignment")  # the access must belong to this person's own login
-    if atype.exclusive and CommandAppointment.objects.filter(org_unit=org_unit, appointment_type=atype,
+    if atype.exclusive and CommandAppointment.objects.filter(org_unit=org_unit, appointment_type=atype, department=department,
                                                              ended_at__isnull=True).exists():
         raise RuleError("appointment_exists", "appointment_type")
     try:
         with transaction.atomic():
             appt = CommandAppointment.objects.create(
-                personnel=person, org_unit=org_unit, appointment_type=atype, exclusive=atype.exclusive,
+                personnel=person, org_unit=org_unit, appointment_type=atype, department=department, exclusive=atype.exclusive,
                 effective_from=effective_from, effective_to=effective_to, authority_ref=(authority_ref or "")[:150],
                 role_assignment=assignment, created_by_id=actor.pk, created_by_username=actor.username)
             return appt
@@ -85,6 +94,8 @@ def out(a, with_person=False):
         "authority_ref": a.authority_ref, "current": is_current(a), "created_by": a.created_by_username,
         "ended_at": a.ended_at, "ended_by": a.ended_by_username, "end_reason": a.end_reason,
         "has_access_link": a.role_assignment_id is not None,
+        "department": ({"id": str(a.department_id), "code": a.department.code, "name_en": a.department.name_en,
+                        "name_so": a.department.name_so} if a.department_id else None),
     }
     if with_person:
         p = a.personnel

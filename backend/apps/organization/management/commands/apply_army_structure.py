@@ -2,7 +2,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from apps.audit.services import record
-from apps.organization import army_structure
+from apps.organization import army_structure, profiles
 from apps.organization.models import OrganizationalUnit, ServiceBranch, UnitType
 from apps.personnel.models import Personnel
 
@@ -29,6 +29,13 @@ class Command(BaseCommand):
             if apply and any(a != "blocked" for a, _ in lines):
                 record("org.army_structure_applied", entity_type="organization",
                        metadata={"actions": [f"{a}: {d}" for a, d in lines][:50]})
+        if apply:  # the standard departments of General Headquarters (names only; nobody is appointed or assigned)
+            with transaction.atomic():
+                made = profiles.establish_standard_departments()
+                if made:
+                    record("org.departments_established", entity_type="organization", metadata={"unit": profiles.GHQ_UNIT_CODE, "departments": made})
+            for code in made:
+                self.stdout.write(f"APPLIED establish_department: {profiles.GHQ_UNIT_CODE} {code}")
         for action, detail in lines:
             self.stdout.write(f"{'APPLIED' if apply and action != 'blocked' else 'WOULD' if not apply else 'NOTE'} {action}: {detail}")
         if not lines:

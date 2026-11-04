@@ -8,8 +8,8 @@ import re
 from django.utils import timezone
 
 from . import structure_changes
-from .models import (DesignationRule, OrganizationalUnit, PlacementError, ServiceBranch, SpecialistDesignation,
-                     StructureChange, UnitType)
+from .models import (DesignationRule, Department, FORMATION_ROLE_CHOICES, OrganizationalUnit, PlacementError, ServiceBranch,
+                     SpecialistDesignation, StructureChange, UnitDepartment, UnitType)
 
 
 class BranchSerializer(serializers.ModelSerializer):
@@ -170,8 +170,8 @@ class UnitTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = UnitType
         fields = ["id", "code", "name_en", "name_so", "tier", "parent_type", "standard_per_parent", "reference_min",
-                  "reference_max", "description_en", "description_so", "active", "version"]
-        read_only_fields = ["id", "version"]
+                  "reference_max", "description_en", "description_so", "formation_role", "active", "version"]
+        read_only_fields = ["id", "version", "formation_role"]  # the formation role has its own endpoint (organization/formation-roles)
         extra_kwargs = {"code": {"validators": []}}
         validators = []
 
@@ -288,3 +288,53 @@ class StructureChangeSerializer(serializers.ModelSerializer):
         if "operations" in validated_data:
             validated_data["impact"] = structure_changes.evaluate(validated_data["operations"])
         return versioned_update(instance, validated_data, expected)
+
+
+class DepartmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Department
+        fields = ["id", "code", "name_en", "name_so", "description_en", "description_so", "restricted_roster", "sort_order",
+                  "active", "version"]
+        read_only_fields = ["id", "version"]
+        extra_kwargs = {"code": {"validators": []}}
+        validators = []
+
+    def validate_code(self, value):
+        value = value.strip().upper()
+        if not re.match(r"^[A-Z][A-Z0-9_]{1,31}$", value):
+            raise serializers.ValidationError("Letters, digits and _ only.", code="invalid_code")
+        if Department.objects.filter(code=value).exclude(pk=getattr(self.instance, "pk", None)).exists():
+            raise serializers.ValidationError("Code already in use.", code="code_taken")
+        if self.instance is not None and value != self.instance.code:
+            raise serializers.ValidationError("A department code cannot be changed.", code="immutable_field")
+        return value
+
+    def update(self, instance, validated_data):
+        expected = require_version(self.initial_data)
+        return versioned_update(instance, validated_data, expected)
+
+
+class UnitDepartmentSerializer(serializers.ModelSerializer):
+    department = DepartmentSerializer(read_only=True)
+
+    class Meta:
+        model = UnitDepartment
+        fields = ["id", "unit", "department", "note", "active", "version"]
+        read_only_fields = fields
+
+
+class FormationRoleSerializer(serializers.ModelSerializer):
+    """A unit type and the formation it stands for in the chart and unit profiles ("" = an ordinary unit)."""
+
+    formation_role = serializers.ChoiceField(choices=FORMATION_ROLE_CHOICES, allow_blank=True)
+
+    class Meta:
+        model = UnitType
+        fields = ["id", "code", "name_en", "name_so", "tier", "formation_role", "active", "version"]
+        read_only_fields = ["id", "code", "name_en", "name_so", "tier", "active", "version"]
+
+    def update(self, instance, validated_data):
+        expected = require_version(self.initial_data)
+        if "formation_role" not in validated_data:
+            raise serializers.ValidationError({"formation_role": [serializers.ErrorDetail("This field is required.", code="required")]})
+        return versioned_update(instance, {"formation_role": validated_data["formation_role"]}, expected)

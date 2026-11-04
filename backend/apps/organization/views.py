@@ -17,10 +17,15 @@ from rest_framework.exceptions import PermissionDenied
 from apps.core.concurrency import require_version, versioned_update
 from apps.core.errors import field_error
 
-from . import change_requests, structure, structure_changes
-from .models import ChangeRequest, DesignationRule, ServiceBranch, SpecialistDesignation, StructureChange, UnitType
-from .serializers import (BranchSerializer, DesignationSerializer, RuleSerializer, StructureChangeSerializer,
-                          UnitSerializer, UnitTypeSerializer)
+import uuid as _uuid
+
+from rest_framework.exceptions import NotFound
+
+from . import change_requests, profiles, structure, structure_changes
+from .models import (ChangeRequest, Department, DesignationRule, OrganizationalUnit, ServiceBranch, SpecialistDesignation,
+                     StructureChange, UnitDepartment, UnitType)
+from .serializers import (BranchSerializer, DepartmentSerializer, DesignationSerializer, FormationRoleSerializer, RuleSerializer,
+                          StructureChangeSerializer, UnitDepartmentSerializer, UnitSerializer, UnitTypeSerializer)
 
 
 class UnitViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin,
@@ -31,7 +36,8 @@ class UnitViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
     permission_map = {
         "list": ("org.view", "unit"), "retrieve": ("org.view", "unit"),
         "create": ("org.manage", "any"), "partial_update": ("org.manage", "unit"),
-        "tree": ("org.view", "any"), "overview": ("org.view", "unit"),
+        "tree": ("org.view", "any"), "overview": ("org.view", "unit"), "suggest": ("org.view", "any"),
+        "chart": ("org.view", "any"), "profile": ("org.view", "unit"), "department_profile": ("org.view", "unit"),
     }
 
     def scope_unit(self, obj):
@@ -115,6 +121,37 @@ class UnitViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
             "breadcrumb": chain, "strength": {"direct": direct, "total": total, "by_status": by_status},
             "children": children, "commanders": commanders, "members": members, "counts_complete": q is not None})
 
+    # --- organizational structure upgrade: chart, unit profile, department profile (read-only, audited) ----------
+    @action(detail=False, methods=["get"])
+    def chart(self, request):
+        """Expandable chart (General Headquarters > regional commands > brigades > battalions) with strength per formation."""
+        return Response(profiles.chart(request.user, include_inactive=request.query_params.get("include_inactive") == "1"))
+
+    @action(detail=True, methods=["get"])
+    def profile(self, request, pk=None):
+        """Complete profile of one unit: identification, parent, leadership (commander, deputy, administration), departments,
+        medical and finance staff, sub-units, strength (total / active / inactive) and rank distribution."""
+        unit = self.get_object()
+        data = profiles.unit_profile(request.user, unit)
+        record_read(request, "org_unit.profile_view", entity_type="organizational_unit", entity_id=unit.pk, org_unit=unit,
+                    count=data["stats"]["total"])
+        return Response(data)
+
+    @action(detail=True, methods=["get"], url_path=r"departments/(?P<department_id>[0-9a-f-]{36})")
+    def department_profile(self, request, pk=None, department_id=None):
+        """One department of this unit: leadership, deputy, staff members and assigned personnel."""
+        unit = self.get_object()
+        try:
+            dept = Department.objects.filter(pk=_uuid.UUID(department_id)).first()
+        except ValueError:
+            dept = None
+        if dept is None:
+            raise NotFound()
+        data = profiles.department_profile(request.user, unit, dept)
+        record_read(request, "org_unit.department_view", entity_type="organizational_unit", entity_id=unit.pk, org_unit=unit,
+                    count=data["stats"]["total"])
+        return Response(data)
+
     @staticmethod
     def _ancestors(unit):
         parts = [p for p in unit.path.split("/") if p]
@@ -138,6 +175,29 @@ class UnitViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
             parent = nodes.get(u.parent_id)
             (parent["children"] if parent else roots).append(nodes[u.pk])
         return Response({"count": len(rows), "truncated": truncated, "roots": roots})
+
+    @action(detail=False, methods=["get"])
+    def suggest(self, request):
+        """Units that fit a person's specialty (advice only, nothing is enforced), from the units the caller can see.
+
+        `?specialty=medical` lists the best-fitting placeable units. Add `&unit=<id>` to also judge one chosen unit: the answer
+        is 'match', 'general' (a general unit, not a unit of that trade) or 'mismatch' (a unit of another trade).
+        `&under=<id>` limits the suggestions to one region or command."""
+        from apps.organization import placement_hints as hints
+        specialty = request.query_params.get("specialty", "")
+        if specialty not in hints.SPECIALTIES:
+            raise field_error("specialty", "unknown_specialty", "Unknown specialty.")
+        visible = scope.scoped_units(request.user, "org.view")
+        under_id = uuid_param(request, "under")
+        under = visible.filter(pk=under_id).first() if under_id else None
+        serializer = self.get_serializer
+        found = [] if (under_id and under is None) else hints.suggest(visible.select_related("unit_type"), specialty, under=under)
+        out = {"specialty": specialty, "suggestions": [serializer(u).data for u in found]}  # an unseen `under` unit finds nothing
+        unit_id = uuid_param(request, "unit")
+        chosen = visible.filter(pk=unit_id).select_related("unit_type").first() if unit_id else None
+        if chosen is not None:
+            out["chosen"] = hints.judge(chosen, specialty)
+        return Response(out)
 
     @transaction.atomic
     def perform_create(self, serializer):
@@ -511,3 +571,129 @@ class ChangeRequestViewSet(viewsets.GenericViewSet):
         rows = change_requests.decide_batch(request.user, request, batch=d.get("batch"), action=d.get("action"),
                                             expected_count=d.get("count"), note=str(d.get("note") or ""))
         return Response({"batch": str(rows[0].batch_id), "count": len(rows), "results": [_change_request_out(r) for r in rows]})
+
+
+class DepartmentViewSet(_Catalogue):
+    """Department catalogue (Command and Administration, Human Resources, Medical Services ...). Anyone with org.view reads it;
+    only `orgprofile.configure` (headquarters) creates or edits entries. Departments are retired, never deleted."""
+
+    serializer_class = DepartmentSerializer
+    entity = "department"
+    permission_map = {
+        "list": ("org.view", "any"), "retrieve": ("org.view", "any"),
+        "create": ("orgprofile.configure", "global"), "partial_update": ("orgprofile.configure", "global"),
+    }
+
+    def get_queryset(self):
+        qs = Department.objects.all()
+        if self.action == "list" and self.request.query_params.get("include_inactive") != "1":
+            qs = qs.filter(active=True)
+        return qs
+
+
+class FormationRoleViewSet(mixins.ListModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet):
+    """Which unit types stand for General Headquarters, regional commands, brigades and battalions. Data, not code: it only
+    decides how the chart and unit profiles group units; it never changes who may do what."""
+
+    serializer_class = FormationRoleSerializer
+    queryset = UnitType.objects.all()
+    permission_classes = [ScopedPermission]
+    http_method_names = ["get", "patch", "head", "options"]
+    pagination_class = None
+    permission_map = {"list": ("org.view", "any"), "partial_update": ("orgprofile.configure", "global")}
+
+    @transaction.atomic
+    def perform_update(self, serializer):
+        before = serializer.instance.formation_role
+        obj = serializer.save()
+        record("unit_type.formation_role", request=self.request, entity_type="unit_type", entity_id=obj.pk,
+               metadata={"code": obj.code, "from": before, "to": obj.formation_role})
+
+
+class UnitDepartmentViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    """Departments a unit has established. Establishing or retiring one needs `org.manage` over that unit."""
+
+    serializer_class = UnitDepartmentSerializer
+    permission_classes = [ScopedPermission]
+    http_method_names = ["get", "post", "patch", "head", "options"]
+    pagination_class = None
+    permission_map = {"list": ("org.view", "any"), "create": ("org.manage", "any"), "partial_update": ("org.manage", "unit")}
+
+    def scope_unit(self, obj):
+        return obj.unit
+
+    def get_queryset(self):
+        qs = UnitDepartment.objects.filter(unit__in=scope.scoped_units(self.request.user, "org.view")).select_related("department", "unit")
+        unit_id = uuid_param(self.request, "unit")
+        if unit_id:
+            qs = qs.filter(unit_id=unit_id)
+        if self.request.query_params.get("include_inactive") != "1":
+            qs = qs.filter(active=True)
+        return qs
+
+    def _manageable(self, request, unit_id):
+        unit = OrganizationalUnit.objects.filter(pk=unit_id).first() if unit_id else None
+        if unit is None or not scope.can(request.user, "org.manage", unit=unit):
+            raise field_error("unit", "out_of_scope", "That unit cannot be used.")  # unknown and out-of-scope read alike
+        return unit
+
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        try:
+            unit = self._manageable(request, _uuid.UUID(str(request.data.get("unit", ""))))
+            dept = Department.objects.filter(pk=_uuid.UUID(str(request.data.get("department", ""))), active=True).first()
+        except ValueError:
+            raise field_error("unit", "out_of_scope", "That unit cannot be used.")
+        if dept is None:
+            raise field_error("department", "department_invalid", "That department cannot be used.")
+        if not unit.active:
+            raise field_error("unit", "unit_inactive", "That unit is retired.")
+        row, created = UnitDepartment.objects.get_or_create(unit=unit, department=dept, defaults={"note": str(request.data.get("note", ""))[:200]})
+        if not created and row.active:
+            raise field_error("department", "department_already_established", "This unit already has that department.")
+        if not created:  # a retired department is re-established, with its history intact
+            row.active = True
+            row.version += 1
+            row.save(update_fields=["active", "version", "updated_at"])
+        record("unit_department.establish", request=request, entity_type="organizational_unit", entity_id=unit.pk,
+               metadata={"department": dept.code, "reestablished": not created})
+        return Response(UnitDepartmentSerializer(row).data, status=201)
+
+    @transaction.atomic
+    def partial_update(self, request, *args, **kwargs):
+        from apps.personnel.models import CommandAppointment
+
+        row = self.get_object()
+        expected = require_version(request.data)
+        changes = {}
+        if "note" in request.data:
+            changes["note"] = str(request.data["note"])[:200]
+        if "active" in request.data:
+            changes["active"] = bool(request.data["active"])
+        if changes.get("active") is False and CommandAppointment.objects.filter(
+                org_unit=row.unit, department=row.department, ended_at__isnull=True).exists():
+            raise field_error("active", "department_has_open_offices", "End the department's head and deputy appointments first.")
+        row = versioned_update(row, changes, expected)
+        record("unit_department.update" if changes.get("active", True) else "unit_department.retire", request=request,
+               entity_type="organizational_unit", entity_id=row.unit_id, metadata={"department": row.department.code, "fields": sorted(changes)})
+        return Response(UnitDepartmentSerializer(row).data)
+
+
+class OrgAnalyticsViewSet(viewsets.GenericViewSet):
+    """Organization-wide analytics: totals, active/inactive, strength by brigade and battalion, department staffing, leadership
+    and rank distribution. Aggregates only, limited to the units and people the caller may see. Gate: `analytics.view`."""
+
+    permission_classes = [ScopedPermission]
+    pagination_class = None
+    permission_map = {"list": ("analytics.view", "any")}
+
+    def list(self, request):
+        root = None
+        unit_id = uuid_param(request, "unit")
+        if unit_id:
+            root = scope.scoped_units(request.user, "org.view").filter(pk=unit_id).first()
+            if root is None:
+                raise NotFound()
+        data = profiles.analytics(request.user, root)
+        record_read(request, "org_analytics.view", entity_type="org_analytics", org_unit=root, count=data["totals"]["total"])
+        return Response(data)

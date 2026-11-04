@@ -78,6 +78,7 @@ function ie(n, e) {
   if (n === "/notifications/") return c(U, e);
   if (n === "/ranks/") return c(A(m, e), e);
   if (n === "/organization/branches/") return c(E, e);
+  if (n === "/organization/units/suggest/") return { specialty: e?.specialty ?? "", suggestions: [] };
   if (n === "/organization/units/tree/") return { count: p.length, truncated: false, roots: H(null) };
   if (n === "/organization/units/") return c(A(p, e, { parent: (r, s) => r.parent === s }), e);
   if (n === "/organization/unit-types/") return D;

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { api } from "../api/client";
-import type { AppointmentOut, AppointmentTypeOut, Person } from "../api/types";
+import type { AppointmentOut, AppointmentTypeOut, Person, UnitDepartmentRow } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { useFetch } from "../api/useFetch";
 import { useI18n } from "../i18n";
@@ -22,6 +22,9 @@ export function AppointmentsPanel({ person }: { person: Person }) {
   const [adding, setAdding] = useState(false);
   const [unit, setUnit] = useState("");
   const [typeId, setTypeId] = useState("");
+  const [deptId, setDeptId] = useState("");
+  const needsDept = (types.data?.results ?? []).find((x) => x.id === typeId)?.role?.startsWith("department_") ?? false;
+  const unitDepts = useFetch<UnitDepartmentRow[]>(needsDept && unit ? "/organization/unit-departments/" : null, { unit });
   const [from, setFrom] = useState(new Date().toISOString().slice(0, 10));
   const [to, setTo] = useState("");
   const [ref, setRef] = useState("");
@@ -40,8 +43,8 @@ export function AppointmentsPanel({ person }: { person: Person }) {
   const add = (e: FormEvent) => {
     e.preventDefault();
     void run(() => api(`/personnel/${person.id}/appointments/add/`, { method: "POST", body: {
-      org_unit: unit, appointment_type: typeId, effective_from: from, effective_to: to || null, authority_ref: ref } }),
-    () => { setAdding(false); setUnit(""); setTypeId(""); setTo(""); setRef(""); });
+      org_unit: unit, appointment_type: typeId, effective_from: from, effective_to: to || null, authority_ref: ref, department: needsDept ? deptId : undefined } }),
+    () => { setAdding(false); setUnit(""); setTypeId(""); setDeptId(""); setTo(""); setRef(""); });
   };
   const end = (e: FormEvent) => {
     e.preventDefault();
@@ -62,6 +65,7 @@ export function AppointmentsPanel({ person }: { person: Person }) {
             {a.has_access_link && <Chip tone="draft">{t("appt.linked")}</Chip>}
           </div>
           <div className="stat"><span>{t("pers.unit")}</span><b>{name(a.org_unit)}</b></div>
+          {a.department && <div className="stat"><span>{t("dept.department")}</span><b>{name(a.department)}</b></div>}
           <div className="stat"><span>{t("appt.from")}</span><b>{a.effective_from}{a.effective_to ? ` → ${a.effective_to}` : ""}</b></div>
           {a.authority_ref && <p className="muted">{a.authority_ref}</p>}
           {a.end_reason && <p className="muted">{a.end_reason}</p>}
@@ -92,11 +96,19 @@ export function AppointmentsPanel({ person }: { person: Person }) {
             </select>
           </Field>
           <UnitPicker label={t("pers.unit")} value={unit} required onChange={(id) => setUnit(id)} params={{ placeable: 1 }} />
+          {needsDept && (
+            <Field label={t("dept.department")}>
+              <select value={deptId} required onChange={(e) => setDeptId(e.target.value)}>
+                <option value="">—</option>
+                {(unitDepts.data ?? []).map((x) => <option key={x.department.id} value={x.department.id}>{name(x.department)}</option>)}
+              </select>
+            </Field>
+          )}
           <Field label={t("appt.from")}><input type="date" value={from} required onChange={(e) => setFrom(e.target.value)} /></Field>
           <Field label={t("appt.to")}><input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} /></Field>
           <Field label={t("appt.authority")}><input value={ref} maxLength={150} onChange={(e) => setRef(e.target.value)} /></Field>
           <div className="row">
-            <button type="submit" disabled={busy || !unit || !typeId}>{t("appt.add")}</button>
+            <button type="submit" disabled={busy || !unit || !typeId || (needsDept && !deptId)}>{t("appt.add")}</button>
             <button type="button" className="secondary" onClick={() => setAdding(false)}>{t("common.cancel")}</button>
           </div>
         </form>

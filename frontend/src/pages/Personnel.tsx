@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ApiError, api, downloadCsv, fetchAll, photoUrl, upload } from "../api/client";
-import type { HistoryEntry, ImportPreview, Page, Person, Rank, Unit } from "../api/types";
+import type { Department, HistoryEntry, ImportPreview, Page, Person, Rank, Unit } from "../api/types";
 import { useFetch } from "../api/useFetch";
 import { useAuth } from "../auth/AuthContext";
+import { PersonDepartment } from "../components/PersonDepartment";
 import { Chip, ErrorNotice, Field, Loading, Notice, PageHeader, TabPanel, Tabs, useErrorText } from "../components/ui";
 import { DataTable, type Column } from "../components/DataTable";
 import { FilterBar } from "../components/FilterBar";
@@ -17,6 +18,8 @@ import { DeathPanel } from "../components/DeathPanel";
 import { ReportingLine } from "../components/ReportingLine";
 import { DisciplinaryPanel, DocumentsPanel } from "../components/PersonnelRecords";
 import { UnitPicker } from "../components/UnitPicker";
+import { UnitSuggestions } from "../components/UnitSuggestions";
+import { SPECIALTIES, type Specialty } from "../lib/specialties";
 import { useUnitTypes } from "../api/useUnitTypes";
 import { useI18n, type Key } from "../i18n";
 import { downloadText, inspectCsv, toCsv, type CsvInspection } from "../lib/csv";
@@ -41,14 +44,16 @@ export function PersonnelList() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [noSup, setNoSup] = useState(false);
+  const [dept, setDept] = useState(params.get("department") ?? "");
+  const departments = useFetch<Department[]>("/organization/departments/");
   const [exportError, setExportError] = useState<unknown>(null);
   const cat = useUnitTypes();
   const linkedUnit = useFetch<Unit>(unit && !unitLabel ? `/organization/units/${unit}/` : null);
   const unitText = unitLabel || (linkedUnit.data ? name(linkedUnit.data) : unit);
-  const list = useFetch<Page<Person>>("/personnel/", { q, status, org_unit: unit, page, page_size: pageSize === 25 ? undefined : pageSize, no_supervisor: noSup ? 1 : undefined });
+  const list = useFetch<Page<Person>>("/personnel/", { q, status, org_unit: unit, page, page_size: pageSize === 25 ? undefined : pageSize, no_supervisor: noSup ? 1 : undefined, department: dept || undefined });
   const canExport = can("personnel.export") && !!me?.features.personnel_export;
-  const filtered = !!(q || status || unit || noSup);
-  const reset = () => { setQ(""); setStatus(""); setUnit(""); setUnitLabel(""); setNoSup(false); setPage(1); };
+  const filtered = !!(q || status || unit || noSup || dept);
+  const reset = () => { setQ(""); setStatus(""); setUnit(""); setUnitLabel(""); setNoSup(false); setDept(""); setPage(1); };
 
   async function exportCsv() {
     setExportError(null);
@@ -80,6 +85,8 @@ export function PersonnelList() {
     { id: "rank", header: t("pers.rank"), width: 190, sort: (p) => p.rank.code, cell: (p) => `${p.rank.code} ${name(p.rank)}` },
     { id: "unit", header: t("pers.unit"), width: 230, sort: (p) => name(p.org_unit),
       cell: (p) => <>{name(p.org_unit)}{unitType(p) ? <span className="cell-sub">{unitType(p)}</span> : null}</> },
+    { id: "department", header: t("dept.department"), width: 190, sort: (p) => (p.department ? name(p.department) : null),
+      cell: (p) => (p.department ? name(p.department) : <span className="muted">{t("dept.unassigned")}</span>) },
     { id: "branch", header: t("pers.branch"), width: 150, hidden: true, sort: (p) => name(p.branch), cell: (p) => name(p.branch) },
     { id: "phone", header: t("pers.phone"), width: 150, hidden: true, cell: (p) => p.phone || "-" },
     { id: "status", header: t("pers.status"), width: 130, sort: (p) => t(`pstatus.${p.status}` as Key), cell: (p) => <Chip tone={statusTone(p.status)}>{t(`pstatus.${p.status}` as Key)}</Chip> },
@@ -95,7 +102,9 @@ export function PersonnelList() {
       <FilterBar
         search={{ value: q, label: t("pers.search"), onChange: (v) => { setQ(v); setPage(1); } }}
         filters={[{ id: "status", label: t("pers.status"), value: status, onChange: (v) => { setStatus(v); setPage(1); },
-          options: STATUSES.map((s) => ({ value: s, label: t(`pstatus.${s}` as Key) })) }]}
+          options: STATUSES.map((s) => ({ value: s, label: t(`pstatus.${s}` as Key) })) },
+          { id: "department", label: t("dept.department"), value: dept, onChange: (v) => { setDept(v); setPage(1); },
+            options: (departments.data ?? []).map((d) => ({ value: d.id, label: name(d) })) }]}
         advancedExtra={<>
           <div className="fb-unit">
             <UnitPicker label={t("pers.unit")} value={unit} allowAll onChange={(id, u) => { setUnit(id); setUnitLabel(u ? name(u) : ""); setPage(1); }} />
@@ -129,8 +138,10 @@ export function PersonnelForm() {
   const { t, name } = useI18n();
   const navigate = useNavigate();
   const ranks = useApprovedRanks();
-  const [form, setForm] = useState({ full_name: "", service_number: "", phone: "", org_unit: "", rank: "", status: "active" });
+  const formDepts = useFetch<Department[]>("/organization/departments/");
+  const [form, setForm] = useState({ full_name: "", service_number: "", phone: "", org_unit: "", rank: "", status: "active", department: "" });
   const [confirm, setConfirm] = useState(false);
+  const [specialty, setSpecialty] = useState<Specialty | "">("");  // only used to suggest a unit; it is not saved
   const [chosenUnit, setChosenUnit] = useState<Unit | null>(null);
   const [error, setError] = useState<unknown>(null);
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
@@ -141,7 +152,7 @@ export function PersonnelForm() {
     e.preventDefault();
     setError(null);
     try {
-      const p = await api<Person>("/personnel/", { method: "POST", body: { ...form, confirm_duplicate: confirm } });
+      const p = await api<Person>("/personnel/", { method: "POST", body: { ...form, department: form.department || undefined, confirm_duplicate: confirm } });
       navigate(`/personnel/${p.id}`);
     } catch (err) { setError(err); }
   }
@@ -156,7 +167,14 @@ export function PersonnelForm() {
         <Field label={t("pers.fullName")}><input value={form.full_name} onChange={set("full_name")} required /></Field>
         <Field label={t("pers.serviceNumber")}><input value={form.service_number} onChange={set("service_number")} /></Field>
         <Field label={t("pers.phone")}><input type="tel" value={form.phone} onChange={set("phone")} /></Field>
-        <UnitPicker label={t("pers.unit")} value={form.org_unit} required
+        <Field label={t("pers.specialty")}>
+          <select value={specialty} onChange={(e) => setSpecialty(e.target.value as Specialty | "")}>
+            <option value="">{t("pers.specialtyNone")}</option>
+            {SPECIALTIES.map((s) => <option key={s} value={s}>{t(`spec.${s}` as Key)}</option>)}
+          </select>
+        </Field>
+        <UnitSuggestions specialty={specialty} unitId={form.org_unit} onPick={(u) => { setChosenUnit(u); setForm({ ...form, org_unit: u.id, rank: "" }); }} />
+        <UnitPicker label={t("pers.unit")} value={form.org_unit} required extra={chosenUnit}
                     onChange={(id, u) => { setChosenUnit(u); setForm({ ...form, org_unit: id, rank: "" }); }} />
         <Field label={t("pers.rank")}>
           <select value={form.rank} onChange={set("rank")} required>
@@ -165,6 +183,12 @@ export function PersonnelForm() {
           </select>
         </Field>
         {unit && rankChoices.length === 0 && <Notice>{t("pers.noApprovedRanks")}</Notice>}
+        <Field label={t("dept.department")}>
+          <select value={form.department} onChange={set("department")}>
+            <option value="">{t("dept.unassigned")}</option>
+            {(formDepts.data ?? []).map((d) => <option key={d.id} value={d.id}>{name(d)}</option>)}
+          </select>
+        </Field>
         <Field label={t("pers.status")}>
           <select value={form.status} onChange={set("status")}>
             {SETTABLE.map((s) => <option key={s} value={s}>{t(`pstatus.${s}` as Key)}</option>)}
@@ -336,6 +360,7 @@ export function PersonnelDetail() {
             </div>
           )}
         </section>
+      {p && <PersonDepartment person={p} onSaved={done} />}
       )}
       {p && mode && <ChangeForm person={p} mode={mode} onDone={done} />}
       {p && (

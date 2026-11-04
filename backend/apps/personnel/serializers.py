@@ -6,7 +6,7 @@ from apps.accounts import scope
 from apps.accounts.models import User
 from apps.accounts.serializers import BranchBriefSerializer, UnitBriefSerializer
 from apps.core.concurrency import require_version, versioned_update
-from apps.organization.models import OrganizationalUnit
+from apps.organization.models import Department, OrganizationalUnit
 from apps.ranks.models import Rank
 
 from . import services as svc
@@ -23,14 +23,22 @@ class RankBriefSerializer(serializers.ModelSerializer):
         fields = ["id", "code", "name_en", "name_so", "approval_status"]
 
 
+class DepartmentBriefSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Department
+        fields = ["id", "code", "name_en", "name_so", "restricted_roster"]
+        read_only_fields = fields
+
+
 class PersonnelSerializer(serializers.ModelSerializer):
     branch = BranchBriefSerializer(read_only=True)
     org_unit = UnitBriefSerializer(read_only=True)
     rank = RankBriefSerializer(read_only=True)
+    department = DepartmentBriefSerializer(read_only=True)
 
     class Meta:
         model = Personnel
-        fields = ["id", "service_number", "full_name", "phone", "branch", "org_unit", "rank", "status",
+        fields = ["id", "service_number", "full_name", "phone", "branch", "org_unit", "rank", "department", "status",
                   "supervisor_id", "version", "created_at", "updated_at"]
         read_only_fields = fields
 
@@ -64,6 +72,7 @@ class PersonnelCreateSerializer(_Basics):
     org_unit = serializers.PrimaryKeyRelatedField(queryset=OrganizationalUnit.objects.all())
     rank = serializers.PrimaryKeyRelatedField(queryset=Rank.objects.all())
     status = serializers.ChoiceField(choices=sorted(svc.STATUSES), default="active")
+    department = serializers.PrimaryKeyRelatedField(queryset=Department.objects.filter(active=True), required=False, allow_null=True)
     effective_date = serializers.DateField(required=False, allow_null=True)
     confirm_duplicate = serializers.BooleanField(required=False, default=False)
 
@@ -101,6 +110,8 @@ class PersonnelCreateSerializer(_Basics):
 class PersonnelUpdateSerializer(_Basics):
     full_name = serializers.CharField(max_length=150, required=False)
     confirm_duplicate = serializers.BooleanField(required=False, default=False)
+    # Functional department (medical, finance ...); null clears it. The change is written to the person's history.
+    department = serializers.PrimaryKeyRelatedField(queryset=Department.objects.filter(active=True), required=False, allow_null=True)
     # Reporting line and login link. Both optional; null clears them.
     supervisor = serializers.UUIDField(required=False, allow_null=True)  # resolved by hand: unknown and out-of-scope read alike
     account_username = serializers.CharField(max_length=64, required=False, allow_null=True, allow_blank=True)
@@ -153,13 +164,22 @@ class PersonnelUpdateSerializer(_Basics):
         expected = require_version(self.initial_data)
         validated_data.pop("confirm_duplicate", None)
         changes = dict(validated_data)
+        dept_changed = "department" in changes and changes["department"] != instance.department
         if "account_username" in changes:
             changes["account"] = changes.pop("account_username")
         if "full_name" in changes:
             changes["name_key"] = svc.normalize_name(changes["full_name"])
         if "phone" in changes:
             changes["phone_key"] = svc.normalize_phone(changes["phone"])
-        return versioned_update(instance, changes, expected)
+        old_dept = instance.department
+        updated = versioned_update(instance, changes, expected)
+        if dept_changed:
+            req = self.context.get("request")
+            new = changes["department"]
+            svc.add_history(updated, "department", str(old_dept.pk) if old_dept else "", str(new.pk) if new else "",
+                            old_dept.name_en if old_dept else "", new.name_en if new else "", date.today(), "Department changed",
+                            getattr(req, "user", None))
+        return updated
 
 
 class _Workflow(serializers.Serializer):
@@ -239,6 +259,7 @@ class AppointmentCreateSerializer(serializers.Serializer):
     effective_to = serializers.DateField(required=False, allow_null=True)
     authority_ref = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
     role_assignment = serializers.UUIDField(required=False, allow_null=True)
+    department = serializers.UUIDField(required=False, allow_null=True)  # only for head / deputy of a department
 
 
 class AppointmentEndSerializer(serializers.Serializer):

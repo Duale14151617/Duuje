@@ -23,6 +23,14 @@ class ServiceBranch(models.Model):
         return self.code
 
 
+FORMATION_ROLE_CHOICES = [
+    ("ghq", "General Headquarters"),
+    ("regional", "Regional command"),
+    ("brigade", "Brigade"),
+    ("battalion", "Battalion"),
+]
+
+
 class UnitType(models.Model):
     """Organizational template entry (Taliska Guud, Qayb, Gaas, Guuto, Urur, Horin, Koox, Unug), kept in the database.
 
@@ -41,6 +49,9 @@ class UnitType(models.Model):
     reference_max = models.PositiveIntegerField(null=True, blank=True)
     description_en = models.CharField(max_length=200, blank=True)
     description_so = models.CharField(max_length=200, blank=True)
+    # Which formation this type represents in the organizational chart and in unit profiles. Blank = an ordinary unit that
+    # is shown inside its parent's profile. Configurable data (apps/organization/profiles.py), never a rule.
+    formation_role = models.CharField(max_length=10, blank=True, default="", choices=FORMATION_ROLE_CHOICES)
     active = models.BooleanField(default=True)
     version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -289,3 +300,52 @@ class ChangeRequest(models.Model):
         constraints = [
             models.CheckConstraint(condition=~Q(order_ref="") & ~Q(issuing_officer=""), name="change_request_order_present"),
         ]
+
+
+class Department(models.Model):
+    """A functional department of the force (Command and Administration, Human Resources, Medical Services, Finance ...).
+
+    A catalogue entry only: it names a function and says whether its named roster is restricted. It creates no people and no
+    post. A unit *establishes* a department (UnitDepartment); people are assigned to it (Personnel.department); the head and
+    deputy are command appointments (personnel.CommandAppointment.department). Configurable by `orgprofile.configure`.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    code = models.CharField(max_length=32, unique=True)
+    name_en = models.CharField(max_length=100)
+    name_so = models.CharField(max_length=100, blank=True)
+    description_en = models.CharField(max_length=200, blank=True)
+    description_so = models.CharField(max_length=200, blank=True)
+    # Named staff of a restricted department (finance, medical) are shown only to holders of `departments.view_restricted`;
+    # everyone else with access to the unit sees counts. Enforced server-side (profiles.apply_roster_gate).
+    restricted_roster = models.BooleanField(default=False)
+    sort_order = models.PositiveSmallIntegerField(default=100)
+    active = models.BooleanField(default=True)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "departments"
+        ordering = ["sort_order", "code"]
+
+    def __str__(self):
+        return self.code
+
+
+class UnitDepartment(models.Model):
+    """A department established in one unit (General Headquarters, a brigade, a battalion). Retired, never deleted."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    unit = models.ForeignKey(OrganizationalUnit, on_delete=models.PROTECT, related_name="unit_departments")
+    department = models.ForeignKey(Department, on_delete=models.PROTECT, related_name="unit_departments")
+    note = models.CharField(max_length=200, blank=True)
+    active = models.BooleanField(default=True)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "unit_departments"
+        ordering = ["department__sort_order", "department__code"]
+        constraints = [models.UniqueConstraint(fields=["unit", "department"], name="unit_department_unique")]

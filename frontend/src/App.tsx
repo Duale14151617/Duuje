@@ -36,6 +36,8 @@ import { FoodStores } from "./pages/FoodStores";
 import { UnitOverview, UnitsHome } from "./pages/UnitOverview";
 import { ChangeRequests } from "./pages/ChangeRequests";
 import { Tasks } from "./pages/Tasks";
+import { DepartmentProfile } from "./pages/DepartmentProfile";
+import { OrgSettings } from "./pages/OrgSettings";
 import { OrgTree } from "./pages/OrgTree";
 import { StructureChanges } from "./pages/StructureChanges";
 import { UserDetail, Users } from "./pages/Users";
@@ -55,6 +57,8 @@ export default function App() {
         <Route path="structure" element={<Structure />} />
         <Route path="units" element={<UnitsHome />} />
         <Route path="units/:id" element={<UnitOverview />} />
+        <Route path="units/:id/departments/:deptId" element={<DepartmentProfile />} />
+        <Route path="org-settings" element={<OrgSettings />} />
         <Route path="change-requests" element={<ChangeRequests />} />
         <Route path="tasks" element={<Tasks />} />
         <Route path="food" element={<FoodStores />} />

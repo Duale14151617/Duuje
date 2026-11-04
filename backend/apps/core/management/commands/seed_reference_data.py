@@ -109,6 +109,8 @@ PERMISSIONS = {
     "changes.approve": "Approve, reject or start review of proposed hierarchy changes (super administrator); cannot approve one's own request except as the super administrator's own immediate entry",
     "food.view": "View food stores, suppliers, allocations and expiry warnings in scope",
     "food.manage": "Receive food from suppliers, allocate it to units and record deliveries in scope (headquarters administrators and super administrator)",
+    "orgprofile.configure": "Configure the organizational structure views: the department catalogue and which unit types stand for General Headquarters, regional commands, brigades and battalions (headquarters)",
+    "departments.view_restricted": "See the named staff of restricted departments (finance, medical) in unit and department profiles and in the personnel directory, for units in scope",
     "system.full_access": "Maintenance override: reach every part of the system even where a module switch (for example a module switch being off) would hide it. Super administrator only; every action stays in the audit log",
 }
 # Never granted to administrators by default (reports.configure is not sensitive, so hq_admin keeps it).
@@ -230,6 +232,29 @@ ROLES = {
 # Command appointments supplied by army personnel. code, Somali, English working label, unit type it belongs to, one holder per unit.
 # Assumptions to confirm: Taliye Guuto follows the Taliye Qaybeed / Taliye Urur pattern; Abaanduule is confirmed (2026-10-23) as the
 # Battalion Executive Officer / Second-in-Command (Urur level). Kept non-exclusive until the army says whether a Urur has only one.
+# Standard departments of the force. Names only: no people, no posts. Created once; administrator edits are never overwritten.
+# code, English, Somali (working translation, to be confirmed by the army), restricted roster, sort order
+DEPARTMENTS = [
+    ("COMMAND_ADMIN", "Command and Administration", "Taliska iyo Maamulka", False, 10),
+    ("HR", "Human Resources", "Maamulka Shaqaalaha", False, 20),
+    ("MEDICAL", "Medical Services", "Adeegyada Caafimaadka", True, 30),
+    ("FINANCE", "Finance", "Maaliyadda", True, 40),
+    ("LOGISTICS", "Logistics", "Saadka iyo Qalabka", False, 50),
+    ("COMMUNICATIONS", "Communications", "Isgaarsiinta", False, 60),
+    ("TRAINING", "Training", "Tababarka", False, 70),
+]
+# Which unit types are General Headquarters, regional commands, brigades and battalions. Only fills a blank, so an
+# administrator's own choice (changed under Structure settings) is never overwritten.
+FORMATION_ROLES = {"TALISKA_GUUD": "ghq", "QAYB": "regional", "GUUTO": "brigade", "URUR": "battalion"}
+# code -> (role, Somali, English, unit type it belongs to or None for any unit, exclusive). Leadership offices for unit profiles.
+LEADERSHIP_TYPES = [
+    ("TALIYE_GUUD", "commander", "Taliyaha Taliska Guud", "Army Headquarters commander (Taliye Taliska Guud)", "TALISKA_GUUD", True),
+    ("UNIT_DEPUTY", "deputy", "Ku-xigeenka taliyaha", "Deputy commander", None, True),
+    ("ADMIN_LEAD", "administrative", "Madaxa maamulka", "Head of administration", None, True),
+    ("DEPT_HEAD", "department_head", "Madaxa waaxda", "Head of department", None, True),
+    ("DEPT_DEPUTY", "department_deputy", "Ku-xigeenka madaxa waaxda", "Deputy head of department", None, True),
+]
+APPOINTMENT_ROLE_BY_CODE = {"TALIYE_QAYBEED": "commander", "TALIYE_GUUTO": "commander", "TALIYE_URUR": "commander", "ABAANDUULE": "deputy"}
 APPOINTMENT_TYPES = [
     ("TALIYE_QAYBEED", "Taliye Qaybeed", "Regional command commander (Taliye Qaybeed)", "QAYB", True),
     ("TALIYE_GUUTO", "Taliye Guuto", "Guuto commander (Taliye Guuto)", "GUUTO", True),
@@ -346,6 +371,17 @@ class Command(BaseCommand):
         for code, so, en, utype, exclusive in APPOINTMENT_TYPES:  # created once; administrator edits are never overwritten
             AppointmentType.objects.get_or_create(code=code, defaults={
                 "name_so": so, "name_en": en, "unit_type": types.get(utype), "exclusive": exclusive})
+        for code, role in APPOINTMENT_ROLE_BY_CODE.items():  # class the standard offices (only where still unclassed)
+            AppointmentType.objects.filter(code=code, role="other").update(role=role)
+        for code, role, so, en, utype, exclusive in LEADERSHIP_TYPES:
+            AppointmentType.objects.get_or_create(code=code, defaults={
+                "role": role, "name_so": so, "name_en": en, "unit_type": types.get(utype) if utype else None, "exclusive": exclusive})
+        from apps.organization.models import Department
+        for code, en, so, restricted, order in DEPARTMENTS:
+            Department.objects.get_or_create(code=code, defaults={
+                "name_en": en, "name_so": so, "restricted_roster": restricted, "sort_order": order})
+        for code, role in FORMATION_ROLES.items():
+            UnitType.objects.filter(code=code, formation_role="").update(formation_role=role)
         for code, kind, en, so, keys in REPORT_TYPES:  # created once; admin edits are never overwritten
             rt, _ = ReportType.objects.get_or_create(code=code, defaults={
                 "kind": kind, "name_en": en, "name_so": so, "figure_keys": keys})

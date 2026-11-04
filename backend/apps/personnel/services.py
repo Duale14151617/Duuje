@@ -111,16 +111,18 @@ def add_history(person, field, old_ref, new_ref, old_label, new_label, effective
 
 
 def create_personnel(actor, *, full_name, phone, service_number, org_unit, rank, status, effective_date,
-                     reason="Record created", allow_draft_rank=False):
+                     reason="Record created", allow_draft_rank=False, department=None):
     check_assignment(org_unit, rank, allow_draft_rank=allow_draft_rank)
     person = Personnel.objects.create(
         service_number=service_number or None, full_name=full_name, phone=phone or "",
         name_key=normalize_name(full_name), phone_key=normalize_phone(phone),
-        branch=org_unit.branch, org_unit=org_unit, rank=rank, status=status)
+        branch=org_unit.branch, org_unit=org_unit, rank=rank, status=status, department=department)
     day = effective_date or date.today()
     add_history(person, "rank", "", str(rank.pk), "", rank_label(rank), day, reason, actor)
     add_history(person, "org_unit", "", str(org_unit.pk), "", org_unit.name_en, day, reason, actor)
     add_history(person, "status", "", status, "", status, day, reason, actor)
+    if department is not None:
+        add_history(person, "department", "", str(department.pk), "", department.name_en, day, reason, actor)
     return person
 
 

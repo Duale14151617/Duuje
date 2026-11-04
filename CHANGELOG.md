@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Organizational structure and unit management upgrade: formation chart, department catalogue and per-unit departments, unit and department profiles, personnel directory filters and sorting, organization analytics, restricted rosters, audit. See `docs/CHANGE_REPORT_org_structure.md`.
+
+- **Unit suggestions when adding personnel.** The add-personnel form has an optional Specialty choice (infantry, medical, transport, communications, finance, supply, operations, administration). Once chosen, the form lists the units that fit (`GET /api/v1/organization/units/suggest/?specialty=...`, `&unit=` judges one unit, `&under=` limits to a region) and warns when the chosen unit is a general unit or another trade's unit: a medic is suggested medical units, never a general one. It is advice only (nothing is blocked) and the specialty is not stored. A unit's trade is read from its type, then from words in its code and names, and is inherited by the units below it (`apps/organization/placement_hints.py`). Only units the user can see are suggested. Tests: `organization/tests/test_unit_suggestions.py`.
+
 - **Guard test for the Army-only seed.** `core/tests/test_army_only_seed.py` fails if a fresh database ever gets another branch, a region other than Bari, Nugaal, Mudug (and Sanaag after `apply_army_structure`), a station level, non-Army rank categories, or a unit, rank, role or permission named after the removed services.
 
 - **Army-only interface clean-up.** The Combined report page is gone: its Army strength figures are a collapsible card on the Reports page (loaded, and therefore audited, only when opened) and `/combined` redirects to Reports. "Search all services" is now "Search personnel". Branch pickers (add unit, ranks filter, role assignment) are hidden while only one branch exists, and "All branches" is no longer printed. The footer and login page no longer say "Fully functional system deployed on Render"; they say it is a sample build on synthetic data, not approved for operational use.

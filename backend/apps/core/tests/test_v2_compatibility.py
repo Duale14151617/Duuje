@@ -128,7 +128,10 @@ class RouteCompatibilityTests(BaseApiTest):
                                  ("survivor-cases", "survivor-case"), ("payroll/profiles", "payroll-profile"),
                                  ("payroll/runs", "payroll-run"), ("payroll/personnel", "payroll-personnel"),
                                  ("payroll/policy", "payroll-policy"), ("payroll/payments", "payroll-payment"),
-                                 ("payroll/arrears", "payroll-arrears")})  # attendance, weapons, ammunition and payroll modules
+                                 ("payroll/arrears", "payroll-arrears"),
+                                 # organizational structure upgrade: department catalogue, unit departments, formation roles, org analytics
+                                 ("organization/departments", "department"), ("organization/unit-departments", "unit-department"),
+                                 ("organization/formation-roles", "formation-role"), ("organization/analytics", "org-analytics")})  # attendance, weapons, ammunition and payroll modules
 
     def test_version_1_prefix_is_unchanged(self):
         self.assertEqual(self.client_for(self.make_user("hqr", "hq_reporting")).get("/api/v1/auth/me/").status_code, 200)

@@ -22,8 +22,9 @@ from apps.payroll.views import PayrollRunViewSet, SalaryProfileViewSet, Survivor
 from apps.payroll.views_ext import ArrearsViewSet, PayrollPersonnelViewSet, PaymentViewSet, PolicyViewSet
 from apps.training.views import CourseViewSet, TrainingPeopleViewSet, TrainingRecordViewSet, TrainingSummaryViewSet
 from apps.workflows.views import NotificationViewSet, ReportTypeViewSet, SubmissionViewSet, SummaryViewSet
-from apps.organization.views import (ChangeRequestViewSet, DesignationViewSet, RuleViewSet, ServiceBranchViewSet, StructureChangeViewSet,
-                                     StructureViewSet, UnitTypeViewSet, UnitViewSet)
+from apps.organization.views import (ChangeRequestViewSet, DepartmentViewSet, DesignationViewSet, FormationRoleViewSet, OrgAnalyticsViewSet,
+                                     RuleViewSet, ServiceBranchViewSet, StructureChangeViewSet, StructureViewSet, UnitDepartmentViewSet,
+                                     UnitTypeViewSet, UnitViewSet)
 from apps.ranks.views import RankViewSet
 from apps.analytics.views import AnalyticsViewSet
 from apps.inventories.views import InventoryViewSet
@@ -35,6 +36,10 @@ router.register("users", acc.UserViewSet, basename="user")
 router.register("roles", acc.RoleViewSet, basename="role")
 router.register("organization/units", UnitViewSet, basename="unit")
 router.register("organization/unit-types", UnitTypeViewSet, basename="unit-type")
+router.register("organization/departments", DepartmentViewSet, basename="department")
+router.register("organization/unit-departments", UnitDepartmentViewSet, basename="unit-department")
+router.register("organization/formation-roles", FormationRoleViewSet, basename="formation-role")
+router.register("organization/analytics", OrgAnalyticsViewSet, basename="org-analytics")
 router.register("organization/designations", DesignationViewSet, basename="designation")
 router.register("organization/designation-rules", RuleViewSet, basename="designation-rule")
 router.register("organization/structure", StructureViewSet, basename="structure")
