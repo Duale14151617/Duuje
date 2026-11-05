@@ -13,8 +13,9 @@ import { Chip, ErrorNotice, Field, Loading, Notice, PageHeader, TabPanel, Tabs }
 import { statusTone } from "../components/status";
 import { useI18n, type Key } from "../i18n";
 import { OrgAnalyticsView, OrgChart } from "./OrgChart";
+import { OrgTree } from "./OrgTree";
 
-type Hub = "chart" | "analytics" | "find";
+type Hub = "chart" | "tree" | "analytics" | "find";
 
 /** Units and structure hub: expandable chart, organization analytics, and a finder for any unit. */
 export function UnitsHome() {
@@ -25,15 +26,17 @@ export function UnitsHome() {
   const [id, setId] = useState("");
   const tabs: { id: Hub; label: string }[] = [
     { id: "chart", label: t("org2.tab.chart") },
+    { id: "tree", label: t("org2.tab.tree") },
     ...(can("analytics.view") ? [{ id: "analytics" as const, label: t("org2.tab.analytics") }] : []),
     { id: "find", label: t("org2.tab.find") },
   ];
   return (
     <>
       <PageHeader title={t("uo.title")} subtitle={t("org2.subtitle")} actions={can("orgprofile.configure")
-        ? <Link className="btn secondary" to="/org-settings">{t("org2.settings")}</Link> : undefined} />
+        ? <Link className="btn secondary" to="/structure?tab=settings">{t("org2.settings")}</Link> : undefined} />
       <Tabs tabs={tabs} value={tab} onChange={setTab} label={t("uo.title")} controls idPrefix="orghub" />
       <TabPanel id="chart" active={tab === "chart"} idPrefix="orghub"><OrgChart /></TabPanel>
+      <TabPanel id="tree" active={tab === "tree"} idPrefix="orghub"><OrgTree embedded /></TabPanel>
       <TabPanel id="analytics" active={tab === "analytics"} idPrefix="orghub"><OrgAnalyticsView /></TabPanel>
       <TabPanel id="find" active={tab === "find"} idPrefix="orghub">
         <div className="card">

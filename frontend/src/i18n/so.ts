@@ -2159,6 +2159,7 @@ export const so: Record<keyof typeof en, string> = {
   "org2.tab.chart": "Jaantuska hay'adda",
   "org2.tab.analytics": "Falanqeyn",
   "org2.tab.find": "Raadi cutub",
+  "org2.tab.tree": "Geedka cutubyada",
   "org2.tab.overview": "Guudmar",
   "org2.tab.leadership": "Hoggaanka",
   "org2.tab.departments": "Waaxaha",

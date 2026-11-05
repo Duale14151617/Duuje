@@ -26,8 +26,8 @@ const TAB_PATHS = HUBS.flatMap((h) => h.tabs);
 /** Which section each page sits in; sections with no visible page are not drawn. `title` is absent for the top block. */
 const NAV_SECTIONS: { key: string; title?: Key; to: string[] }[] = [
   { key: "top", to: ["/", "/notifications"] },
-  { key: "units", title: "nav.group.units", to: ["/organization", "/institutions", "/structure", "/tree", "/structure-changes", "/units", "/org-settings", "/change-requests"] },
-  { key: "people", title: "nav.group.people", to: ["/personnel", "/search", "/attendance", "/training", "/ranks"] },
+  { key: "units", title: "nav.group.units", to: ["/organization", "/structure", "/structure-changes", "/units"] },
+  { key: "people", title: "nav.group.people", to: ["/personnel", "/search", "/change-requests", "/attendance", "/training", "/ranks"] },
   { key: "pay", title: "nav.group.pay", to: ["/payroll", "/survivors"] },
   { key: "reporting", title: "nav.group.reporting", to: ["/reports", "/summary", "/analytics", "/tasks"] },
   { key: "logistics", title: "nav.group.logistics", to: ["/logistics", "/ammunition", "/ppe", "/weapons", "/vehicles", "/food"] },
@@ -44,9 +44,7 @@ export function Layout() {
   const items: NavItem[] = [
     { to: "/", icon: "grid", label: "nav.dashboard", show: can("dashboard.view") },
     { to: "/organization", icon: "building", label: "nav.organization", show: can("org.view") },
-    { to: "/institutions", icon: "map", label: "nav.institutions", show: true },
     { to: "/structure", icon: "layers", label: "nav.structure", show: can("org.view") },
-    { to: "/tree", icon: "tree", label: "nav.tree", show: can("org.view") },
     { to: "/structure-changes", icon: "swap", label: "nav.structureChanges", show: can("org.structure_propose") || can("org.structure_approve") },
     { to: "/personnel", icon: "users", label: "nav.personnel", show: can("personnel.view") || can("personnel.view_team") },
     { to: "/search", icon: "search", label: "nav.search", show: can("search.cross_service") },
@@ -61,7 +59,6 @@ export function Layout() {
     { to: "/survivors", icon: "users", label: "nav.survivors", show: can("survivor.view") },
     { to: "/attendance", icon: "check", label: "nav.attendance", show: can("attendance.view") },
     { to: "/units", icon: "building", label: "nav.units", show: can("org.view") },
-    { to: "/org-settings", icon: "sliders", label: "nav.orgSettings", show: can("orgprofile.configure") },
     { to: "/change-requests", icon: "swap", label: "nav.changeRequests", show: can("changes.propose") || can("changes.approve") },
     { to: "/tasks", icon: "check", label: "nav.tasks", show: can("tasks.view") },
     { to: "/food", icon: "box", label: "nav.food", show: can("food.view") },

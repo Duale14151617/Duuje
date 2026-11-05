@@ -2155,6 +2155,7 @@ export const en = {
   "org2.tab.chart": "Organizational chart",
   "org2.tab.analytics": "Analytics",
   "org2.tab.find": "Find a unit",
+  "org2.tab.tree": "Unit tree",
   "org2.tab.overview": "Overview",
   "org2.tab.leadership": "Leadership",
   "org2.tab.departments": "Departments",

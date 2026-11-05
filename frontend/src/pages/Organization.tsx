@@ -7,6 +7,7 @@ import { UnitPicker } from "../components/UnitPicker";
 import { useAuth } from "../auth/AuthContext";
 import { Chip, ErrorNotice, Field, Loading, Pager } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
+import { InstitutionsStrip } from "./Institutions";
 
 const PARENT_LEVELS: Record<string, string[]> = {
   region: ["headquarters"], branch_command: ["region", "headquarters"], unit: ["branch_command", "unit"],
@@ -222,6 +223,10 @@ export function Organization() {
           </div>
         </section>
       )}
+      <section className="card">
+        <h2>{t("nav.institutions")}</h2>
+        <InstitutionsStrip />
+      </section>
     </>
   );
 }

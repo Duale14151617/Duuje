@@ -23,13 +23,13 @@ function Node({ node, depth }: { node: TreeNode; depth: number }) {
   );
 }
 
-export function OrgTree() {
+export function OrgTree({ embedded = false }: { embedded?: boolean }) {
   const { t } = useI18n();
   const [inactive, setInactive] = useState(false);
   const tree = useFetch<{ count: number; truncated: boolean; roots: TreeNode[] }>("/organization/units/tree/", { include_inactive: inactive ? 1 : undefined });
   return (
     <>
-      <h1>{t("tree.title")}</h1>
+      {!embedded && <h1>{t("tree.title")}</h1>}
       <Field label={t("tree.showInactive")}>
         <input type="checkbox" checked={inactive} onChange={(e) => setInactive(e.target.checked)} />
       </Field>

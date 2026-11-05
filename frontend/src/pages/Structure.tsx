@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { Designation, DesignationRule, Finding, Page, StrengthStatus, StructureRow, UnitType } from "../api/types";
 import { useFetch } from "../api/useFetch";
 import { useAuth } from "../auth/AuthContext";
-import { Chip, ErrorNotice, Field, Loading, Pager } from "../components/ui";
+import { Chip, ErrorNotice, Field, Loading, Pager, TabPanel, Tabs } from "../components/ui";
+import { OrgSettings } from "./OrgSettings";
 import { useI18n, type Key } from "../i18n";
 
 const TONE: Record<StrengthStatus, string> = { no_reference: "", unknown: "", below: "warn", within: "ok", above: "warn" };
@@ -264,14 +266,28 @@ function Catalogues() {
   );
 }
 
+type StructureTab = "overview" | "settings";
+
 export function Structure() {
   const { t } = useI18n();
+  const { can } = useAuth();
+  const [params] = useSearchParams();
+  const canSettings = can("orgprofile.configure");
+  const [tab, setTab] = useState<StructureTab>(params.get("tab") === "settings" && canSettings ? "settings" : "overview");
+  const tabs: { id: StructureTab; label: string }[] = [
+    { id: "overview", label: t("org2.tab.overview") },
+    ...(canSettings ? [{ id: "settings" as const, label: t("org2.settings") }] : []),
+  ];
   return (
     <>
       <h1>{t("struct.title")}</h1>
-      <Findings />
-      <Strength />
-      <Catalogues />
+      {tabs.length > 1 && <Tabs tabs={tabs} value={tab} onChange={setTab} label={t("struct.title")} controls idPrefix="structhub" />}
+      <TabPanel id="overview" active={tab === "overview"} idPrefix="structhub">
+        <Findings />
+        <Strength />
+        <Catalogues />
+      </TabPanel>
+      {canSettings && <TabPanel id="settings" active={tab === "settings"} idPrefix="structhub"><OrgSettings /></TabPanel>}
     </>
   );
 }

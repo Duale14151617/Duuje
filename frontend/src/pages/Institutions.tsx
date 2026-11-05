@@ -11,6 +11,16 @@ export function Institutions() {
   return (
     <>
       <h1>{t("nav.institutions")}</h1>
+      <InstitutionsStrip />
+    </>
+  );
+}
+
+/** Emblems of the institutions the HQ references; shown at the foot of the Organization page. */
+export function InstitutionsStrip() {
+  const { t } = useI18n();
+  return (
+    <>
       <p className="muted">{t("inst.intro")}</p>
       <div style={{ display: "grid", gap: "1rem", gridTemplateColumns: "repeat(auto-fit, minmax(14rem, 1fr))" }}>
         {INSTITUTIONS.map((i) => (
