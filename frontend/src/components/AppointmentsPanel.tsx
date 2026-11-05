@@ -84,10 +84,10 @@ export function AppointmentsPanel({ person }: { person: Person }) {
         </div>
       ))}
       {canManage && !adding && (
-        <div className="row" style={{ marginTop: "1rem" }}><button type="button" className="secondary" onClick={() => setAdding(true)}>{t("appt.add")}</button></div>
+        <div className="row mt-1"><button type="button" className="secondary" onClick={() => setAdding(true)}>{t("appt.add")}</button></div>
       )}
       {canManage && adding && (
-        <form onSubmit={add} style={{ marginTop: "1rem" }}>
+        <form onSubmit={add} className="mt-1">
           <Notice>{t("appt.accessNote")}</Notice>
           <Field label={t("appt.type")}>
             <select value={typeId} required onChange={(e) => setTypeId(e.target.value)}>

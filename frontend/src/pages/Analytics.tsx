@@ -4,7 +4,7 @@ import type {
   TrainingAnalytics, Unit,
 } from "../api/types";
 import { useFetch } from "../api/useFetch";
-import { ErrorNotice, Field, Loading, Notice, PageHeader, Tabs } from "../components/ui";
+import { ErrorNotice, Field, Loading, Notice, PageHeader, Tabs, EmptyState } from "../components/ui";
 import { DataTable, type Column } from "../components/DataTable";
 import { useI18n, type Key } from "../i18n";
 
@@ -57,7 +57,7 @@ export function Analytics() {
       <Notice>{t("an.note")}</Notice>
       <ErrorNotice error={index.error} />
       {index.loading && !index.data ? <Loading /> : null}
-      {index.data && sections.length === 0 && <p>{t("an.noSections")}</p>}
+      {index.data && sections.length === 0 && <EmptyState title={t("an.noSections")} />}
       {current && (
         <>
           <Tabs<Section> tabs={sections.map((s) => ({ id: s, label: t(`an.tab.${s}` as Key) }))} value={current} onChange={setTab} />

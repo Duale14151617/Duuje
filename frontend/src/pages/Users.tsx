@@ -6,7 +6,7 @@ import { useFetch } from "../api/useFetch";
 import { useAuth } from "../auth/AuthContext";
 import { DataTable, type Column } from "../components/DataTable";
 import { FilterBar } from "../components/FilterBar";
-import { Chip, ErrorNotice, Field, formatDate, Loading, Notice, PageHeader } from "../components/ui";
+import { Chip, ErrorNotice, Field, formatDate, Loading, Notice, PageHeader, EmptyState } from "../components/ui";
 import { useI18n } from "../i18n";
 
 function AddUser({ onDone }: { onDone: () => void }) {
@@ -132,7 +132,7 @@ export function UserDetail() {
           </div>
           {manage && (
             <>
-            <div className="row" style={{ marginTop: "1rem" }}>
+            <div className="row mt-1">
               {u.is_active
                 ? <button className="danger" onClick={() => void post("disable/")}>{t("users.disable")}</button>
                 : <button onClick={() => void post("enable/")}>{t("users.enable")}</button>}
@@ -147,11 +147,11 @@ export function UserDetail() {
         </section>
       )}
       <h2>{t("users.assignments")}</h2>
-      {assignments.data && assignments.data.length === 0 && <p>{t("users.noAssignments")}</p>}
+      {assignments.data && assignments.data.length === 0 && <EmptyState title={t("users.noAssignments")} />}
       <ul className="list">
         {assignments.data?.map((a) => (
           <li key={a.id} className="item">
-            <div className="row" style={{ justifyContent: "space-between" }}>
+            <div className="row row-between">
               <div>
                 <h2>{name(a.role)}</h2>
                 <span className="muted">

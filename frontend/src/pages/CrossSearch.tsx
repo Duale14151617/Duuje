@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { Person } from "../api/types";
 import { useFetch } from "../api/useFetch";
-import { Chip, ErrorNotice, Loading } from "../components/ui";
+import { Chip, ErrorNotice, Loading, EmptyState } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
 
 interface SearchResult { counts: Record<string, number>; total: number; truncated: boolean; results: Person[] }
@@ -30,7 +30,7 @@ export function CrossSearch() {
             {Object.keys(data.counts).length > 1 && Object.entries(data.counts).map(([code, n]) => <Chip key={code} tone="draft">{code} · {n}</Chip>)}{" "}
             {data.truncated && <span className="muted">{t("srch.truncated")}</span>}
           </p>
-          {data.total === 0 && <p>{t("srch.none")}</p>}
+          {data.total === 0 && <EmptyState title={t("srch.none")} />}
           <ul className="list">
             {data.results.map((p) => (
               <li key={p.id} className="item">

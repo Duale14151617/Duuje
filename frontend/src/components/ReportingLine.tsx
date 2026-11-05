@@ -69,12 +69,12 @@ export function ReportingLine({ person, canManage, onChanged }: { person: Person
         </ul>
       )}
       {canManage && !editing && (
-        <div className="row" style={{ marginTop: "1rem" }}>
+        <div className="row mt-1">
           <button className="secondary" onClick={start}>{t("rline.edit")}</button>
         </div>
       )}
       {canManage && editing && (
-        <form onSubmit={(e) => void save(e)} style={{ marginTop: "1rem" }}>
+        <form onSubmit={(e) => void save(e)} className="mt-1">
           <ErrorNotice error={error ?? candidates.error} />
           <input type="search" value={q} onChange={(e) => setQ(e.target.value)} maxLength={100}
                  aria-label={t("rline.search")} placeholder={t("rline.search")} />

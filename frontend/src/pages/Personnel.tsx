@@ -195,8 +195,8 @@ export function PersonnelForm() {
           </select>
         </Field>
         {dup && (
-          <label className="row" style={{ marginBottom: ".75rem" }}>
-            <input type="checkbox" style={{ width: "auto", minHeight: 0 }} checked={confirm} onChange={(e) => setConfirm(e.target.checked)} />
+          <label className="row mb-075">
+            <input type="checkbox" className="check-input" checked={confirm} onChange={(e) => setConfirm(e.target.checked)} />
             <span>{t("pers.confirmDuplicate")}</span>
           </label>
         )}
@@ -252,8 +252,8 @@ function ChangeForm({ person, mode, onDone }: { person: Person; mode: Exclude<Mo
           <Field label={t("pers.serviceNumber")}><input value={serviceNumber} onChange={(e) => setServiceNumber(e.target.value)} /></Field>
           <Field label={t("pers.phone")}><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></Field>
           {dup && (
-            <label className="row" style={{ marginBottom: ".75rem" }}>
-              <input type="checkbox" style={{ width: "auto", minHeight: 0 }} checked={confirm} onChange={(e) => setConfirm(e.target.checked)} />
+            <label className="row mb-075">
+              <input type="checkbox" className="check-input" checked={confirm} onChange={(e) => setConfirm(e.target.checked)} />
               <span>{t("pers.confirmDuplicateEdit")}</span>
             </label>
           )}

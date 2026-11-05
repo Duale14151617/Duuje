@@ -106,7 +106,7 @@ function Detail({ id, s, onBack }: { id: string; s: S; onBack: () => void }) {
   return (
     <>
       <button type="button" className="secondary sm" onClick={onBack}>← {s.back}</button>
-      <div className="card" style={{ marginTop: ".75rem" }}>
+      <div className="card mt-075">
         <h2 style={{ marginTop: 0 }}>{name(c.org_unit)} <Chip tone={statusTone(c.status)}>{s[c.status as "open"]}</Chip></h2>
         <p className="muted">{s[c.kind as "cyclic"]} · {s.opened} {formatDate(c.opened_at, lang)} {s.by} {c.opened_by}{c.signed_by ? ` · ${s.signedBy} ${c.signed_by}` : ""}</p>
         <p>{p.total - p.pending} / {p.total} {s.checked} · <Chip tone="ok">{p.verified}</Chip> <Chip tone="bad">{p.missing}</Chip> <Chip tone="warn">{p.mismatch + p.unlisted}</Chip></p>
@@ -124,7 +124,7 @@ function Detail({ id, s, onBack }: { id: string; s: S; onBack: () => void }) {
       <ul className="list">
         {c.lines.map((ln) => (
           <li className="item" key={ln.id}>
-            <div className="row" style={{ justifyContent: "space-between" }}>
+            <div className="row row-between">
               <strong className="mono">{ln.expected_identifier || ln.observed_identifier}</strong>
               <Chip tone={tone(ln.result)}>{s[ln.result as "pending"]}</Chip>
             </div>
@@ -159,8 +159,8 @@ export function Inventories() {
   if (selected) return <Detail id={selected} s={s} onBack={() => { setSelected(null); list.reload(); }} />;
   return (
     <>
-      <div className="row" style={{ justifyContent: "space-between", marginBottom: "1rem" }}>
-        <h1 style={{ margin: 0 }}>{s.title}</h1>
+      <div className="row row-between mb-1">
+        <h1 className="flush">{s.title}</h1>
         {can("weapons.manage") && !adding && <button type="button" onClick={() => setAdding(true)}>{s.start}</button>}
       </div>
       <Notice>{s.note}</Notice>
@@ -171,8 +171,8 @@ export function Inventories() {
       <ul className="list">
         {list.data?.map((c) => (
           <li className="item" key={c.id}>
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <h3 style={{ margin: 0 }}>{name(c.org_unit)}</h3>
+            <div className="row row-between">
+              <h3 className="flush">{name(c.org_unit)}</h3>
               <Chip tone={statusTone(c.status)}>{s[c.status as "open"]}</Chip>
             </div>
             <p className="muted">{s[c.kind as "cyclic"]} · {formatDate(c.opened_at, lang)} · {c.progress.total - c.progress.pending} / {c.progress.total} {s.checked}</p>

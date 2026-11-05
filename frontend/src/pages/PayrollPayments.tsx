@@ -3,7 +3,7 @@ import { api } from "../api/client";
 import { Act } from "../components/ActionForm";
 import { useAuth } from "../auth/AuthContext";
 import { useFetch } from "../api/useFetch";
-import { Chip, ErrorNotice, Field, Notice } from "../components/ui";
+import { Chip, ErrorNotice, Field, Notice, Loading, EmptyState } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
 import { left, tone, type CaseLite, type Claim, type PaySummary } from "./payrollShared";
 
@@ -36,6 +36,7 @@ export function Payments({ onChanged }: { onChanged: () => void }) {
     <>
       <Notice>{t("payx.noIntegration")}</Notice>
       <ErrorNotice error={list.error ?? sum.error} />
+      {(list.loading && !list.data) || (sum.loading && !sum.data) ? <Loading /> : null}
       {sum.data && (
         <section className="card">
           <div className="stat"><span>{t("payx.unreconciled")}</span><b>{sum.data.payments_unreconciled}</b></div>
@@ -57,7 +58,7 @@ export function Payments({ onChanged }: { onChanged: () => void }) {
           </select>
         </Field>
       </div>
-      {list.data && list.data.results.length === 0 && <p className="muted">{t("payx.none")}</p>}
+      {list.data && list.data.results.length === 0 && <EmptyState title={t("payx.none")} />}
       <ul className="list">{(list.data?.results ?? []).map((p) => <PaymentItem key={p.id} p={p} onChanged={done} />)}</ul>
     </>
   );
@@ -120,7 +121,7 @@ function PaymentDetail({ id }: { id: string }) {
     setErr(null);
     try { const r = await api<{ recipient: Record<string, string> }>(`/payroll/payments/${id}/reveal/`); setShown(r.recipient); } catch (x) { setErr(x); }
   }
-  if (!d.data) return <ErrorNotice error={d.error} />;
+  if (!d.data) return d.error ? <ErrorNotice error={d.error} /> : <Loading />;
   return (
     <div className="card">
       <ErrorNotice error={err} />

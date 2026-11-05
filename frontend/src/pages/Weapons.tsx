@@ -4,7 +4,7 @@ import type { Page } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { useFetch } from "../api/useFetch";
 import { FilterBar } from "../components/FilterBar";
-import { Chip, ErrorNotice, Field, Notice, PageHeader } from "../components/ui";
+import { Chip, ErrorNotice, Field, Notice, PageHeader, Loading } from "../components/ui";
 import { UnitPicker } from "../components/UnitPicker";
 import { useI18n, type Key } from "../i18n";
 
@@ -44,6 +44,7 @@ export function Weapons() {
     <>
       <PageHeader title={t("weap.title")} actions={canManage && !registering ? <button type="button" onClick={() => setRegistering(true)}>{t("weap.register")}</button> : undefined} />
       <ErrorNotice error={summary.error ?? list.error} />
+      {(summary.loading && !summary.data) || (list.loading && !list.data) ? <Loading /> : null}
       {summary.data && (
         <section className="card">
           <div className="stat"><span>{t("weap.total")}</span><b>{summary.data.total}</b></div>
@@ -141,7 +142,7 @@ function Detail({ id, canManage, onChanged }: { id: string; canManage: boolean; 
   const [busy, setBusy] = useState(false);
   const unit = w.data ? (w.data.issued_to_unit ?? w.data.org_unit) : null;
   const people = useFetch<{ results: Person[] }>(mode === "issue" && unit ? "/weapons/people/" : null, { org_unit: unit?.id, q });
-  if (!w.data) return <><ErrorNotice error={w.error} /></>;
+  if (!w.data) return w.error ? <ErrorNotice error={w.error} /> : <Loading />;
   const d = w.data;
 
   async function run(path: string, body: Record<string, unknown>) {

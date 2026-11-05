@@ -3,7 +3,7 @@ import { api } from "../api/client";
 import { Act } from "../components/ActionForm";
 import { useAuth } from "../auth/AuthContext";
 import { useFetch } from "../api/useFetch";
-import { Chip, ErrorNotice, Field, Notice } from "../components/ui";
+import { Chip, ErrorNotice, Field, Notice, Loading, EmptyState } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
 import { PayForm } from "./PayrollPayments";
 import { tone, type CaseLite, type Claim } from "./payrollShared";
@@ -24,6 +24,7 @@ export function Arrears({ onChanged }: { onChanged: () => void }) {
     <>
       <p className="muted">{t("arr.intro")}</p>
       <ErrorNotice error={list.error} />
+      {list.loading && !list.data ? <Loading /> : null}
       {can("arrears.manage") && <RecordClaim onDone={done} />}
       <Field label={t("pay.show")}>
         <select value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -31,7 +32,7 @@ export function Arrears({ onChanged }: { onChanged: () => void }) {
           {["recorded", "verified", "approved", "rejected"].map((s) => <option key={s} value={s}>{t(`arr.status.${s}` as Key)}</option>)}
         </select>
       </Field>
-      {list.data && rows.length === 0 && <p className="muted">{t("arr.none")}</p>}
+      {list.data && rows.length === 0 && <EmptyState title={t("arr.none")} />}
       <ul className="list">{rows.map((c) => <ClaimItem key={c.id} c={c} onChanged={done} />)}</ul>
     </>
   );

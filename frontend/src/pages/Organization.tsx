@@ -5,7 +5,7 @@ import { useFetch } from "../api/useFetch";
 import { useUnitTypes } from "../api/useUnitTypes";
 import { UnitPicker } from "../components/UnitPicker";
 import { useAuth } from "../auth/AuthContext";
-import { Chip, ErrorNotice, Field, Loading, Pager } from "../components/ui";
+import { Chip, ErrorNotice, Field, Loading, Pager, EmptyState } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
 import { InstitutionsStrip } from "./Institutions";
 
@@ -36,12 +36,12 @@ function DesignationBoxes({ designations, value, onChange }: {
   const { t, name } = useI18n();
   if (designations.length === 0) return null;
   return (
-    <fieldset className="field" style={{ border: 0, padding: 0 }}>
+    <fieldset className="field plain-fieldset">
       <legend>{t("org.designations")}</legend>
       <div className="row">
         {designations.filter((d) => d.active || value.includes(d.id)).map((d) => (
           <label key={d.id} className="row">
-            <input type="checkbox" style={{ width: "auto", minHeight: 0 }} checked={value.includes(d.id)}
+            <input type="checkbox" className="check-input" checked={value.includes(d.id)}
                    onChange={(e) => onChange(e.target.checked ? [...value, d.id] : value.filter((x) => x !== d.id))} />
             <span>{name(d)}</span>
           </label>
@@ -79,22 +79,22 @@ function UnitEditor({ unit, onDone }: { unit: Unit; onDone: () => void }) {
     } catch (err) { setError(err); }
   }
   return (
-    <form onSubmit={(e) => void save(e)} style={{ marginTop: ".5rem" }}>
+    <form onSubmit={(e) => void save(e)} className="mt-05">
       <ErrorNotice error={error} />
       <Field label={t("org.nameEn")}><input value={nameEn} onChange={(e) => setNameEn(e.target.value)} required /></Field>
       <Field label={t("org.nameSo")}><input value={nameSo} onChange={(e) => setNameSo(e.target.value)} /></Field>
       <TypeField level={unit.level} types={cat.types.data ?? []} value={unitType} onChange={setUnitType} />
       {unit.level === "unit" && <DesignationBoxes designations={cat.designations.data ?? []} value={desigs} onChange={setDesigs} />}
       {(unit.level === "branch_command" || unit.level === "unit") && (
-        <fieldset className="field" style={{ border: 0, padding: 0 }}>
+        <fieldset className="field plain-fieldset">
           <legend>{t("org.exceptionTitle")}</legend>
           <Field label={t("org.exMin")}><input type="number" min={0} value={exMin} onChange={(e) => setExMin(e.target.value)} /></Field>
           <Field label={t("org.exMax")}><input type="number" min={0} value={exMax} onChange={(e) => setExMax(e.target.value)} /></Field>
           <Field label={t("org.exNote")}><input value={exNote} maxLength={300} onChange={(e) => setExNote(e.target.value)} /></Field>
         </fieldset>
       )}
-      <label className="row" style={{ marginBottom: ".75rem" }}>
-        <input type="checkbox" style={{ width: "auto", minHeight: 0 }} checked={active} onChange={(e) => setActive(e.target.checked)} />
+      <label className="row mb-075">
+        <input type="checkbox" className="check-input" checked={active} onChange={(e) => setActive(e.target.checked)} />
         <span>{t("common.active")}</span>
       </label>
       <div className="row">
@@ -175,8 +175,8 @@ export function Organization() {
 
   return (
     <>
-      <div className="row" style={{ justifyContent: "space-between", marginBottom: "1rem" }}>
-        <h1 style={{ margin: 0 }}>{t("org.title")}</h1>
+      <div className="row row-between mb-1">
+        <h1 className="flush">{t("org.title")}</h1>
         {manage && !adding && <button onClick={() => setAdding(true)}>{t("org.add")}</button>}
       </div>
       <ErrorNotice error={units.error} />
@@ -191,15 +191,15 @@ export function Organization() {
         </Field>
       </div>
       {units.loading && !units.data ? <Loading /> : null}
-      {units.data && units.data.results.length === 0 && <p>{t("org.noUnits")}</p>}
+      {units.data && units.data.results.length === 0 && <EmptyState title={t("org.noUnits")} />}
       <ul className="list">
         {units.data?.results.map((u) => (
           <li key={u.id} className="item indent" style={{ "--d": u.depth } as CSSProperties}>
-            <div className="row" style={{ justifyContent: "space-between" }}>
+            <div className="row row-between">
               <div>
                 <h2>{name(u)}</h2>
                 <span className="muted">{t(`level.${u.level}` as Key)} · {u.code}</span>
-                <div className="row" style={{ marginTop: ".25rem" }}>
+                <div className="row mt-025">
                   {u.unit_type && cat.typeById.get(u.unit_type) && <Chip tone="ok">{name(cat.typeById.get(u.unit_type)!)}</Chip>}
                   {u.designations.map((id) => cat.designationById.get(id)).filter((d): d is Designation => !!d)
                     .map((d) => <Chip key={d.id}>{name(d)}</Chip>)}

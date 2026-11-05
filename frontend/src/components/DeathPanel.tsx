@@ -73,21 +73,21 @@ export function DeathPanel({ person, onChanged }: { person: Person; onChanged: (
       {open?.state === "reported" && (canReport || canConfirm) && (
         <>
           {canReport && (
-            <form onSubmit={attach} style={{ marginTop: "1rem" }}>
+            <form onSubmit={attach} className="mt-1">
               <Field label={t("doc.name")}><input value={title} maxLength={150} required onChange={(e) => setTitle(e.target.value)} /></Field>
               <Field label={t("doc.file")}><input type="file" accept="application/pdf,image/jpeg,image/png" required onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></Field>
               <button type="submit" className="secondary" disabled={busy}>{t("death.addEvidence")}</button>
             </form>
           )}
           {canConfirm && (own ? <Notice>{t("death.sameOfficer")}</Notice> : (
-            <div style={{ marginTop: "1rem" }}>
+            <div className="mt-1">
               <Notice>{t("death.confirmWarn")}</Notice>
               <button type="button" onClick={confirm} disabled={busy}>{t("death.confirm")}</button>
             </div>
           ))}
-          {!withdrawing && <div className="row" style={{ marginTop: "1rem" }}><button type="button" className="secondary" onClick={() => setWithdrawing(true)}>{t("death.withdraw")}</button></div>}
+          {!withdrawing && <div className="row mt-1"><button type="button" className="secondary" onClick={() => setWithdrawing(true)}>{t("death.withdraw")}</button></div>}
           {withdrawing && (
-            <form onSubmit={withdraw} style={{ marginTop: "1rem" }}>
+            <form onSubmit={withdraw} className="mt-1">
               <Field label={t("death.reason")}><input value={reason} maxLength={300} required onChange={(e) => setReason(e.target.value)} /></Field>
               <div className="row">
                 <button type="submit" disabled={busy}>{t("death.withdraw")}</button>
@@ -99,7 +99,7 @@ export function DeathPanel({ person, onChanged }: { person: Person; onChanged: (
       )}
 
       {mayReport && (
-        <form onSubmit={report} style={{ marginTop: "1rem" }}>
+        <form onSubmit={report} className="mt-1">
           <Field label={t("death.date")}><input type="date" value={day} max={new Date().toISOString().slice(0, 10)} required onChange={(e) => setDay(e.target.value)} /></Field>
           <Field label={t("death.note")}><input value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} /></Field>
           <button type="submit" disabled={busy}>{t("death.report")}</button>

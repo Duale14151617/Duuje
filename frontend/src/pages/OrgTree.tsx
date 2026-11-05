@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { TreeNode } from "../api/types";
 import { useFetch } from "../api/useFetch";
-import { ErrorNotice, Chip, Field, Loading } from "../components/ui";
+import { ErrorNotice, Chip, Field, Loading, EmptyState } from "../components/ui";
 import { useI18n } from "../i18n";
 
 function Node({ node, depth }: { node: TreeNode; depth: number }) {
@@ -35,7 +35,7 @@ export function OrgTree({ embedded = false }: { embedded?: boolean }) {
       </Field>
       <ErrorNotice error={tree.error} />
       {tree.loading && !tree.data ? <Loading /> : null}
-      {tree.data && tree.data.roots.length === 0 && <p>{t("tree.empty")}</p>}
+      {tree.data && tree.data.roots.length === 0 && <EmptyState title={t("tree.empty")} />}
       {tree.data?.truncated && <p className="muted">{t("tree.truncated", { n: tree.data.count })}</p>}
       <ul className="list">{tree.data?.roots.map((n) => <Node key={n.id} node={n} depth={0} />)}</ul>
     </>

@@ -4,7 +4,7 @@ import type { AppointmentTypeOut, ChangeKind, ChangeRequest, ChangeStatus, Page,
 import { useFetch } from "../api/useFetch";
 import { useAuth } from "../auth/AuthContext";
 import { UnitPicker } from "../components/UnitPicker";
-import { Chip, ErrorNotice, Field, formatDate, Loading, Notice } from "../components/ui";
+import { Chip, ErrorNotice, Field, formatDate, Loading, Notice, EmptyState } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
 
 const BASE = "/organization/change-requests";
@@ -185,7 +185,7 @@ function BatchCard({ batch, items, onChanged }: { batch: string; items: ChangeRe
   }
   return (
     <div className="card">
-      <div className="row" style={{ justifyContent: "space-between" }}>
+      <div className="row row-between">
         <strong>{t("cr.batchOf", { count: items.length })}</strong>
         <Chip tone={first.status}>{t(`cr.status.${first.status}` as Key)}</Chip>
       </div>
@@ -227,7 +227,7 @@ function Row({ r, onChanged }: { r: ChangeRequest; onChanged: () => void }) {
   const mine = me?.username === r.proposed_by;
   return (
     <div className="card">
-      <div className="row" style={{ justifyContent: "space-between" }}>
+      <div className="row row-between">
         <strong>{r.summary}</strong>
         <Chip tone={r.status}>{t(`cr.status.${r.status}` as Key)}</Chip>
       </div>
@@ -288,7 +288,7 @@ export function ChangeRequests() {
         </select>
       </Field>
       {list.loading ? <Loading /> : <ErrorNotice error={list.error} />}
-      {list.data?.results.length === 0 && <p className="muted">{t("cr.empty")}</p>}
+      {list.data?.results.length === 0 && <EmptyState title={t("cr.empty")} />}
       {groups(list.data?.results ?? []).map((g) => g.batch
         ? <BatchCard key={g.batch} batch={g.batch} items={g.items} onChanged={list.reload} />
         : <Row key={g.items[0].id} r={g.items[0]} onChanged={list.reload} />)}

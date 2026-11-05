@@ -15,7 +15,7 @@ export function UnitSuggestions({ specialty, unitId, onPick }: { specialty: Spec
   const d = res.data;
   const fit = unitId ? d?.chosen?.fit : undefined;
   return (
-    <div style={{ marginBottom: ".75rem" }}>
+    <div className="mb-075">
       {fit === "mismatch" && <Notice>{t("sug.mismatch", { specialty: label })}</Notice>}
       {fit === "general" && specialty !== "infantry" && <Notice>{t("sug.general", { specialty: label })}</Notice>}
       {fit === "match" && <p className="muted small">{t("sug.match", { specialty: label })}</p>}

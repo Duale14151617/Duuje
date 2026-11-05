@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { api, ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useFetch } from "../api/useFetch";
-import { Chip, ErrorNotice, Field, Notice, useErrorText } from "../components/ui";
+import { Chip, ErrorNotice, Field, Notice, useErrorText, Loading } from "../components/ui";
 import { UnitPicker } from "../components/UnitPicker";
 import { useI18n, type Key } from "../i18n";
 
@@ -87,6 +87,7 @@ function Roll({ unit, canRecord }: { unit: string; canRecord: boolean }) {
     <section className="card">
       <Field label={t("att.date")}><input type="date" value={day} max={today()} onChange={(e) => { setDay(e.target.value); setDraft({}); }} /></Field>
       <ErrorNotice error={error ?? roll.error} />
+      {roll.loading && !roll.data ? <Loading /> : null}
       {saved !== null && <Notice>{t("att.saved", { n: saved })}</Notice>}
       {rowErrors.length > 0 && (
         <ul className="list">{rowErrors.map((e, i) => <li key={i} className="item">{entries[e.index] ? rows.find((r) => r.id === entries[e.index].personnel)?.full_name : e.index}: {problemText(e.code)}</li>)}</ul>
@@ -170,6 +171,7 @@ function SummaryTab({ unit }: { unit: string }) {
         <Field label={t("att.date")}><input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
       </div>
       <ErrorNotice error={s.error} />
+      {s.loading && !s.data ? <Loading /> : null}
       {s.data && (
         <>
           <p className="muted">{s.data.start} → {s.data.end}</p>
@@ -230,6 +232,7 @@ function ReportTab({ unit, canSubmit }: { unit: string; canSubmit: boolean }) {
       <p className="muted">{from} → {to}</p>
       <Notice>{t("att.reportNote")}</Notice>
       <ErrorNotice error={error ?? preview.error} />
+      {preview.loading && !preview.data ? <Loading /> : null}
       {preview.data && GROUPS.map(([title, keys]) => (
         <div key={title}>
           <h3>{t(title)}</h3>

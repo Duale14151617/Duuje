@@ -7,7 +7,7 @@ import { useAuth } from "../auth/AuthContext";
 import { DataTable, type Column } from "../components/DataTable";
 import { FilterBar } from "../components/FilterBar";
 import { statusTone } from "../components/status";
-import { Chip, ErrorNotice, Field, Loading, Tabs } from "../components/ui";
+import { Chip, ErrorNotice, Field, Loading, Tabs, EmptyState } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
 
 type Tab = "records" | "courses" | "summary";
@@ -92,7 +92,7 @@ function RecordsTab() {
           { id: "course", label: t("tr.course"), value: course, onChange: (v) => { setCourse(v); setPage(1); }, options: (courses.data ?? []).map((c) => ({ value: c.id, label: name(c) })) },
         ]}
         onReset={resetAll} />
-      {can("training.manage") && !adding && <button style={{ marginBottom: ".75rem" }} onClick={() => setAdding(true)}>{t("tr.enrol")}</button>}
+      {can("training.manage") && !adding && <button className="mb-075" onClick={() => setAdding(true)}>{t("tr.enrol")}</button>}
       {adding && <Enrol courses={courses.data ?? []} onDone={(id) => navigate(`/training/records/${id}`)} />}
       <ErrorNotice error={list.error} />
       <DataTable id="training-records" caption={t("tr.title")} columns={columns} rows={list.data?.results} rowKey={(r) => r.id} loading={list.loading}
@@ -121,7 +121,7 @@ function CoursesTab() {
   }
   return (
     <>
-      {can("training.configure") && !adding && <button style={{ marginBottom: ".75rem" }} onClick={() => setAdding(true)}>{t("tr.addCourse")}</button>}
+      {can("training.configure") && !adding && <button className="mb-075" onClick={() => setAdding(true)}>{t("tr.addCourse")}</button>}
       {adding && (
         <form className="card" onSubmit={(e) => void add(e)}>
           <ErrorNotice error={error} />
@@ -162,7 +162,7 @@ function SummaryTab() {
       </div>
       <ErrorNotice error={data.error} />
       {data.loading && !data.data ? <Loading /> : null}
-      {data.data && data.data.rows.length === 0 && <p>{t("sum.empty")}</p>}
+      {data.data && data.data.rows.length === 0 && <EmptyState title={t("sum.empty")} />}
       {data.data && data.data.rows.length > 0 && (
         <div className="table-wrap">
           <table>
@@ -238,8 +238,8 @@ export function TrainingRecordDetail() {
       {rec.loading && !r ? <Loading /> : null}
       {r && (
         <section className="card">
-          <div className="row" style={{ justifyContent: "space-between" }}>
-            <h1 style={{ margin: 0 }}>{r.personnel.full_name}</h1>
+          <div className="row row-between">
+            <h1 className="flush">{r.personnel.full_name}</h1>
             <Chip tone={statusTone(r.status)}>{t(`tstatus.${r.status}` as Key)}</Chip>
           </div>
           <p className="muted">{name(r.personnel.org_unit)}</p>
@@ -250,7 +250,7 @@ export function TrainingRecordDetail() {
           <div className="stat"><span>{t("tr.notes")}</span><b>{r.notes || "-"}</b></div>
           {can("training.manage") && open && (
             <>
-              <div className="row" style={{ marginTop: "1rem" }}>
+              <div className="row mt-1">
                 {r.status === "enrolled" && <button onClick={() => void setStatus("in_progress")}>{t("tr.markStart")}</button>}
                 {r.status === "in_progress" && <button onClick={() => void setStatus("completed")}>{t("tr.markComplete")}</button>}
                 {r.status === "in_progress" && <button className="danger" onClick={() => void setStatus("failed")}>{t("tr.markFail")}</button>}
@@ -259,7 +259,7 @@ export function TrainingRecordDetail() {
               {r.status === "in_progress" && (
                 <Field label={t("tr.completedOn")}><input type="date" max={today()} value={completedOn} onChange={(e) => setCompletedOn(e.target.value)} /></Field>
               )}
-              <form onSubmit={(e) => void saveNotes(e)} style={{ marginTop: "1rem" }}>
+              <form onSubmit={(e) => void saveNotes(e)} className="mt-1">
                 <Field label={t("tr.notes")}><input value={notes ?? r.notes} maxLength={300} onChange={(e) => setNotes(e.target.value)} /></Field>
                 <button type="submit" className="secondary" disabled={notes === null}>{t("common.save")}</button>
               </form>

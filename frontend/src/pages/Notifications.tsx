@@ -3,7 +3,7 @@ import { useState } from "react";
 import { api } from "../api/client";
 import type { NotificationItem, Page } from "../api/types";
 import { useFetch } from "../api/useFetch";
-import { Chip, ErrorNotice, formatDate, Loading, Pager } from "../components/ui";
+import { Chip, ErrorNotice, formatDate, Loading, Pager, EmptyState } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
 
 export function Notifications() {
@@ -21,17 +21,17 @@ export function Notifications() {
 
   return (
     <>
-      <div className="row" style={{ justifyContent: "space-between", marginBottom: "1rem" }}>
-        <h1 style={{ margin: 0 }}>{t("note.title")}</h1>
+      <div className="row row-between mb-1">
+        <h1 className="flush">{t("note.title")}</h1>
         <button className="secondary" onClick={() => void markAll()}>{t("note.markAll")}</button>
       </div>
       <ErrorNotice error={error ?? list.error} />
       {list.loading && !list.data ? <Loading /> : null}
-      {list.data && list.data.results.length === 0 && <p>{t("note.empty")}</p>}
+      {list.data && list.data.results.length === 0 && <EmptyState title={t("note.empty")} />}
       <ul className="list">
         {list.data?.results.map((n) => (
           <li key={n.id} className="item" style={n.read_at ? { opacity: 0.7 } : undefined}>
-            <div className="row" style={{ justifyContent: "space-between" }}>
+            <div className="row row-between">
               <b>{t(`nkind.${n.kind}` as Key)}</b>
               {!n.read_at && <Chip tone="draft">•</Chip>}
             </div>

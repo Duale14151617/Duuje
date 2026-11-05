@@ -11,7 +11,7 @@ export function ArmyStrength() {
   const r = useFetch<CombinedReport>(open ? "/reports/combined/" : null);
   const d = r.data;
   return (
-    <details className="card" style={{ marginBottom: "1rem" }} onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
+    <details className="card mb-1" onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
       <summary><b>{t("rep.strength")}</b></summary>
       <p className="muted small">{t("comb.hint")}</p>
       <ErrorNotice error={open ? r.error : null} />

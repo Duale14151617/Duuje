@@ -4,7 +4,7 @@ import { api } from "../api/client";
 import type { Designation, DesignationRule, Finding, Page, StrengthStatus, StructureRow, UnitType } from "../api/types";
 import { useFetch } from "../api/useFetch";
 import { useAuth } from "../auth/AuthContext";
-import { Chip, ErrorNotice, Field, Loading, Pager, TabPanel, Tabs } from "../components/ui";
+import { Chip, ErrorNotice, Field, Loading, Pager, TabPanel, Tabs, EmptyState } from "../components/ui";
 import { OrgSettings } from "./OrgSettings";
 import { useI18n, type Key } from "../i18n";
 
@@ -58,13 +58,13 @@ function Strength() {
       </Field>
       <ErrorNotice error={rows.error} />
       {rows.loading && !rows.data ? <Loading /> : null}
-      {rows.data && rows.data.results.length === 0 && <p>{t("struct.noUnits")}</p>}
+      {rows.data && rows.data.results.length === 0 && <EmptyState title={t("struct.noUnits")} />}
       <ul className="list">
         {rows.data?.results.map((r) => (
           <li key={r.id} className="item">
-            <div className="row" style={{ justifyContent: "space-between" }}>
+            <div className="row row-between">
               <div>
-                <h3 style={{ margin: 0 }}>{name(r)}</h3>
+                <h3 className="flush">{name(r)}</h3>
                 <span className="muted">{typeOf(r.unit_type) ? name(typeOf(r.unit_type)!) : ""} · {r.code}</span>
               </div>
               <Chip tone={TONE[r.strength_status]}>{t(`status.${r.strength_status}` as Key)}</Chip>
@@ -74,7 +74,7 @@ function Strength() {
               <span>{t("struct.actual")}: {r.actual_strength ?? "—"}</span>
               {r.has_exception && <Chip>{t("struct.exception")}</Chip>}
             </div>
-            {r.has_exception && r.strength_exception_note && <p className="muted" style={{ margin: ".25rem 0 0" }}>{r.strength_exception_note}</p>}
+            {r.has_exception && r.strength_exception_note && <p className="muted note-flush">{r.strength_exception_note}</p>}
           </li>
         ))}
       </ul>
@@ -120,8 +120,8 @@ function TypeForm({ item, types, onDone }: { item?: UnitType; types: UnitType[];
       <Field label={t("types.refMax")}><input type="number" min={0} value={f.max} onChange={set("max")} /></Field>
       <Field label={t("types.description")}><input value={f.desc} onChange={set("desc")} maxLength={200} /></Field>
       {item && (
-        <label className="row" style={{ marginBottom: ".75rem" }}>
-          <input type="checkbox" style={{ width: "auto", minHeight: 0 }} checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} />
+        <label className="row mb-075">
+          <input type="checkbox" className="check-input" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} />
           <span>{t("common.active")}</span>
         </label>
       )}
@@ -156,8 +156,8 @@ function DesignationForm({ item, onDone }: { item?: Designation; onDone: () => v
       <Field label={t("org.nameSo")}><input value={f.name_so} onChange={set("name_so")} /></Field>
       <Field label={t("desig.description")}><input value={f.desc} onChange={set("desc")} maxLength={200} /></Field>
       {item && (
-        <label className="row" style={{ marginBottom: ".75rem" }}>
-          <input type="checkbox" style={{ width: "auto", minHeight: 0 }} checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} />
+        <label className="row mb-075">
+          <input type="checkbox" className="check-input" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} />
           <span>{t("common.active")}</span>
         </label>
       )}
@@ -190,7 +190,7 @@ function Catalogues() {
   return (
     <>
       <section className="card">
-        <div className="row" style={{ justifyContent: "space-between" }}>
+        <div className="row row-between">
           <h2>{t("types.title")}</h2>
           {manage && editType !== "new" && <button onClick={() => setEditType("new")}>{t("types.add")}</button>}
         </div>
@@ -199,9 +199,9 @@ function Catalogues() {
         <ul className="list">
           {types.data?.map((x) => (
             <li key={x.id} className="item">
-              <div className="row" style={{ justifyContent: "space-between" }}>
+              <div className="row row-between">
                 <div>
-                  <h3 style={{ margin: 0 }}>{x.tier}. {name(x)}</h3>
+                  <h3 className="flush">{x.tier}. {name(x)}</h3>
                   <span className="muted">
                     {x.code}{x.parent_type ? ` · ${tn(x.parent_type)}` : ""} · {t("struct.reference")}: {range(x.reference_min, x.reference_max)}
                     {x.standard_per_parent ? ` · ×${x.standard_per_parent}` : ""}{x.description_en ? ` · ${x.description_en}` : ""}
@@ -219,7 +219,7 @@ function Catalogues() {
       </section>
 
       <section className="card">
-        <div className="row" style={{ justifyContent: "space-between" }}>
+        <div className="row row-between">
           <h2>{t("desig.title")}</h2>
           {manage && editDesig !== "new" && <button onClick={() => setEditDesig("new")}>{t("desig.add")}</button>}
         </div>
@@ -228,9 +228,9 @@ function Catalogues() {
         <ul className="list">
           {desig.data?.map((x) => (
             <li key={x.id} className="item">
-              <div className="row" style={{ justifyContent: "space-between" }}>
+              <div className="row row-between">
                 <div>
-                  <h3 style={{ margin: 0 }}>{name(x)}</h3>
+                  <h3 className="flush">{name(x)}</h3>
                   <span className="muted">{x.code}{x.description_en ? ` · ${x.description_en}` : ""}</span>
                 </div>
                 <div className="row">
@@ -250,14 +250,14 @@ function Catalogues() {
         <ul className="list">
           {rules.data?.map((r) => (
             <li key={r.id} className="item">
-              <div className="row" style={{ justifyContent: "space-between" }}>
+              <div className="row row-between">
                 <span>{t("rules.sentence", { parent: tn(r.parent_type), child: tn(r.child_type), designation: dn(r.designation) })}</span>
                 <div className="row">
                   {!r.active && <Chip tone="bad">{t("common.inactive")}</Chip>}
                   {manage && <button className="secondary" onClick={() => void toggleRule(r)}>{r.active ? t("common.deactivate") : t("common.activate")}</button>}
                 </div>
               </div>
-              {r.note && <p className="muted" style={{ margin: ".25rem 0 0" }}>{r.note}</p>}
+              {r.note && <p className="muted note-flush">{r.note}</p>}
             </li>
           ))}
         </ul>

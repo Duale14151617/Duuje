@@ -24,7 +24,7 @@ export function InstitutionsStrip() {
       <p className="muted">{t("inst.intro")}</p>
       <div style={{ display: "grid", gap: "1rem", gridTemplateColumns: "repeat(auto-fit, minmax(14rem, 1fr))" }}>
         {INSTITUTIONS.map((i) => (
-          <section className="panel" key={i.name} style={{ textAlign: "center" }}>
+          <section className="panel text-center" key={i.name}>
             <img src={i.img} alt={i.alt} width={128} height={128} style={{ borderRadius: 8 }} />
             <h2>{i.name}</h2>
             <p className="muted">{t(i.note)}</p>

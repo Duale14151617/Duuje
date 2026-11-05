@@ -93,7 +93,7 @@ export function MfaEnrol() {
           <div className="card">
             <div className="muted">{t("enrol.secret")}</div>
             <div className="mono">{setup.secret}</div>
-            <p style={{ marginTop: ".5rem" }}><a href={setup.otpauth_uri}>{t("enrol.mfaStart")}</a></p>
+            <p className="mt-05"><a href={setup.otpauth_uri}>{t("enrol.mfaStart")}</a></p>
           </div>
           <Field label={t("enrol.code")}>
             <input value={code} onChange={(e) => setCode(e.target.value)} inputMode="numeric"

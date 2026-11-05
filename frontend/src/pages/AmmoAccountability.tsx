@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useFetch } from "../api/useFetch";
-import { Chip, ErrorNotice, Field, Notice } from "../components/ui";
+import { Chip, ErrorNotice, Field, Notice, Loading, EmptyState } from "../components/ui";
 import { useI18n } from "../i18n";
 
 interface Named { code: string; name_en: string; name_so: string }
@@ -33,6 +33,7 @@ export function AmmoAccountability() {
       <h1>{t("acc.title")}</h1>
       <p className="muted">{t("acc.intro")}</p>
       <ErrorNotice error={lines.error ?? d.error} />
+      {(lines.loading && !lines.data) || (d.loading && !d.data) ? <Loading /> : null}
       <section className="card">
         <Field label={t("acc.pick")}>
           <select value={lineId} onChange={(e) => setLineId(e.target.value)}>
@@ -81,7 +82,7 @@ export function AmmoAccountability() {
             <Row label={t("acc.accountable")} value={d.data.accountable_end} />
           </section>
           <h3>{t("acc.perSoldier")}</h3>
-          {d.data.per_soldier.length === 0 && <p className="muted">{t("acc.none")}</p>}
+          {d.data.per_soldier.length === 0 && <EmptyState title={t("acc.none")} />}
           <ul className="list">
             {d.data.per_soldier.map((s) => (
               <li key={s.personnel.id} className="item">

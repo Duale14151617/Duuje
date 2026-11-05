@@ -8,7 +8,7 @@ import { usePlaceableUnits } from "../components/hooks";
 import { DataTable, type Column } from "../components/DataTable";
 import { FilterBar } from "../components/FilterBar";
 import { statusTone } from "../components/status";
-import { Chip, ErrorNotice, Field, formatDate, Loading, Notice, Pager, Tabs } from "../components/ui";
+import { Chip, ErrorNotice, Field, formatDate, Loading, Notice, Pager, Tabs, EmptyState } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
 
 type Tab = "stock" | "assets" | "recon" | "categories" | "summary";
@@ -64,7 +64,7 @@ function StockTab() {
         advancedExtra={<label className="check"><input type="checkbox" checked={below} onChange={(e) => { setBelow(e.target.checked); setPage(1); }} /><span>{t("log.belowOnly")}</span></label>}
         custom={[{ id: "below", label: t("log.belowOnly"), active: below, onClear: () => { setBelow(false); setPage(1); } }]}
         onReset={() => { setBelow(false); setPage(1); }} />
-      {can("logistics.manage") && !adding && <button style={{ marginBottom: ".75rem" }} onClick={() => setAdding(true)}>{t("log.addLine")}</button>}
+      {can("logistics.manage") && !adding && <button className="mb-075" onClick={() => setAdding(true)}>{t("log.addLine")}</button>}
       {adding && (
         <form className="card" onSubmit={(e) => void add(e)}>
           <ErrorNotice error={error} />
@@ -136,8 +136,8 @@ export function StockDetail() {
       {line.loading && !s ? <Loading /> : null}
       {s && (
         <section className="card">
-          <div className="row" style={{ justifyContent: "space-between" }}>
-            <h1 style={{ margin: 0 }}>{name(s.category)}</h1>
+          <div className="row row-between">
+            <h1 className="flush">{name(s.category)}</h1>
             {s.category.restricted && <Restricted />}
           </div>
           <p className="muted">{name(s.org_unit)}</p>
@@ -162,7 +162,7 @@ export function StockDetail() {
               <button type="submit">{t("log.apply")}</button>
             </div>
           </form>
-          <form onSubmit={(e) => void transfer(e)} style={{ marginTop: "1rem" }}>
+          <form onSubmit={(e) => void transfer(e)} className="mt-1">
             <Field label={t("log.toUnit")}>
               <select value={toUnit} onChange={(e) => setToUnit(e.target.value)} required>
                 <option value="" />{units.filter((u) => u.id !== s.org_unit.id).map((u) => <option key={u.id} value={u.id}>{name(u)}</option>)}
@@ -235,7 +235,7 @@ function AssetsTab() {
         advancedExtra={<label className="check"><input type="checkbox" checked={dueOnly} onChange={(e) => { setDueOnly(e.target.checked); setPage(1); }} /><span>{t("equip.inspectionDue")}</span></label>}
         custom={[{ id: "due", label: t("equip.inspectionDue"), active: dueOnly, onClear: () => { setDueOnly(false); setPage(1); } }]}
         onReset={resetFilters} />
-      {can("logistics.manage") && !adding && <button style={{ marginBottom: ".75rem" }} onClick={() => setAdding(true)}>{t("log.addAsset")}</button>}
+      {can("logistics.manage") && !adding && <button className="mb-075" onClick={() => setAdding(true)}>{t("log.addAsset")}</button>}
       {adding && (
         <form className="card" onSubmit={(e) => void add(e)}>
           <ErrorNotice error={error} />
@@ -316,8 +316,8 @@ export function AssetDetail() {
       {asset.loading && !a ? <Loading /> : null}
       {a && (
         <section className="card">
-          <div className="row" style={{ justifyContent: "space-between" }}>
-            <h1 style={{ margin: 0 }}>{a.identifier}</h1>
+          <div className="row row-between">
+            <h1 className="flush">{a.identifier}</h1>
             <div className="row">{a.category.restricted && <Restricted />}<Chip tone={a.status === "in_stock" ? "approved" : "draft"}>{t(`astatus.${a.status}` as Key)}</Chip></div>
           </div>
           <p className="muted">{name(a.category)} · {name(a.org_unit)}{a.issued_to_unit ? ` → ${name(a.issued_to_unit)}` : ""}</p>
@@ -408,11 +408,11 @@ function ReconTab() {
       </form>
       <ErrorNotice error={error ?? list.error} />
       {list.loading && !list.data ? <Loading /> : null}
-      {list.data && list.data.results.length === 0 && <p>{t("log.noItems")}</p>}
+      {list.data && list.data.results.length === 0 && <EmptyState title={t("log.noItems")} />}
       <ul className="list">
         {list.data?.results.map((r) => (
           <li key={r.id} className="item">
-            <div className="row" style={{ justifyContent: "space-between" }}>
+            <div className="row row-between">
               <Link to={`/logistics/reconciliations/${r.id}`}><h2>{name(r.org_unit)}</h2></Link>
               <div className="row">{r.includes_restricted && <Restricted />}<Chip tone={r.status === "completed" ? "approved" : "draft"}>{t(`rstat.${r.status}` as Key)}</Chip></div>
             </div>
@@ -460,24 +460,24 @@ export function ReconDetail() {
       {rec.loading && !r ? <Loading /> : null}
       {r && (
         <>
-          <div className="row" style={{ justifyContent: "space-between" }}>
-            <h1 style={{ margin: 0 }}>{name(r.org_unit)}</h1>
+          <div className="row row-between">
+            <h1 className="flush">{name(r.org_unit)}</h1>
             <div className="row">{r.includes_restricted && <Restricted />}<Chip tone={r.status === "completed" ? "approved" : "draft"}>{t(`rstat.${r.status}` as Key)}</Chip></div>
           </div>
-          <h2 style={{ marginTop: "1rem" }}>{t("rec.lines")}</h2>
+          <h2 className="mt-1">{t("rec.lines")}</h2>
           <ul className="list">
             {(r.lines ?? []).map((l) => (
               <li key={l.id} className="item">
                 <b>{l.label}</b>
                 {l.kind === "stock" ? (
-                  <div className="row" style={{ marginTop: ".4rem" }}>
+                  <div className="row mt-04">
                     <span className="muted">{t("rec.expected")}: {l.expected_quantity}</span>
-                    <input type="number" min={0} style={{ maxWidth: "8rem" }} disabled={!open} aria-label={t("rec.counted")}
+                    <input type="number" min={0} className="input-narrow" disabled={!open} aria-label={t("rec.counted")}
                            value={counts[l.id] ?? ""} onChange={(e) => setCounts({ ...counts, [l.id]: e.target.value })} />
                   </div>
                 ) : (
-                  <label className="row" style={{ marginTop: ".4rem" }}>
-                    <input type="checkbox" style={{ width: "auto", minHeight: 0 }} disabled={!open} checked={found[l.id] ?? false}
+                  <label className="row mt-04">
+                    <input type="checkbox" className="check-input" disabled={!open} checked={found[l.id] ?? false}
                            onChange={(e) => setFound({ ...found, [l.id]: e.target.checked })} />
                     <span>{t("rec.found")}</span>
                   </label>
@@ -520,7 +520,7 @@ function CategoriesTab() {
   }
   return (
     <>
-      {can("logistics.configure") && !adding && <button style={{ marginBottom: ".75rem" }} onClick={() => setAdding(true)}>{t("cat.add")}</button>}
+      {can("logistics.configure") && !adding && <button className="mb-075" onClick={() => setAdding(true)}>{t("cat.add")}</button>}
       {adding && (
         <form className="card" onSubmit={(e) => void add(e)}>
           <Field label={t("cat.code")}><input value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} required /></Field>
@@ -531,8 +531,8 @@ function CategoriesTab() {
               <option value="stock">{t("cat.stock")}</option><option value="asset">{t("cat.asset")}</option>
             </select>
           </Field>
-          <label className="row" style={{ marginBottom: ".75rem" }}>
-            <input type="checkbox" style={{ width: "auto", minHeight: 0 }} checked={f.restricted} onChange={(e) => setF({ ...f, restricted: e.target.checked })} />
+          <label className="row mb-075">
+            <input type="checkbox" className="check-input" checked={f.restricted} onChange={(e) => setF({ ...f, restricted: e.target.checked })} />
             <span>{t("cat.restricted")}</span>
           </label>
           <div className="row">
@@ -548,7 +548,7 @@ function CategoriesTab() {
           const mayApprove = c.restricted ? can("logistics.restricted_approve") : can("logistics.approve");
           return (
             <li key={c.id} className="item">
-              <div className="row" style={{ justifyContent: "space-between" }}>
+              <div className="row row-between">
                 <h2>{name(c)}</h2>
                 <div className="row">
                   {c.restricted && <Restricted />}
@@ -557,7 +557,7 @@ function CategoriesTab() {
               </div>
               <span className="muted">{c.code} · {t(c.kind === "stock" ? "cat.stock" : "cat.asset")}{!c.name_so ? ` · ${t("ranks.translationPending")}` : ""}</span>
               {mayApprove && c.approval_status === "draft" && (
-                <div style={{ marginTop: ".5rem" }}><button onClick={() => void approve(c)}>{t("cat.approve")}</button></div>
+                <div className="mt-05"><button onClick={() => void approve(c)}>{t("cat.approve")}</button></div>
               )}
             </li>
           );
@@ -574,7 +574,7 @@ function SummaryTab() {
     <>
       <ErrorNotice error={data.error} />
       {data.loading && !data.data ? <Loading /> : null}
-      {data.data && data.data.rows.length === 0 && <p>{t("log.noItems")}</p>}
+      {data.data && data.data.rows.length === 0 && <EmptyState title={t("log.noItems")} />}
       {data.data && data.data.rows.length > 0 && (
         <div className="table-wrap">
           <table>

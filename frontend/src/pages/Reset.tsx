@@ -22,12 +22,12 @@ export function ResetPassword() {
   }
   return (
     <div className="auth">
-      <div className="row" style={{ justifyContent: "space-between" }}>
+      <div className="row row-between">
         <span className="brand">{t("app.name")}</span>
         <ThemeToggle />
         <button className="secondary" onClick={() => setLang(lang === "en" ? "so" : "en")}>{t("lang.other")}</button>
       </div>
-      <h1 style={{ marginTop: "1.5rem" }}>{t("reset.title")}</h1>
+      <h1 className="mt-15">{t("reset.title")}</h1>
       {done ? (
         <>
           <Notice>{t("reset.done")}</Notice>

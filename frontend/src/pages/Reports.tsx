@@ -55,7 +55,7 @@ export function ReportList() {
         {can("reports.submit") && <Link className="btn" to="/reports/new">{t("rep.new")}</Link>}
       </>} />
       {can("reports.combined") && <ArmyStrength />}
-      <div className="row" style={{ marginBottom: "1rem" }}>
+      <div className="row mb-1">
         {tabs.filter(([, , show]) => show).map(([v, label]) => (
           <button key={v} className={view === v ? "" : "secondary"} aria-pressed={view === v} onClick={() => { setView(v); setPage(1); }}>{t(label)}</button>
         ))}
@@ -181,8 +181,8 @@ export function ReportDetail() {
       {s && c && (
         <>
           <section className="card">
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <h1 style={{ margin: 0 }}>{s.title}</h1>
+            <div className="row row-between">
+              <h1 className="flush">{s.title}</h1>
               <Chip tone={statusTone(s.status)}>{t(`rstatus.${s.status}` as Key)}</Chip>
             </div>
             <p className="muted">{name(s.report_type)} · {name(s.org_unit)} · {s.period_start} – {s.period_end}</p>

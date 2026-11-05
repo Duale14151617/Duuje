@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { api, downloadFile, uploadForm } from "../api/client";
 import type { DisciplinaryEntry, PersonnelDocument } from "../api/types";
 import { useFetch } from "../api/useFetch";
-import { ErrorNotice, Field, formatDate, Loading } from "./ui";
+import { ErrorNotice, Field, formatDate, Loading, EmptyState } from "./ui";
 import { useI18n, type Key } from "../i18n";
 
 const DIS_CATS = ["verbal_warning", "written_warning", "reprimand", "fine", "suspension", "demotion", "dismissal", "other"];
@@ -30,20 +30,20 @@ export function DisciplinaryPanel({ personId, canManage }: { personId: string; c
   }
 
   return (
-    <section className="card" style={{ marginTop: "1rem" }}>
+    <section className="card mt-1">
       <h2>{t("dis.title")}</h2>
       <p className="muted small">{t("dis.hint")}</p>
       <ErrorNotice error={list.error} />
       {list.loading && !list.data ? <Loading /> : null}
-      {list.data && list.data.results.length === 0 && <p>{t("dis.none")}</p>}
+      {list.data && list.data.results.length === 0 && <EmptyState title={t("dis.none")} />}
       <ul className="list">
         {list.data?.results.map((d) => (
           <li key={d.id} className="item" style={d.superseded ? { opacity: 0.65 } : undefined}>
             <b>{t(`dis.cat.${d.category}` as Key)}</b> · {d.incident_date}
             {d.corrects && <span className="muted"> · {d.voided ? t("dis.withdrawn") : t("dis.correction")}</span>}
             {d.superseded && <span className="muted"> · {t("dis.superseded")}</span>}
-            <div style={{ whiteSpace: "pre-wrap" }}>{d.summary}</div>
-            {d.outcome && <div className="muted" style={{ whiteSpace: "pre-wrap" }}>{d.outcome}</div>}
+            <div className="pre-wrap">{d.summary}</div>
+            {d.outcome && <div className="muted pre-wrap">{d.outcome}</div>}
             <div className="muted small">{t("dis.by")} {d.recorded_by_username || "-"} · {formatDate(d.recorded_at, lang)}</div>
             {canManage && !d.superseded && open === null && (
               <button className="secondary" onClick={() => { setOpen(d.id); setForm({ category: d.category, incident_date: d.incident_date ?? today(), summary: d.summary, outcome: d.outcome, voided: false }); setErr(null); }}>
@@ -119,12 +119,12 @@ export function DocumentsPanel({ personId, canManage }: { personId: string; canM
   }
 
   return (
-    <section className="card" style={{ marginTop: "1rem" }}>
+    <section className="card mt-1">
       <h2>{t("doc.title")}</h2>
       <p className="muted small">{t("doc.hint")}</p>
       <ErrorNotice error={list.error} />
       {list.loading && !list.data ? <Loading /> : null}
-      {list.data && list.data.results.length === 0 && <p>{t("doc.none")}</p>}
+      {list.data && list.data.results.length === 0 && <EmptyState title={t("doc.none")} />}
       <ul className="list">
         {list.data?.results.map((d) => (
           <li key={d.id} className="item">

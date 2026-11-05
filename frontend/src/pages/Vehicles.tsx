@@ -398,13 +398,13 @@ export function VehicleDetail() {
       {(photos.data?.results ?? []).length === 0 && <p className="muted">{t("veh.noPhotos")}</p>}
       <div className="row" style={{ flexWrap: "wrap", alignItems: "flex-start" }}>
         {(photos.data?.results ?? []).map((x) => (
-          <figure key={x.id} style={{ margin: 0, maxWidth: 240 }}>
+          <figure key={x.id} className="flush maxw-240">
             <img alt={x.title} src={`/api/v1/vehicles/${id}/documents/${x.id}/download/`} style={{ width: "100%", borderRadius: 6 }} loading="lazy" />
             <figcaption className="muted">{x.title}</figcaption>
             {cap.edit && !closed && <button type="button" className="secondary" disabled={busy} onClick={() => { const reason = window.prompt(t("veh.withdrawReason")); if (reason) { setBusy(true); void api(`/vehicles/${id}/documents/${x.id}/withdraw/`, { method: "POST", body: { reason } }).then(() => photos.reload()).catch(setError).finally(() => setBusy(false)); } }}>{t("veh.withdraw")}</button>}
           </figure>
         ))}
-        {(photos.data?.results ?? []).length === 0 && d.reference_photo_id && d.reference_model && <figure style={{ margin: 0, maxWidth: 240 }}><img alt={d.reference_model.name} src={`/api/v1/equipment/${d.reference_model.id}/photos/${d.reference_photo_id}/image/`} style={{ width: "100%", borderRadius: 6 }} loading="lazy" /><figcaption className="muted">{t("eq.photos")}: {d.reference_model.name}</figcaption></figure>}
+        {(photos.data?.results ?? []).length === 0 && d.reference_photo_id && d.reference_model && <figure className="flush maxw-240"><img alt={d.reference_model.name} src={`/api/v1/equipment/${d.reference_model.id}/photos/${d.reference_photo_id}/image/`} style={{ width: "100%", borderRadius: 6 }} loading="lazy" /><figcaption className="muted">{t("eq.photos")}: {d.reference_model.name}</figcaption></figure>}
       </div>
       {cap.edit && !closed && <DocumentUpload id={id} photo onDone={() => { photos.reload(); history.reload(); }} />}
       <h2>{t("veh.specs")}</h2>
@@ -537,7 +537,7 @@ function StatusManager({ list, onDone }: { list: StatusT[]; onDone: () => void }
       <Field label={t("veh.categoryCode")}><input value={f.code} required maxLength={30} onChange={(e) => setF({ ...f, code: e.target.value })} /></Field>
       <Field label={t("veh.categoryName")}><input value={f.name_en} required maxLength={120} onChange={(e) => setF({ ...f, name_en: e.target.value })} /></Field>
       <Field label={t("veh.categoryNameSo")}><input value={f.name_so} maxLength={120} onChange={(e) => setF({ ...f, name_so: e.target.value })} /></Field>
-      <label className="row"><input type="checkbox" style={{ width: "auto", minHeight: 0 }} checked={f.available} onChange={(e) => setF({ ...f, available: e.target.checked })} /><span>{t("veh.statusAvailable")}</span></label>
+      <label className="row"><input type="checkbox" className="check-input" checked={f.available} onChange={(e) => setF({ ...f, available: e.target.checked })} /><span>{t("veh.statusAvailable")}</span></label>
       <div className="row"><button type="submit">{t("veh.newStatus")}</button></div>
     </form>
   );

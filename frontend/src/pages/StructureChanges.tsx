@@ -3,7 +3,7 @@ import { api } from "../api/client";
 import type { Page, StructureChange, StructureOp, UnitType } from "../api/types";
 import { useFetch } from "../api/useFetch";
 import { useAuth } from "../auth/AuthContext";
-import { Chip, ErrorNotice, Field, formatDate, Loading, Notice, Pager } from "../components/ui";
+import { Chip, ErrorNotice, Field, formatDate, Loading, Notice, Pager, EmptyState } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
 
 interface Row {
@@ -160,15 +160,15 @@ export function StructureChanges() {
   const types = useFetch<UnitType[]>("/organization/unit-types/");
   return (
     <>
-      <div className="row" style={{ justifyContent: "space-between", marginBottom: "1rem" }}>
-        <h1 style={{ margin: 0 }}>{t("sc.title")}</h1>
+      <div className="row row-between mb-1">
+        <h1 className="flush">{t("sc.title")}</h1>
         {can("org.structure_propose") && !editing && types.data && <button onClick={() => setEditing(true)}>{t("sc.new")}</button>}
       </div>
       <Notice>{t("sc.note")}</Notice>
       {editing && types.data && <Editor types={types.data} onCancel={() => setEditing(false)} onSaved={() => { setEditing(false); list.reload(); }} />}
       <ErrorNotice error={list.error} />
       {list.loading && !list.data ? <Loading /> : null}
-      {list.data && list.data.results.length === 0 && <p>{t("sc.none")}</p>}
+      {list.data && list.data.results.length === 0 && <EmptyState title={t("sc.none")} />}
       <ul className="list">{list.data?.results.map((c) => <Card key={c.id} c={c} onChanged={list.reload} />)}</ul>
       {list.data && <Pager page={page} count={list.data.count} pageSize={25} onPage={setPage} />}
     </>

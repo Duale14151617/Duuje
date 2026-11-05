@@ -3,7 +3,7 @@ import { api } from "../api/client";
 import { Act } from "../components/ActionForm";
 import { useAuth } from "../auth/AuthContext";
 import { useFetch } from "../api/useFetch";
-import { Chip, ErrorNotice, Field, Notice } from "../components/ui";
+import { Chip, ErrorNotice, Field, Notice, Loading, EmptyState } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
 import { Arrears } from "./PayrollArrears";
 import { Decisions } from "./PayrollDecisions";
@@ -29,6 +29,7 @@ export function Payroll() {
     <>
       <h1>{t("pay.title")}</h1>
       <ErrorNotice error={sum.error} />
+      {sum.loading && !sum.data ? <Loading /> : null}
       {sum.data && (
         <section className="card">
           <div className="stat"><span>{t("pay.awaitingApproval")}</span><b>{sum.data.awaiting_approval}</b></div>
@@ -59,9 +60,10 @@ function Runs({ onChanged }: { onChanged: () => void }) {
   return (
     <>
       <ErrorNotice error={runs.error} />
+      {runs.loading && !runs.data ? <Loading /> : null}
       {can("payroll.manage") && <Act title={t("pay.prepare")} path="/payroll/runs/prepare/" onDone={done} submitLabel={t("pay.prepare")}
         fields={[{ key: "year", label: t("pay.year"), type: "int" }, { key: "month", label: t("pay.month"), type: "int" }]} extra={{ year: now.getFullYear(), month: now.getMonth() + 1 }} />}
-      {runs.data && runs.data.results.length === 0 && <p className="muted">{t("pay.noRuns")}</p>}
+      {runs.data && runs.data.results.length === 0 && <EmptyState title={t("pay.noRuns")} />}
       <ul className="list">
         {(runs.data?.results ?? []).map((r) => (
           <li key={r.id} className="item">
@@ -81,7 +83,7 @@ function RunDetail({ id, onChanged }: { id: string; onChanged: () => void }) {
   const r = useFetch<RunFull>(`/payroll/runs/${id}/`);
   const d = r.data;
   const done = () => { r.reload(); onChanged(); };
-  if (!d) return <ErrorNotice error={r.error} />;
+  if (!d) return r.error ? <ErrorNotice error={r.error} /> : <Loading />;
   const base = `/payroll/runs/${id}`;
   const manage = can("payroll.manage"), approve = can("payroll.approve");
   const excluded = d.exceptions.filter((x) => x.severity === "excluded");
@@ -131,13 +133,14 @@ function Profiles({ onChanged }: { onChanged: () => void }) {
   return (
     <>
       <ErrorNotice error={list.error} />
+      {list.loading && !list.data ? <Loading /> : null}
       {can("payroll.manage") && <ProposeProfile onDone={done} />}
       <Field label={t("pay.show")}>
         <select value={status} onChange={(e) => setStatus(e.target.value)}>
           {["pending", "approved", "rejected", ""].map((s) => <option key={s} value={s}>{s ? t(`pay.pstatus.${s}` as Key) : t("pay.all")}</option>)}
         </select>
       </Field>
-      {list.data && list.data.results.length === 0 && <p className="muted">{t("pay.noProfiles")}</p>}
+      {list.data && list.data.results.length === 0 && <EmptyState title={t("pay.noProfiles")} />}
       <ul className="list">
         {(list.data?.results ?? []).map((p) => (
           <li key={p.id} className="item">

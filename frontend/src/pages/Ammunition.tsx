@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useFetch } from "../api/useFetch";
-import { Chip, ErrorNotice, Field, Notice } from "../components/ui";
+import { Chip, ErrorNotice, Field, Notice, EmptyState } from "../components/ui";
 import { UnitPicker } from "../components/UnitPicker";
 import { useI18n, type Key } from "../i18n";
 
@@ -40,7 +40,7 @@ export function Ammunition() {
       <h1>{t("ammo.title")}</h1>
       <section className="card"><UnitPicker label={t("pers.unit")} value={unit} allowAll onChange={(id) => { setUnit(id); setLineId(null); }} params={{ placeable: 1 }} /></section>
       <ErrorNotice error={lines.error} />
-      {rows.length === 0 && !lines.loading && <p className="muted">{t("ammo.none")}</p>}
+      {rows.length === 0 && !lines.loading && <EmptyState title={t("ammo.none")} />}
       <ul className="list">
         {rows.map((l) => (
           <li key={l.id} className="item">

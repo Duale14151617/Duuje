@@ -3,7 +3,7 @@ import { api } from "../api/client";
 import { Act } from "../components/ActionForm";
 import { useAuth } from "../auth/AuthContext";
 import { useFetch } from "../api/useFetch";
-import { Chip, ErrorNotice, Notice } from "../components/ui";
+import { Chip, ErrorNotice, Notice, Loading, EmptyState } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
 
 interface Decision { id: string; allocation: string; kind: string; state: string; reason: string; effective_date: string; supporting_ref: string; previous_amount: string | null; new_amount: string | null; proposed_by: string; decided_by: string }
@@ -26,9 +26,10 @@ export function Survivors() {
       <h1>{t("surv.title")}</h1>
       <p className="muted">{t("surv.indefinite")}</p>
       <ErrorNotice error={list.error} />
+      {list.loading && !list.data ? <Loading /> : null}
       {can("survivor.manage") && !opening && <div className="row"><button type="button" onClick={() => setOpening(true)}>{t("surv.openCase")}</button></div>}
       {opening && <OpenCase onDone={() => { setOpening(false); list.reload(); }} onCancel={() => setOpening(false)} />}
-      {list.data && list.data.results.length === 0 && <p className="muted">{t("surv.none")}</p>}
+      {list.data && list.data.results.length === 0 && <EmptyState title={t("surv.none")} />}
       <ul className="list">
         {(list.data?.results ?? []).map((c) => (
           <li key={c.id} className="item">
@@ -56,7 +57,8 @@ function OpenCase({ onDone, onCancel }: { onDone: () => void; onCancel: () => vo
     <section className="card">
       <h3>{t("surv.pickDeceased")}</h3>
       <ErrorNotice error={err ?? d.error} />
-      {d.data && d.data.results.length === 0 && <p className="muted">{t("surv.noDeceased")}</p>}
+      {d.loading && !d.data ? <Loading /> : null}
+      {d.data && d.data.results.length === 0 && <EmptyState title={t("surv.noDeceased")} />}
       <ul className="list">{(d.data?.results ?? []).map((p) => (
         <li key={p.personnel} className="item"><b>{p.full_name}</b> ({p.service_number ?? "—"}) · {p.date_of_death}
           <div className="row"><button type="button" onClick={() => void open(p.personnel)}>{t("surv.openCase")}</button></div></li>
@@ -73,7 +75,7 @@ function CaseDetail({ id, onChanged }: { id: string; onChanged: () => void }) {
   const done = () => { c.reload(); onChanged(); };
   const base = `/survivor-cases/${id}`;
   const d = c.data;
-  if (!d) return <ErrorNotice error={c.error} />;
+  if (!d) return c.error ? <ErrorNotice error={c.error} /> : <Loading />;
   const live = d.status !== "closed";
   const manage = can("survivor.manage") && live, verify = can("survivor.verify") && live, approve = can("survivor.approve") && live;
   const rel = (["wife", "child", "parent", "sibling"] as const).map((r) => [r, t(`surv.rel.${r}` as Key)] as [string, string]);

@@ -3,7 +3,7 @@ import { api } from "../api/client";
 import type { Branch, Page, Rank } from "../api/types";
 import { useFetch } from "../api/useFetch";
 import { useAuth } from "../auth/AuthContext";
-import { Chip, ErrorNotice, Field, Loading, Notice } from "../components/ui";
+import { Chip, ErrorNotice, Field, Loading, Notice, EmptyState } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
 
 const CATEGORIES = ["enlisted", "warrant", "officer", "unspecified"];
@@ -24,7 +24,7 @@ function RankEditor({ rank, onDone }: { rank: Rank; onDone: () => void }) {
     } catch (err) { setError(err); }
   }
   return (
-    <form onSubmit={(e) => void save(e)} style={{ marginTop: ".5rem" }}>
+    <form onSubmit={(e) => void save(e)} className="mt-05">
       <ErrorNotice error={error} />
       <Field label={t("ranks.code")}><input value={code} onChange={(e) => setCode(e.target.value)} required maxLength={16} /></Field>
       <Field label={t("ranks.category")}>
@@ -109,7 +109,7 @@ export function Ranks() {
     <>
       <h1>{t("ranks.title")}</h1>
       <Notice>{t("ranks.draftNotice")}</Notice>
-      <div className="grid" style={{ marginBottom: "1rem" }}>
+      <div className="grid mb-1">
         {(branches.data?.results.length ?? 0) > 1 && (
           <Field label={t("ranks.branch")}>
             <select value={branch} onChange={(e) => setBranch(e.target.value)}>
@@ -135,18 +135,18 @@ export function Ranks() {
           <input type="search" value={q} onChange={(e) => setQ(e.target.value)} />
         </Field>
       </div>
-      <label className="row" style={{ marginBottom: ".5rem" }}>
+      <label className="row mb-05">
         <input type="checkbox" checked={showRetired} onChange={(e) => setShowRetired(e.target.checked)} />
         {t("ranks.showRetired")}
       </label>
       {ranks.data && <p className="muted">{t("ranks.count")}: {shown.length}</p>}
       <ErrorNotice error={ranks.error ?? actionError} />
       {ranks.loading && !ranks.data ? <Loading /> : null}
-      {ranks.data && shown.length === 0 && <p>{t("common.empty")}</p>}
+      {ranks.data && shown.length === 0 && <EmptyState title={t("common.empty")} />}
       <ul className="list">
         {shown.map((r) => (
           <li key={r.id} className="item">
-            <div className="row" style={{ justifyContent: "space-between" }}>
+            <div className="row row-between">
               <div>
                 <h2>{r.code} {name(r)}</h2>
                 <span className="muted">
@@ -157,7 +157,7 @@ export function Ranks() {
               <Chip tone={r.approval_status}>{t(`status.${r.approval_status}` as Key)}</Chip>
             </div>
             {(canEdit || canApprove) && editing !== r.id && (
-              <div className="row" style={{ marginTop: ".5rem" }}>
+              <div className="row mt-05">
                 {canEdit && <button className="secondary" onClick={() => setEditing(r.id)}>{t("common.edit")}</button>}
                 {canEdit && unfiltered && r.active && <button className="secondary" onClick={() => void move(r, "up")}>{t("ranks.moveUp")}</button>}
                 {canEdit && unfiltered && r.active && <button className="secondary" onClick={() => void move(r, "down")}>{t("ranks.moveDown")}</button>}
@@ -167,7 +167,7 @@ export function Ranks() {
               </div>
             )}
             {swapping === r.id && (
-              <div className="row" style={{ marginTop: ".5rem" }}>
+              <div className="row mt-05">
                 <select value={swapWith} onChange={(e) => setSwapWith(e.target.value)} aria-label={t("ranks.swapWith")}>
                   <option value="">{t("ranks.swapChoose")}</option>
                   {active.filter((x) => x.branch === r.branch && x.id !== r.id).sort((a, b) => b.sort_order - a.sort_order)

@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useFetch } from "../api/useFetch";
-import { Chip, ErrorNotice, Field, Notice } from "../components/ui";
+import { Chip, ErrorNotice, Field, Notice, Loading, EmptyState } from "../components/ui";
 import { UnitPicker } from "../components/UnitPicker";
 import { useI18n, type Key } from "../i18n";
 
@@ -41,10 +41,11 @@ export function Holdings() {
     <>
       <h1>{t("hold.title")}</h1>
       <ErrorNotice error={report.error} />
+      {report.loading && !report.data ? <Loading /> : null}
       <section className="card">
         <UnitPicker label={t("weap.holdingUnit")} value={unit} allowAll onChange={(id) => setUnit(id)} />
         <input type="search" value={q} maxLength={60} placeholder={t("hold.search")} aria-label={t("hold.search")} onChange={(e) => setQ(e.target.value)} />
-        <label className="row"><input type="checkbox" style={{ width: "auto", minHeight: 0 }} checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /><span>{t("hold.showAll")}</span></label>
+        <label className="row"><input type="checkbox" className="check-input" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /><span>{t("hold.showAll")}</span></label>
         {report.data && (
           <div>
             <div className="stat"><span>{t("hold.soldiers")}</span><b>{report.data.totals.soldiers}</b></div>
@@ -54,7 +55,7 @@ export function Holdings() {
         )}
       </section>
       {report.data?.truncated && <Notice kind="error">{t("hold.truncated")}</Notice>}
-      {report.data && report.data.results.length === 0 && <p className="muted">{t("hold.none")}</p>}
+      {report.data && report.data.results.length === 0 && <EmptyState title={t("hold.none")} />}
       <ul className="list">
         {(report.data?.results ?? []).map((s) => {
           const p = s.personnel;
@@ -182,6 +183,7 @@ function History({ personnelId, version }: { personnelId: string; version: numbe
     <>
       <h3>{t("hold.history")}</h3>
       <ErrorNotice error={h.error} />
+      {h.loading && !h.data ? <Loading /> : null}
       {h.data && rows.length === 0 && <p className="muted">{t("hold.noHistory")}</p>}
       <ul className="list">
         {rows.map((m) => (

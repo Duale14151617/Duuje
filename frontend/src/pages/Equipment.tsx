@@ -234,7 +234,7 @@ export function EquipmentDetail() {
       {x.photos.length === 0 && <p className="muted">{t("eq.noPhotos")}</p>}
       <div className="row" style={{ flexWrap: "wrap", alignItems: "flex-start" }}>
         {x.photos.map((p) => (
-          <figure key={p.id} style={{ margin: 0, maxWidth: 240 }}>
+          <figure key={p.id} className="flush maxw-240">
             <img alt={p.caption || x.name} src={`/api/v1/equipment/${x.id}/photos/${p.id}/image/`} style={{ width: "100%", borderRadius: 6 }} loading="lazy" />
             <figcaption className="muted">{p.caption}</figcaption>
             {x.capabilities.manage && <button type="button" className="secondary" disabled={busy} onClick={() => { const reason = window.prompt(t("eq.reason")); if (reason) void run(async () => { await api(`/equipment/${x.id}/photos/${p.id}/withdraw/`, { method: "POST", body: { reason } }); d.reload(); }); }}>{t("eq.withdraw")}</button>}

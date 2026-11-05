@@ -106,9 +106,9 @@ export function PersonnelProfile({ personId, canManage, onPhotoChanged }: { pers
   );
 
   return (
-    <section className="card" style={{ marginTop: "1rem" }}>
+    <section className="card mt-1">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: ".5rem", flexWrap: "wrap", marginBottom: ".75rem" }}>
-        <h2 style={{ margin: 0 }}>{s.title}</h2>
+        <h2 className="flush">{s.title}</h2>
         {canManage && hasPhoto && (
           <>
             <button type="button" className="secondary sm" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? s.uploading : s.change}</button>

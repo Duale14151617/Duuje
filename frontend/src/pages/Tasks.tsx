@@ -3,7 +3,7 @@ import { api } from "../api/client";
 import type { TaskMember, UnitTaskOut } from "../api/types";
 import { useFetch } from "../api/useFetch";
 import { UnitPicker } from "../components/UnitPicker";
-import { Chip, ErrorNotice, Field, formatDate, Loading } from "../components/ui";
+import { Chip, ErrorNotice, Field, formatDate, Loading, EmptyState } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
 
 const B = "/operations/tasks";
@@ -60,7 +60,7 @@ function Row({ task, onChanged }: { task: UnitTaskOut; onChanged: () => void }) 
   }
   return (
     <div className="card">
-      <div className="row" style={{ justifyContent: "space-between" }}>
+      <div className="row row-between">
         <strong>{task.title}</strong>
         <span>{task.overdue && <Chip tone="rejected">{t("tk.overdue")}</Chip>} <Chip tone={TONE[task.status]}>{t(`tk.status.${task.status}` as Key)}</Chip></span>
       </div>
@@ -108,7 +108,7 @@ export function Tasks() {
         <label><input type="checkbox" checked={overdue} onChange={(e) => setOverdue(e.target.checked)} /> {t("tk.overdue")}</label>
       </div>
       {list.loading ? <Loading /> : <ErrorNotice error={list.error} />}
-      {list.data?.results.length === 0 && <p className="muted">{t("cr.empty")}</p>}
+      {list.data?.results.length === 0 && <EmptyState title={t("cr.empty")} />}
       {(list.data?.results ?? []).map((x) => <Row key={x.id} task={x} onChanged={list.reload} />)}
     </main>
   );

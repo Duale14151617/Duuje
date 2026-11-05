@@ -3,7 +3,7 @@ import { api } from "../api/client";
 import type { IntegrationCall, IntegrationClient, Page, Unit } from "../api/types";
 import { useFetch } from "../api/useFetch";
 import { useAuth } from "../auth/AuthContext";
-import { Chip, ErrorNotice, Field, formatDate, Loading, Notice, Pager } from "../components/ui";
+import { Chip, ErrorNotice, Field, formatDate, Loading, Notice, Pager, EmptyState } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
 
 const SECTIONS = ["personnel", "reports", "logistics", "training"] as const;
@@ -74,7 +74,7 @@ function Calls({ id }: { id: string }) {
   const [page, setPage] = useState(1);
   const calls = useFetch<Page<IntegrationCall>>(`/integrations/clients/${id}/calls/`, { page });
   if (calls.loading && !calls.data) return <Loading />;
-  if (calls.data && calls.data.results.length === 0) return <p className="muted">{t("int.noCalls")}</p>;
+  if (calls.data && calls.data.results.length === 0) return <EmptyState title={t("int.noCalls")} />;
   return (
     <>
       <ErrorNotice error={calls.error} />
@@ -147,8 +147,8 @@ export function Integrations() {
 
   return (
     <>
-      <div className="row" style={{ justifyContent: "space-between", marginBottom: "1rem" }}>
-        <h1 style={{ margin: 0 }}>{t("int.title")}</h1>
+      <div className="row row-between mb-1">
+        <h1 className="flush">{t("int.title")}</h1>
         {can("integrations.manage") && enabled && !adding && <button onClick={() => setAdding(true)}>{t("int.add")}</button>}
       </div>
       <Notice>{t("int.note")}</Notice>

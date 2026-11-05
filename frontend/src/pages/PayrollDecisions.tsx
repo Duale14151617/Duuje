@@ -3,7 +3,7 @@ import { api } from "../api/client";
 import { Act } from "../components/ActionForm";
 import { useAuth } from "../auth/AuthContext";
 import { useFetch } from "../api/useFetch";
-import { Chip, ErrorNotice, Field, Notice } from "../components/ui";
+import { Chip, ErrorNotice, Field, Notice, Loading, EmptyState } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
 import { tone, type Claim } from "./payrollShared";
 
@@ -31,7 +31,8 @@ export function Decisions({ onChanged }: { onChanged: () => void }) {
     <>
       <p className="muted">{t("pdec.intro")}</p>
       <ErrorNotice error={q.error} />
-      {q.data && q.data.results.length === 0 && <p className="muted">{t("pdec.none")}</p>}
+      {q.loading && !q.data ? <Loading /> : null}
+      {q.data && q.data.results.length === 0 && <EmptyState title={t("pdec.none")} />}
       <ul className="list">
         {(q.data?.results ?? []).map((r) => (
           <li key={r.personnel} className="item">
@@ -56,7 +57,7 @@ function Person({ id, onChanged }: { id: string; onChanged: () => void }) {
   const p = useFetch<Picture>(`/payroll/personnel/${id}/`);
   const done = () => { p.reload(); onChanged(); };
   const d = p.data;
-  if (!d) return <ErrorNotice error={p.error} />;
+  if (!d) return p.error ? <ErrorNotice error={p.error} /> : <Loading />;
   const base = `/payroll/personnel/${id}`;
   return (
     <div className="card">

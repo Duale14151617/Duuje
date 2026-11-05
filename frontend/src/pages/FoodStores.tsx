@@ -136,7 +136,7 @@ function AllocationRow({ a, lang, onChanged }: { a: FoodAllocationOut; lang: str
   }
   return (
     <div className="card">
-      <div className="row" style={{ justifyContent: "space-between" }}>
+      <div className="row row-between">
         <strong>{a.from_unit_name} → {a.to_unit_name}: {a.quantity} {a.uom} {a.category}</strong>
         <Chip tone={a.status === "cancelled" ? "rejected" : a.status === "delivered" ? "approved" : "pending"}>{t(`fd.status.${a.status}` as Key)}</Chip>
       </div>
@@ -185,7 +185,7 @@ function Suppliers() {
       </form>
       {list.loading ? <Loading /> : <ErrorNotice error={list.error} />}
       {(list.data?.results ?? []).map((s) => (
-        <div className="card row" key={s.id} style={{ justifyContent: "space-between" }}>
+        <div className="card row row-between" key={s.id}>
           <span><strong>{s.name}</strong> <span className="muted">{s.phone} {s.address}</span></span>
           <button className="secondary" onClick={() => void toggle(s)}>{s.active ? t("common.active") : t("common.inactive")}</button>
         </div>

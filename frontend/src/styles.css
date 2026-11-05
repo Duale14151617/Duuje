@@ -915,3 +915,24 @@ main:has(> .dash) { max-width: 80rem; }
 .org-node { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; padding-block: .25rem; }
 .org-node .counts { margin-left: auto; display: flex; gap: .75rem; }
 @media (max-width: 600px) { .org-bar { grid-template-columns: 1fr 3rem; } .org-bar-track { grid-column: 1 / -1; grid-row: 2; } }
+
+/* ---- utility classes (replace repeated inline styles; !important keeps the precedence the inline styles had) ----
+   mt-/mb- numbers are rem: 025 = .25rem, 04 = .4rem, 05 = .5rem, 075 = .75rem, 1 = 1rem, 15 = 1.5rem */
+.row-between { justify-content: space-between !important; }
+.flush { margin: 0 !important; }
+.note-flush { margin: .25rem 0 0 !important; }
+.mt-025 { margin-top: .25rem !important; }
+.mt-04 { margin-top: .4rem !important; }
+.mt-05 { margin-top: .5rem !important; }
+.mt-075 { margin-top: .75rem !important; }
+.mt-1 { margin-top: 1rem !important; }
+.mt-15 { margin-top: 1.5rem !important; }
+.mb-05 { margin-bottom: .5rem !important; }
+.mb-075 { margin-bottom: .75rem !important; }
+.mb-1 { margin-bottom: 1rem !important; }
+.check-input { width: auto !important; min-height: 0 !important; }
+.plain-fieldset { border: 0 !important; padding: 0 !important; }
+.input-narrow { max-width: 8rem !important; }
+.maxw-240 { max-width: 240px !important; }
+.pre-wrap { white-space: pre-wrap !important; }
+.text-center { text-align: center !important; }
