@@ -2239,4 +2239,6 @@ export const so: Record<keyof typeof en, string> = {
   "org2.selected": "{n} la doortay",
   "org2.assignSelected": "U dhig waaxda kuwa la doortay",
   "org2.bulkDone": "{updated} la cusboonaysiiyay, {skipped} la dhaafay (hore ayaa loo dejiyay, xadkaaga ka baxsan, ama aan ku habboonayn).",
+  "org2.importPersonnel": "Soo rar shaqaale",
+  "org2.importPrefill": "Soo rarista cutubka {unit}, waaxda {department}. Soo deji template-ka: koodhadkan hore ayuu u leeyahay; geli magacyada iyo darajooyinka, qof kasta safaf.",
 };

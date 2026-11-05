@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { AppointmentTypeOut, DepartmentProfile as Profile, OrgOffice, OrgPerson, Page, Person } from "../api/types";
 import { useFetch } from "../api/useFetch";
+import { useAuth } from "../auth/AuthContext";
 import { ExportPdfButton } from "../components/ExportPdfButton";
 import { Holder, StatTiles } from "../components/OrgBits";
 import { statusTone } from "../components/status";
@@ -89,6 +90,7 @@ function OfficeRow({ role, office, unitId, deptId, canAppoint, onDone }: {
 export function DepartmentProfile() {
   const { id = "", deptId = "" } = useParams();
   const { t, name } = useI18n();
+  const { can } = useAuth();
   const res = useFetch<Profile>(`/organization/units/${id}/departments/${deptId}/`);
   if (res.loading && !res.data) return <Loading />;
   if (res.error || !res.data) return <ErrorNotice error={res.error} />;
@@ -109,7 +111,12 @@ export function DepartmentProfile() {
       <p><Link to={`/units/${id}`}>{t("common.back")}</Link></p>
       <PageHeader title={<>{name(d.department)} {d.department.restricted && <Chip tone="draft">{t("dept.restricted")}</Chip>}</>}
         subtitle={<>{t("pers.unit")}: <Link to={`/units/${id}`}>{name(d.unit)}</Link>{!d.established ? <> · <Chip tone="draft">{t("org2.notEstablished")}</Chip></> : null}</>}
-        actions={d.staff ? <ExportPdfButton build={pdf} filename={`dept-${d.department.code}-${d.unit.code}`} /> : undefined} />
+        actions={<>
+          {can("personnel.import") && d.established && (
+            <Link className="btn secondary" to={`/personnel/import?unit=${encodeURIComponent(d.unit.code)}&department=${encodeURIComponent(d.department.code)}`}>{t("org2.importPersonnel")}</Link>
+          )}
+          {d.staff ? <ExportPdfButton build={pdf} filename={`dept-${d.department.code}-${d.unit.code}`} /> : null}
+        </>} />
       {(d.department.description_en || d.department.description_so) && <p className="muted">{name({ name_en: d.department.description_en, name_so: d.department.description_so })}</p>}
       <div className="card"><h2>{t("org2.leadership")}</h2>
         <table><tbody>

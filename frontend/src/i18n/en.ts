@@ -2235,4 +2235,6 @@ export const en = {
   "org2.selected": "{n} selected",
   "org2.assignSelected": "Set department for selected",
   "org2.bulkDone": "{updated} updated, {skipped} skipped (already set, out of your scope, or not eligible).",
+  "org2.importPersonnel": "Import personnel",
+  "org2.importPrefill": "Importing for unit {unit}, department {department}. Download the template: it already carries these codes; fill in names and ranks, one person per row.",
 } as const;

@@ -410,6 +410,7 @@ const IMPORT_LIMITS = { columns: IMPORT_COLUMNS, required: IMPORT_REQUIRED, maxB
 
 export function PersonnelImport() {
   const { t, tr } = useI18n();
+  const [qs] = useSearchParams();
   const errText = useErrorText();
   const [file, setFile] = useState<File | null>(null);
   const [local, setLocal] = useState<CsvInspection | null>(null);
@@ -443,7 +444,11 @@ export function PersonnelImport() {
   }
   function again() { setCreated(null); setError(null); }
   function template() {
-    downloadText("personnel-import-template.csv", toCsv([IMPORT_COLUMNS, ["", "Example Person", "", "UNIT-CODE", "RANK-CODE", "active"]]));
+    const unitCode = qs.get("unit") ?? "";
+    const deptCode = qs.get("department") ?? "";
+    // From a department page the unit and department are already filled in; the name is left empty so an unedited row can never be imported.
+    downloadText("personnel-import-template.csv", toCsv([IMPORT_COLUMNS,
+      unitCode || deptCode ? ["", "", "", unitCode, "", "active", deptCode] : ["", "Example Person", "", "UNIT-CODE", "RANK-CODE", "active", "DEPARTMENT-CODE"]]));
   }
   function problemList() {
     if (!preview) return;
@@ -460,6 +465,9 @@ export function PersonnelImport() {
   return (
     <>
       <p><Link to="/personnel">{t("common.back")}</Link></p>
+      {(qs.get("unit") || qs.get("department")) && (
+        <Notice>{t("org2.importPrefill", { unit: qs.get("unit") ?? "-", department: qs.get("department") ?? "-" })}</Notice>
+      )}
       <h1>{t("imp.title")}</h1>
       <p>{t("imp.intro")}</p>
       <ol className="steps" aria-label={t("imp.title")}>
