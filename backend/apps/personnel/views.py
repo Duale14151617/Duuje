@@ -1,8 +1,9 @@
+import uuid as _uuid
 from datetime import date, timedelta
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, F, Q
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import mixins, viewsets
@@ -165,6 +166,7 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
         "create": ("personnel.manage", "any"), "partial_update": ("personnel.manage", "unit"),
         "transfer": ("personnel.manage", "unit"), "change_rank": ("personnel.manage", "unit"),
         "change_status": ("personnel.manage", "unit"),
+        "bulk_department": ("personnel.manage", "any"),
         "import_preview": ("personnel.import", "any"), "import_commit": ("personnel.import", "any"),
         "export": ("personnel.export", "any"),
         "cross_search": ("search.cross_service", "any"),
@@ -611,6 +613,42 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
                metadata={"query_length": len(text), "total": total})  # never the search text itself
         return Response({"counts": counts, "total": total, "truncated": total > 50,
                          "results": PersonnelSerializer(rows, many=True).data})
+
+    # --- bulk department assignment -----------------------------------------
+    @action(detail=False, methods=["post"], url_path="bulk-department", throttle_scope="bulk")
+    def bulk_department(self, request):
+        """Assign (or clear) the department of up to 200 people at once. Each person is checked on their own: they must be
+        readable by the caller, inside the caller's personnel.manage scope, and not deceased; others are skipped and counted."""
+        raw = request.data.get("ids")
+        if not isinstance(raw, list) or not 1 <= len(raw) <= 200:
+            raise field_error("ids", "ids_invalid", "Choose between 1 and 200 people.")
+        try:
+            ids = {_uuid.UUID(str(x)) for x in raw}
+        except ValueError:
+            raise field_error("ids", "ids_invalid", "Choose between 1 and 200 people.")
+        department = None
+        if request.data.get("department"):
+            try:
+                department = Department.objects.filter(pk=_uuid.UUID(str(request.data["department"])), active=True).first()
+            except ValueError:
+                department = None
+            if department is None:
+                raise field_error("department", "department_invalid", "That department cannot be used.")
+        people = list(_readable(request.user).filter(pk__in=ids).select_related("org_unit", "department"))
+        updated = 0
+        with transaction.atomic():
+            for p in people:
+                target = department.pk if department else None
+                if p.department_id == target or p.status == "died" or not scope.can(request.user, "personnel.manage", unit=p.org_unit):
+                    continue
+                old = p.department
+                Personnel.objects.filter(pk=p.pk).update(department=department, version=F("version") + 1, updated_at=timezone.now())
+                svc.add_history(p, "department", str(old.pk) if old else "", str(target) if target else "", old.name_en if old else "",
+                                department.name_en if department else "", timezone.localdate(), "Department changed (bulk)", request.user)
+                updated += 1
+            record("personnel.bulk_department", request=request, entity_type="personnel",
+                   metadata={"requested": len(ids), "updated": updated, "department": department.code if department else None})
+        return Response({"updated": updated, "skipped": len(ids) - updated})
 
     # --- safe import: preview -> commit -----------------------------------
     @action(detail=False, methods=["post"], url_path="import/preview", parser_classes=[MultiPartParser], throttle_scope="bulk")

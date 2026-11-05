@@ -16,6 +16,7 @@ PHONE_RE = re.compile(r"^\+?[0-9 ()-]{6,20}$")
 SERVICE_NO_RE = re.compile(r"^[A-Za-z0-9/-]{3,32}$")
 STATUSES = {s.value for s in Personnel.Status}
 IMPORT_COLUMNS = ["service_number", "full_name", "phone", "unit_code", "rank_code", "status"]
+IMPORT_OPTIONAL = ["department_code"]  # optional extra column; the exported file keeps IMPORT_COLUMNS
 IMPORT_REQUIRED = {"full_name", "unit_code", "rank_code"}
 MAX_IMPORT_ROWS = 1000
 MAX_IMPORT_BYTES = 1_000_000
@@ -139,14 +140,14 @@ def parse_csv(upload):
         raise RuleError("file_encoding_invalid", "file")
     reader = csv.DictReader(io.StringIO(text))
     headers = {(h or "").strip() for h in (reader.fieldnames or [])}
-    if not IMPORT_REQUIRED <= headers or not headers <= set(IMPORT_COLUMNS):
+    if not IMPORT_REQUIRED <= headers or not headers <= set(IMPORT_COLUMNS + IMPORT_OPTIONAL):
         raise RuleError("file_columns_invalid", "file")
     rows = []
     try:
         for raw in reader:
             if len(rows) >= MAX_IMPORT_ROWS:
                 raise RuleError("file_too_many_rows", "file")
-            rows.append({k: (raw.get(k) or "").strip()[:200] for k in IMPORT_COLUMNS})
+            rows.append({k: (raw.get(k) or "").strip()[:200] for k in IMPORT_COLUMNS + IMPORT_OPTIONAL})
     except csv.Error:
         raise RuleError("file_columns_invalid", "file")
     if not rows:
@@ -159,6 +160,8 @@ def validate_import_rows(user, rows):
     units = {u.code: u for u in scope.scoped_units(user, "personnel.import")
              .filter(code__in={r["unit_code"].upper() for r in rows}).select_related("branch")}
     ranks = {}
+    from apps.organization.models import Department
+    departments = {d.code: d for d in Department.objects.filter(active=True)}
     seen_numbers, seen_people, results = set(), set(), []
     for i, r in enumerate(rows, start=2):  # row 1 is the header
         errors = []
@@ -180,6 +183,12 @@ def validate_import_rows(user, rows):
                     check_assignment(unit, rank)
                 except RuleError as exc:
                     errors.append(exc.code)
+        department = None
+        code = (r.get("department_code") or "").upper()
+        if code:
+            department = departments.get(code)
+            if department is None:
+                errors.append("department_unknown")
         status = r["status"] or "active"
         if status not in STATUSES or status == Personnel.Status.DIED:  # died only through a confirmed death record
             errors.append("status_invalid")
@@ -201,7 +210,7 @@ def validate_import_rows(user, rows):
             elif sig in seen_people:
                 errors.append("possible_duplicate")
             seen_people.add(sig)
-        results.append({"row": i, "errors": errors, "unit": unit, "rank": rank, "status": status})
+        results.append({"row": i, "errors": errors, "unit": unit, "rank": rank, "status": status, "department": department})
     return results
 
 
@@ -210,7 +219,7 @@ def commit_import(actor, rows, results):
     for r, res in zip(rows, results):
         create_personnel(actor, full_name=r["full_name"], phone=r["phone"], service_number=r["service_number"],
                          org_unit=res["unit"], rank=res["rank"], status=res["status"], effective_date=None,
-                         reason="CSV import")
+                         reason="CSV import", department=res.get("department"))
         created += 1
     return created
 

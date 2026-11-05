@@ -404,7 +404,7 @@ export function PersonnelDetail() {
   );
 }
 
-const IMPORT_COLUMNS = ["service_number", "full_name", "phone", "unit_code", "rank_code", "status"];
+const IMPORT_COLUMNS = ["service_number", "full_name", "phone", "unit_code", "rank_code", "status", "department_code"];
 const IMPORT_REQUIRED = ["full_name", "unit_code", "rank_code"];
 const IMPORT_LIMITS = { columns: IMPORT_COLUMNS, required: IMPORT_REQUIRED, maxBytes: 1_000_000, maxRows: 1000 };
 

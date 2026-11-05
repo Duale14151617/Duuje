@@ -4,6 +4,7 @@ Synthetic data only: every unit, person and appointment below is created by the 
 """
 from datetime import date, timedelta
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 
 from apps.audit.models import AuditEvent
@@ -24,6 +25,7 @@ class OrgStructureBase(PersonnelBase):
         bari = OU.objects.get(code="BARI-ARMY")
         self.urur = OU.objects.create(code="BARI-ARMY-U9", name_en="Test Urur", level="unit", parent=bari,
                                       unit_type=UnitType.objects.get(code="URUR"))
+        UnitDepartment.objects.filter(unit=self.urur).delete()  # new formations are set up automatically; start these tests blank
         self.admin_user = self.make_user("org_hq", "hq_admin")
         self.hq = self.client_for(self.admin_user)
         self.medical = Department.objects.get(code="MEDICAL")
@@ -296,3 +298,56 @@ class ConfigurationTests(OrgStructureBase):
         blocked = mgr.patch(f"/api/v1/organization/unit-departments/{row['id']}/", {"active": False, "version": row["version"]}, format="json")
         self.assertEqual(blocked.status_code, 400)  # end the head's appointment first
         self.assertTrue(AuditEvent.objects.filter(action="unit_department.establish").exists())
+
+
+class AutomaticAndBulkTests(OrgStructureBase):
+    def test_a_new_formation_gets_the_standard_departments_and_a_retired_one_stays_retired(self):
+        new = OU.objects.create(code="BARI-ARMY-U10", name_en="New Urur", level="unit", parent=OU.objects.get(code="BARI-ARMY"),
+                                unit_type=UnitType.objects.get(code="URUR"))
+        self.assertEqual(UnitDepartment.objects.filter(unit=new, active=True).count(), 7)
+        row = UnitDepartment.objects.get(unit=new, department__code="HR")
+        UnitDepartment.objects.filter(pk=row.pk).update(active=False)
+        new.name_en = "Renamed"
+        new.save()  # saving again must not bring a retired department back
+        self.assertFalse(UnitDepartment.objects.get(pk=row.pk).active)
+        plain = OU.objects.create(code="BARI-ARMY-U10-X", name_en="Section", level="unit", parent=new)
+        self.assertFalse(UnitDepartment.objects.filter(unit=plain).exists())  # ordinary units below a battalion are not formations
+
+    def test_bulk_assign_and_clear_a_department(self):
+        a = self.person_in("BARI-ARMY-U9", "Bulk A")
+        b = self.person_in("BARI-ARMY-U9", "Bulk B", department=self.medical)
+        dead = self.person_in("BARI-ARMY-U9", "Bulk C", status="retired")
+        r = self.hq.post(f"{PEOPLE}bulk-department/", {"ids": [str(a.pk), str(b.pk), str(dead.pk)], "department": str(self.medical.pk)}, format="json")
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json(), {"updated": 2, "skipped": 1})  # b already had it
+        self.assertEqual(Personnel.objects.get(pk=a.pk).department, self.medical)
+        self.assertEqual([h.new_label for h in a.history.filter(field="department")], ["Medical Services"])
+        r = self.hq.post(f"{PEOPLE}bulk-department/", {"ids": [str(a.pk)], "department": None}, format="json")
+        self.assertEqual(r.json()["updated"], 1)
+        self.assertIsNone(Personnel.objects.get(pk=a.pk).department)
+        self.assertTrue(AuditEvent.objects.filter(action="personnel.bulk_department").exists())
+
+    def test_bulk_assign_respects_scope_and_input_limits(self):
+        far = self.person_in("BARI-ARMY-U9", "Bulk Far")
+        nug = self.client_for(self.make_user("org_nug_mgr", "branch_admin", unit="NUGAAL-ARMY", branch="ARMY"))
+        r = nug.post(f"{PEOPLE}bulk-department/", {"ids": [str(far.pk)], "department": str(self.medical.pk)}, format="json")
+        self.assertEqual((r.status_code, r.json()["updated"]), (200, 0))  # out-of-scope people are skipped, never changed
+        self.assertEqual(self.hq.post(f"{PEOPLE}bulk-department/", {"ids": [], "department": None}, format="json").status_code, 400)
+        self.assertEqual(self.hq.post(f"{PEOPLE}bulk-department/", {"ids": ["nope"], "department": None}, format="json").status_code, 400)
+        self.assertEqual(self.client_for(self.make_user("org_mem2", "member")).post(f"{PEOPLE}bulk-department/", {"ids": [str(far.pk)]}, format="json").status_code, 403)
+
+    def test_csv_import_with_an_optional_department_column(self):
+        def upload(text):
+            return self.hq.post(f"{PEOPLE}import/preview", {"file": SimpleUploadedFile("p.csv", text.encode(), content_type="text/csv")}, format="multipart")
+        ok = upload("full_name,unit_code,rank_code,department_code\nCsv Medic,BARI-ARMY-U9,PA-03,medical\nCsv Plain,BARI-ARMY-U9,PA-03,\n")
+        self.assertEqual(ok.status_code, 200, ok.content)
+        self.assertTrue(ok.json()["can_commit"], ok.json())
+        done = self.hq.post(f"{PEOPLE}import/commit", {"batch_id": ok.json()["batch_id"]}, format="json")
+        self.assertEqual(done.status_code, 200, done.content)
+        self.assertEqual(Personnel.objects.get(full_name="Csv Medic").department, self.medical)
+        self.assertIsNone(Personnel.objects.get(full_name="Csv Plain").department)
+        bad = upload("full_name,unit_code,rank_code,department_code\nCsv Bad,BARI-ARMY-U9,PA-03,NOPE\n")
+        self.assertFalse(bad.json()["can_commit"])
+        self.assertEqual(bad.json()["rows"][0]["errors"], ["department_unknown"])
+        old = upload("full_name,unit_code,rank_code\nCsv Old,BARI-ARMY-U9,PA-03\n")  # files without the column still work
+        self.assertTrue(old.json()["can_commit"])

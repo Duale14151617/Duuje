@@ -409,12 +409,20 @@ def analytics(user, root=None):
             "counts_complete": counting_q(user) is not None}
 
 
-def establish_standard_departments():
-    """Establish the seven standard departments in every headquarters, region, regional command, brigade and battalion.
-    Additive and idempotent: it only creates what is missing, so a department an administrator has retired stays retired.
-    No people and no appointments are created. Returns the number of departments established."""
+def qualifies_for_standard_departments(unit):
+    """Headquarters, regions and every unit whose type is a regional command, brigade or battalion (or General Headquarters)."""
+    role = unit.unit_type.formation_role if unit.unit_type_id else ""
+    return unit.active and (role in CHART_ROLES or unit.level in ("headquarters", "region"))
+
+
+def establish_standard_departments(unit=None):
+    """Establish the seven standard departments in every qualifying unit (or just in `unit`). Additive and idempotent: it
+    only creates what is missing, so a department an administrator has retired stays retired. No people and no appointments
+    are created. Returns the number of departments established."""
     units = OrganizationalUnit.objects.filter(active=True).filter(
         Q(unit_type__formation_role__in=CHART_ROLES) | Q(level__in=("headquarters", "region")))
+    if unit is not None:
+        units = units.filter(pk=unit.pk)
     depts = list(Department.objects.filter(code__in=STANDARD_DEPARTMENTS, active=True))
     have = set(UnitDepartment.objects.filter(unit__in=units).values_list("unit_id", "department_id"))
     new = [UnitDepartment(unit_id=u, department=d) for u in units.values_list("pk", flat=True) for d in depts if (u, d.pk) not in have]

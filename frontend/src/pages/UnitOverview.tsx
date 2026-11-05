@@ -66,11 +66,29 @@ function Directory({ unitId }: { unitId: string }) {
   const [ordering, setOrdering] = useState("name");
   const [desc, setDesc] = useState(false);
   const [page, setPage] = useState(1);
+  const { can } = useAuth();
+  const canBulk = can("personnel.manage");
+  const [picked, setPicked] = useState<string[]>([]);
+  const [target, setTarget] = useState("");
+  const [bulkMsg, setBulkMsg] = useState<string | null>(null);
+  const [bulkError, setBulkError] = useState<unknown>(null);
   const departments = useFetch<Department[]>("/organization/departments/");
   const list = useFetch<Page<Person>>("/personnel/", { org_unit: unitId, q, status, department: dept || undefined, direct: direct ? 1 : undefined,
     ordering: `${desc ? "-" : ""}${ordering}`, page });
   const reset = () => { setQ(""); setStatus(""); setDept(""); setDirect(false); setPage(1); };
+  const toggle = (id: string) => setPicked((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+  const pageIds = (list.data?.results ?? []).map((p) => p.id);
+  async function applyBulk(department: string | null) {
+    setBulkError(null); setBulkMsg(null);
+    try {
+      const r = await api<{ updated: number; skipped: number }>("/personnel/bulk-department/", { method: "POST", body: { ids: picked, department } });
+      setBulkMsg(t("org2.bulkDone", { updated: r.updated, skipped: r.skipped }));
+      setPicked([]); list.reload();
+    } catch (err) { setBulkError(err); }
+  }
   const columns: Column<Person>[] = [
+    ...(canBulk ? [{ id: "pick", header: "", width: 44, locked: true,
+      cell: (p: Person) => <input type="checkbox" aria-label={p.full_name} checked={picked.includes(p.id)} onChange={() => toggle(p.id)} /> }] : []),
     { id: "name", header: t("pers.fullName"), width: 220, locked: true, sort: (p) => p.full_name, cell: (p) => <Link to={`/personnel/${p.id}`}>{p.full_name}</Link> },
     { id: "service", header: t("pers.serviceNumber"), width: 130, sort: (p) => p.service_number, cell: (p) => p.service_number ?? "-" },
     { id: "rank", header: t("pers.rank"), width: 170, sort: (p) => p.rank.code, cell: (p) => `${p.rank.code} ${name(p.rank)}` },
@@ -101,6 +119,23 @@ function Directory({ unitId }: { unitId: string }) {
         <label className="check"><input type="checkbox" checked={desc} onChange={(e) => { setDesc(e.target.checked); setPage(1); }} /><span>{t("org2.descending")}</span></label>
       </div>
       <ErrorNotice error={list.error} />
+      {canBulk && (
+        <div className="card">
+          <div className="row">
+            <label className="check"><input type="checkbox" checked={pageIds.length > 0 && pageIds.every((i) => picked.includes(i))}
+              onChange={(e) => setPicked(e.target.checked ? Array.from(new Set([...picked, ...pageIds])) : picked.filter((i) => !pageIds.includes(i)))} />
+              <span>{t("org2.selectPage")}</span></label>
+            <span className="muted">{t("org2.selected", { n: picked.length })}</span>
+            <select value={target} aria-label={t("dept.department")} onChange={(e) => setTarget(e.target.value)}>
+              <option value="">{t("dept.unassigned")}</option>
+              {(departments.data ?? []).map((d) => <option key={d.id} value={d.id}>{name(d)}</option>)}
+            </select>
+            <button type="button" disabled={picked.length === 0} onClick={() => void applyBulk(target || null)}>{t("org2.assignSelected")}</button>
+          </div>
+          <ErrorNotice error={bulkError} />
+          {bulkMsg && <Notice>{bulkMsg}</Notice>}
+        </div>
+      )}
       <DataTable id="unit-directory" caption={t("org2.directory")} columns={columns} rows={list.data?.results} rowKey={(p) => p.id} loading={list.loading}
                  filtered={filtered} onReset={reset} empty={{ icon: "users", title: t("pers.noResults") }}
                  page={page} count={list.data?.count} pageSize={25} onPage={setPage} />

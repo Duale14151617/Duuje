@@ -20,6 +20,12 @@ Extends the existing Units module. Nothing was replaced: the unit tree, placemen
 * Salary and payment data are not exposed by any new endpoint. Phone numbers and personal profile data are not part of unit or directory views.
 * Audit actions: `org_unit.profile_view`, `org_unit.department_view`, `org_analytics.view`, `department.create/update`, `unit_department.establish/update/retire`, `unit_type.formation_role`, `org.departments_established`, plus the existing personnel and appointment events.
 
+## Later additions
+* **Automatic departments:** a post-save rule (`organization/signals.py`) establishes the seven standard departments in every new or re-typed headquarters, region, regional command, brigade and battalion. It only fills what is missing, so a retired department stays retired. Ordinary sub-units are not included.
+* **Bulk assignment:** `POST personnel/bulk-department/` (`{ids, department}`; `department: null` clears it) for up to 200 people. Each person is checked for scope and status; others are skipped and counted. One audit event plus a history row per person. UI: tick people in a unit's Personnel directory.
+* **CSV import:** optional `department_code` column (e.g. `MEDICAL`); unknown codes fail the preview with `department_unknown`. Files without the column work as before. The export format is unchanged.
+* **Department leadership:** appoint or end a department head/deputy directly on the department page.
+
 ## Definitions
 Active = status `active`. Inactive = every other status. Total = all records in scope. The status breakdown is always shown beside them. (The older unit overview endpoint still reports *serving* strength and is unchanged.)
 
@@ -30,5 +36,4 @@ Active = status `active`. Inactive = every other status. Total = all records in 
 * Nothing in this delivery was executed: the build environment had no Django, PostgreSQL or npm packages. Run `python manage.py makemigrations --check`, `python manage.py test` and `npm run typecheck && npm test` before deploying.
 * Somali strings are working translations.
 * The Netlify preview mock has no data for the new endpoints.
-* CSV import does not yet carry a department column.
 * Existing records have no department until an administrator assigns one; the unit profile shows them as "No department".
