@@ -936,3 +936,8 @@ main:has(> .dash) { max-width: 80rem; }
 .maxw-240 { max-width: 240px !important; }
 .pre-wrap { white-space: pre-wrap !important; }
 .text-center { text-align: center !important; }
+
+/* strength trend line on the combined report */
+.trend-line { display: block; width: 100%; max-width: 28rem; height: auto; }
+.trend-line polyline { stroke: var(--accent-text); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.trend-line circle { fill: var(--accent-text); }

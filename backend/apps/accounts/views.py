@@ -39,6 +39,7 @@ LOCK_MINUTES = 15
 
 
 def me_payload(user):
+    from apps.personnel.models import Personnel  # local import: personnel depends on accounts
     return {
         "id": str(user.pk),
         "username": user.username,
@@ -52,6 +53,8 @@ def me_payload(user):
                      "report_export": settings.REPORT_EXPORT_ENABLED,
                      "integrations": settings.INTEGRATIONS_ENABLED},
         "assignments": AssignmentSerializer(scope.assignments(user), many=True).data,
+        # The personnel record this login belongs to (null when none is linked); drives the "My record" shortcut.
+        "personnel_id": next((str(pk) for pk in Personnel.objects.filter(account_id=user.pk).values_list("pk", flat=True)[:1]), None),
     }
 
 

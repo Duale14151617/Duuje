@@ -55,6 +55,23 @@ class Personnel(models.Model):
         ]
 
 
+class StrengthSnapshot(models.Model):
+    """One headcount per day, aggregates only, so the strength report can draw a trend. Nothing is rebuilt for past days: the
+    first row is the first day it was recorded. `*_open` leaves out units flagged restricted; `*_all` includes them and is shown
+    only to callers who hold `restricted.access`."""
+
+    date = models.DateField(primary_key=True)
+    total_all = models.PositiveIntegerField()
+    serving_all = models.PositiveIntegerField()
+    total_open = models.PositiveIntegerField()
+    serving_open = models.PositiveIntegerField()
+    recorded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "strength_snapshots"
+        ordering = ["date"]
+
+
 class PersonnelProfile(models.Model):
     """Sensitive extras for one person: photo, blood type, weapon ID, date of birth, emergency contact...
 

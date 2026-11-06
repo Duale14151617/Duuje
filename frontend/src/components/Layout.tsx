@@ -27,7 +27,7 @@ const TAB_PATHS = HUBS.flatMap((h) => h.tabs);
 const NAV_SECTIONS: { key: string; title?: Key; to: string[] }[] = [
   { key: "top", to: ["/", "/notifications"] },
   { key: "units", title: "nav.group.units", to: ["/organization", "/structure", "/structure-changes", "/units"] },
-  { key: "people", title: "nav.group.people", to: ["/personnel", "/search", "/change-requests", "/attendance", "/training", "/ranks"] },
+  { key: "people", title: "nav.group.people", to: ["/my-record", "/personnel", "/search", "/change-requests", "/attendance", "/training", "/ranks"] },
   { key: "pay", title: "nav.group.pay", to: ["/payroll", "/survivors"] },
   { key: "reporting", title: "nav.group.reporting", to: ["/reports", "/summary", "/analytics", "/tasks"] },
   { key: "logistics", title: "nav.group.logistics", to: ["/logistics", "/ammunition", "/ppe", "/weapons", "/vehicles", "/food"] },
@@ -46,6 +46,7 @@ export function Layout() {
     { to: "/organization", icon: "building", label: "nav.organization", show: can("org.view") },
     { to: "/structure", icon: "layers", label: "nav.structure", show: can("org.view") },
     { to: "/structure-changes", icon: "swap", label: "nav.structureChanges", show: can("org.structure_propose") || can("org.structure_approve") },
+    { to: "/my-record", icon: "users", label: "nav.myRecord", show: Boolean(me?.personnel_id) && (can("personnel.view") || can("personnel.view_team")) },
     { to: "/personnel", icon: "users", label: "nav.personnel", show: can("personnel.view") || can("personnel.view_team") },
     { to: "/search", icon: "search", label: "nav.search", show: can("search.cross_service") },
     { to: "/reports", icon: "file", label: "nav.reports", show: can("reports.view") },

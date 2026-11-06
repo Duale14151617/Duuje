@@ -64,6 +64,11 @@ class MemberTeamAccessTests(PersonnelBase):
         c = self._cached("uadmin", "unit_admin", "BARI-ARMY-A")
         self.assertEqual(len(self.ids(c.get(URL))), 4)
 
+    def test_me_payload_names_the_linked_record_or_none(self):
+        self.assertEqual(self.client_sgt.get("/api/v1/auth/me/").json()["personnel_id"], str(self.sgt.pk))
+        unlinked = self.client_for(self.make_user("nolink", "member", unit="BARI-ARMY"))
+        self.assertIsNone(unlinked.get("/api/v1/auth/me/").json()["personnel_id"])
+
 
 class SupervisorRulesTests(PersonnelBase):
     def setUp(self):

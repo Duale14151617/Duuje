@@ -39,6 +39,7 @@ import { Tasks } from "./pages/Tasks";
 import { DepartmentProfile } from "./pages/DepartmentProfile";
 import { OrgSettings } from "./pages/OrgSettings";
 import { OrgTree } from "./pages/OrgTree";
+import { MyRecord } from "./pages/MyRecord";
 import { StructureChanges } from "./pages/StructureChanges";
 import { UserDetail, Users } from "./pages/Users";
 
@@ -67,6 +68,7 @@ export default function App() {
         <Route path="structure-changes" element={<StructureChanges />} />
         <Route path="analytics" element={<Analytics />} />
         <Route path="integrations" element={<Integrations />} />
+        <Route path="my-record" element={<MyRecord />} />
         <Route path="personnel" element={<PersonnelList />} />
         <Route path="personnel/new" element={<PersonnelForm />} />
         <Route path="personnel/import" element={<PersonnelImport />} />

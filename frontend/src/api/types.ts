@@ -11,6 +11,8 @@ export interface Me {
   id: string; username: string; full_name: string; preferred_language: Lang; mfa_enabled: boolean;
   requires_mfa: boolean; restrictions: string[]; permissions: string[]; assignments: Assignment[];
   features: { personnel_export: boolean; report_export: boolean; integrations: boolean };
+  /** The personnel record this login belongs to, if one is linked. */
+  personnel_id?: string | null;
 }
 export interface Page<T> { count: number; next: string | null; previous: string | null; results: T[] }
 export interface Unit extends Named {
@@ -258,6 +260,8 @@ export interface CombinedReport {
   branches: (Named & { id: string; code: string; total: number; serving: number; units: number;
     by_status: Record<string, number>; by_rank_category: Record<string, number> })[];
   regions: { region: Named & { id: string; code: string }; serving_by_branch: Record<string, number>; serving: number }[];
+  /** One point per recorded day, oldest first. Empty until the first day is recorded. */
+  trend?: { date: string; total: number; serving: number }[];
 }
 
 export interface DeathEvidence { id: string; title: string; category: string; size_bytes: number }

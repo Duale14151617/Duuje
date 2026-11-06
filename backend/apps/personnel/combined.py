@@ -8,6 +8,7 @@ No person-level rows are ever returned.
 from collections import defaultdict
 
 from django.conf import settings
+from django.db import transaction
 from django.db.models import Count, Q
 from django.utils import timezone
 from rest_framework import viewsets
@@ -18,6 +19,7 @@ from apps.accounts.permissions import ScopedPermission
 from apps.audit.services import record
 from apps.organization.models import OrganizationalUnit, ServiceBranch
 
+from . import strength_trend
 from .models import Personnel
 
 SERVING = ~Q(status__in=[Personnel.Status.RETIRED, Personnel.Status.DISCHARGED])
@@ -75,12 +77,18 @@ def build(user) -> dict:
         if hexid in regions:
             out_regions.append({"region": _named(regions[hexid]), "serving_by_branch": dict(counts), "serving": sum(counts.values())})
     totals = {"total": sum(b["total"] for b in out_branches), "serving": sum(b["serving"] for b in out_branches)}
+    try:  # the trend is an extra: recording or reading it must never stop the report itself
+        with transaction.atomic():  # a savepoint, so a failure here cannot poison the request's transaction
+            strength_trend.take_snapshot()
+        trend = strength_trend.series("restricted.access" in scope.permission_codes(user))
+    except Exception:
+        trend = []
     return {
         "generated_at": timezone.now().isoformat(),
         # True when restricted units exist but this caller may not see inside them, so the totals leave them out.
         "excludes_restricted_units": "restricted.access" not in scope.permission_codes(user)
         and OrganizationalUnit.objects.filter(restricted=True).exists(),
-        "totals": totals, "branches": out_branches, "regions": out_regions,
+        "totals": totals, "branches": out_branches, "regions": out_regions, "trend": trend,
     }
 
 
