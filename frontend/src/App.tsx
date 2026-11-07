@@ -7,6 +7,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { ForcedPassword, MfaEnrol } from "./pages/Enrol";
 import { Login } from "./pages/Login";
 import { ResetPassword } from "./pages/Reset";
+import { RecoverMfa } from "./pages/RecoverMfa";
 import { Attendance } from "./pages/Attendance";
 import { Ammunition } from "./pages/Ammunition";
 import { Weapons } from "./pages/Weapons";
@@ -47,7 +48,7 @@ export default function App() {
   const { me, loading } = useAuth();
   const location = useLocation();
   if (loading) return <main><Loading /></main>;
-  if (!me) return location.pathname === "/reset" ? <ResetPassword /> : <Login />;
+  if (!me) return location.pathname === "/reset" ? <ResetPassword /> : location.pathname === "/recover" ? <RecoverMfa /> : <Login />;
   if (me.restrictions.includes("password_change")) return <ForcedPassword />;
   if (me.restrictions.includes("mfa_enrollment")) return <MfaEnrol />;
   return (

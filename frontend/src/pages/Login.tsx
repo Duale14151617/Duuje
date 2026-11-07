@@ -25,6 +25,7 @@ export function Login() {
   const [showPw, setShowPw] = useState(false);
   const [otp, setOtp] = useState("");
   const [needOtp, setNeedOtp] = useState(false);
+  const [canEmailRecover, setCanEmailRecover] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
 
@@ -35,7 +36,7 @@ export function Login() {
     try {
       await login(username, password, needOtp ? otp : undefined);
     } catch (err) {
-      if (err instanceof ApiError && err.code === "otp_required") setNeedOtp(true);
+      if (err instanceof ApiError && err.code === "otp_required") { setNeedOtp(true); setCanEmailRecover(err.body.email_recovery === true); }
       else setError(err);
     } finally {
       setBusy(false);
@@ -113,6 +114,7 @@ export function Login() {
                            />
                   </div>
                   <small className="lp-hint">{t("login.otpHint")}</small>
+                  {canEmailRecover && <small className="lp-hint"><a href="/recover">{t("recover.link")}</a></small>}
                 </div>
               )}
               <button type="submit" className="lp-submit" disabled={busy}>

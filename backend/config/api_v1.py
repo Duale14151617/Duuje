@@ -93,6 +93,8 @@ urlpatterns = [
     path("auth/me/", acc.MeView.as_view()),
     path("auth/password/change/", acc.PasswordChangeView.as_view()),
     path("auth/password/reset/", acc.PasswordResetView.as_view()),
+    path("auth/mfa/recover/request/", acc.MfaRecoveryRequestView.as_view()),
+    path("auth/mfa/recover/redeem/", acc.MfaRecoveryRedeemView.as_view()),
     path("auth/mfa/setup/", acc.MfaSetupView.as_view()),
     path("auth/mfa/confirm/", acc.MfaConfirmView.as_view()),
     path("dashboard/", DashboardView.as_view()),

@@ -187,6 +187,7 @@ REST_FRAMEWORK = {
         "login": os.environ.get("THROTTLE_LOGIN", "10/min"),
         "mfa": "10/min",
         "reset": "5/min",
+        "recover": "5/min",
         "bulk": os.environ.get("THROTTLE_BULK", "30/hour"),  # imports and exports
         "integration": os.environ.get("THROTTLE_INTEGRATION", "60/min"),  # per integration client (2.0)
     },
@@ -214,6 +215,19 @@ REPORT_EXPORT_ENABLED = env_bool("REPORT_EXPORT_ENABLED", False)
 # integration and its credential holder (see docs/IMPACT_ASSESSMENT_v2.0.md). When off, the /ext/ endpoints
 # answer 404 and clients cannot be created, rotated or re-enabled.
 INTEGRATIONS_ENABLED = env_bool("INTEGRATIONS_ENABLED", False)
+
+# Email recovery for a lost authenticator app (off by default: it needs working outgoing email). The authenticator app stays the
+# normal second factor; this only lets a user who still knows their password get a one-time code by email to reset enrolment.
+MFA_EMAIL_RECOVERY_ENABLED = env_bool("MFA_EMAIL_RECOVERY_ENABLED", False)
+MFA_RECOVERY_CODE_MINUTES = int(os.environ.get("MFA_RECOVERY_CODE_MINUTES", "15"))
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend" if EMAIL_HOST else "django.core.mail.backends.console.EmailBackend"
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
+EMAIL_TIMEOUT = 10
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "no-reply@armyhq.invalid")
 INTEGRATION_MAX_DAYS = int(os.environ.get("INTEGRATION_MAX_DAYS", "365"))  # longest allowed credential lifetime
 # Aggregate cells smaller than this are withheld from integration responses (small-number disclosure control).
 INTEGRATION_MIN_CELL = int(os.environ.get("INTEGRATION_MIN_CELL", "5"))

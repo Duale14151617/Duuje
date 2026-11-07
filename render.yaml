@@ -56,6 +56,19 @@ services:
         value: "0"
       - key: INTEGRATIONS_ENABLED
         value: "0"
+      # Email recovery for a lost authenticator app. Off until outgoing email works: set the switch to "1" and fill in the mail settings.
+      - key: MFA_EMAIL_RECOVERY_ENABLED
+        value: "0"
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: DEFAULT_FROM_EMAIL
+        sync: false
       - key: ENABLE_API_DOCS
         value: "0"
       # Sample people: owned by the Render dashboard (sync: false), left unset = off.

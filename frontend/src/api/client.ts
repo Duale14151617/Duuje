@@ -3,6 +3,8 @@ let csrfToken = "";
 export interface FieldError { message: string; code: string }
 export interface ErrorBody {
   code?: string; detail?: string; errors?: Record<string, FieldError[]> | FieldError[];
+  /** Sent with `otp_required`: true when the server can email a recovery code for a lost authenticator app. */
+  email_recovery?: boolean;
 }
 
 export class ApiError extends Error {

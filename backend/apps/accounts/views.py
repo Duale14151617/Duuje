@@ -7,6 +7,7 @@ import time
 import pyotp
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
+from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import F, Q
 from django.middleware.csrf import get_token
@@ -24,11 +25,11 @@ from apps.core.errors import field_error
 from apps.core import crypto
 
 from . import scope
-from .models import PasswordResetToken, Role, RoleAssignment, User
+from .models import MfaRecoveryCode, PasswordResetToken, Role, RoleAssignment, User
 from .permissions import ScopedPermission
 from .security import consume_totp, restrictions
 from .serializers import (AssignmentCreateSerializer, AssignmentSerializer, LoginSerializer,
-                          MfaConfirmSerializer, PasswordChangeSerializer, PasswordResetRedeemSerializer,
+                          MfaConfirmSerializer, MfaRecoveryRedeemSerializer, MfaRecoveryRequestSerializer, PasswordChangeSerializer, PasswordResetRedeemSerializer,
                           PasswordResetSerializer,
                           RoleSerializer, UserCreateSerializer, UserSerializer, UserUpdateSerializer,
                           check_password_strength)
@@ -101,7 +102,8 @@ class LoginView(APIView):
 
         if authed.mfa_enabled:
             if not otp:
-                return error("otp_required", "Enter the code from your authenticator app.", 401)
+                return Response({"code": "otp_required", "detail": "Enter the code from your authenticator app.",
+                                 "email_recovery": settings.MFA_EMAIL_RECOVERY_ENABLED}, status=401)
             if not consume_totp(authed, otp):
                 self._register_failure(request, authed, "bad_otp")
                 return error("invalid_otp", "That code is not valid.", 401)
@@ -264,6 +266,114 @@ class PasswordResetView(APIView):
             user.save(update_fields=["password", "must_change_password", "failed_login_count", "locked_until", "updated_at"])
             revoke_user_sessions(user)
             record("auth.password_reset", request=request, actor=user, entity_type="user", entity_id=user.pk)
+        return Response(status=204)
+
+
+def _recovery_enabled_or_404():
+    if not settings.MFA_EMAIL_RECOVERY_ENABLED:
+        return error("not_available", "Email recovery is not available.", status.HTTP_404_NOT_FOUND)
+    return None
+
+
+def _send_recovery_mail(user, subject, body):
+    """Never raises: a mail failure is audited by the caller's generic path and must not reveal anything to the requester."""
+    try:
+        send_mail(subject, body, None, [user.email], fail_silently=False)
+        return True
+    except Exception:
+        return False
+
+
+class MfaRecoveryRequestView(APIView):
+    """Lost authenticator app, step 1: email a one-time code. Needs the correct password, and the answer is the same whether or
+    not a code was sent, so it cannot be used to find out which accounts exist or have an email address."""
+
+    permission_classes = [AllowAny]
+    throttle_scope = "recover"
+
+    def post(self, request):
+        enforce_csrf(request)
+        unavailable = _recovery_enabled_or_404()
+        if unavailable:
+            return unavailable
+        ser = MfaRecoveryRequestSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        username = ser.validated_data["username"].strip().lower()
+        user = User.objects.filter(username=username).first()
+        generic = Response({"detail": "If the details are right and the account has an email address, a code has been sent."})
+        if user and user.locked_until and user.locked_until > timezone.now():
+            User().set_password(ser.validated_data["password"])
+            return generic
+        authed = authenticate(request, username=username, password=ser.validated_data["password"])
+        if authed is None:
+            LoginView._register_failure(request, user, "bad_password_recovery")
+            return generic
+        if not (authed.mfa_enabled and authed.email):
+            # The password was right, so say plainly what is missing (the normal sign-in already reveals a correct password).
+            # Wrong passwords and unknown usernames still get the generic answer above.
+            reason = "no_mfa" if not authed.mfa_enabled else "no_email"
+            record("auth.mfa_recovery_request", request=request, actor=authed, outcome="denied", entity_type="user",
+                   entity_id=authed.pk, metadata={"reason": reason})
+            if reason == "no_mfa":
+                return error("recovery_no_mfa", "This account does not use an authenticator app, so there is nothing to recover.", 400)
+            return error("recovery_no_email", "This account has no email address. Ask an administrator to reset your authenticator.", 400)
+        code = secrets.token_hex(5).upper()  # 40 bits; single use, short-lived, rate-limited, and tied to the password
+        minutes = settings.MFA_RECOVERY_CODE_MINUTES
+        with transaction.atomic():
+            MfaRecoveryCode.objects.filter(user=authed, used_at__isnull=True).update(used_at=timezone.now())  # supersede older codes
+            MfaRecoveryCode.objects.create(user=authed, code_hash=_hash_code(code),
+                                           expires_at=timezone.now() + timedelta(minutes=minutes))
+        sent = _send_recovery_mail(
+            authed, "Puntland Defence Forces HQ: your recovery code",
+            f"Your one-time recovery code is {code}\n\nIt works once and expires in {minutes} minutes. Use it to reset your "
+            "authenticator app. If you did not ask for this, ignore this email and tell your administrator.")
+        record("auth.mfa_recovery_request", request=request, actor=authed, outcome="success" if sent else "failure",
+               entity_type="user", entity_id=authed.pk)
+        return generic
+
+
+class MfaRecoveryRedeemView(APIView):
+    """Lost authenticator app, step 2: password + emailed code removes the old enrolment and ends every session. The user then
+    signs in with the password alone and must enrol a new authenticator (privileged roles are held on that screen until they do)."""
+
+    permission_classes = [AllowAny]
+    throttle_scope = "recover"
+
+    def post(self, request):
+        enforce_csrf(request)
+        unavailable = _recovery_enabled_or_404()
+        if unavailable:
+            return unavailable
+        ser = MfaRecoveryRedeemSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        d = ser.validated_data
+        username = d["username"].strip().lower()
+        fail = error("invalid_recovery", "That recovery code is not valid or has expired.", status.HTTP_400_BAD_REQUEST)
+        user = User.objects.filter(username=username).first()
+        if user and user.locked_until and user.locked_until > timezone.now():
+            User().set_password(d["password"])
+            return fail
+        authed = authenticate(request, username=username, password=d["password"])
+        if authed is None:
+            LoginView._register_failure(request, user, "bad_password_recovery")
+            return fail
+        token = MfaRecoveryCode.objects.filter(user=authed, code_hash=_hash_code(d["code"]), used_at__isnull=True,
+                                               expires_at__gt=timezone.now()).first()
+        if token is None:
+            LoginView._register_failure(request, authed, "bad_recovery_code")  # guessing the code counts toward the lockout
+            return fail
+        with transaction.atomic():
+            used = MfaRecoveryCode.objects.filter(pk=token.pk, used_at__isnull=True).update(used_at=timezone.now())
+            if used != 1:  # lost a race with another redemption
+                return fail
+            User.objects.filter(pk=authed.pk).update(mfa_enabled=False, mfa_secret_enc="", failed_login_count=0, locked_until=None)
+            authed.refresh_from_db()
+            revoke_user_sessions(authed)
+            record("auth.mfa_recovery", request=request, actor=authed, entity_type="user", entity_id=authed.pk)
+        if authed.email:
+            _send_recovery_mail(authed, "Puntland Defence Forces HQ: authenticator reset",
+                                "The authenticator app on your account was reset using an emailed recovery code. You must set up a new one "
+                                "at your next sign-in. If this was not you, tell your administrator now.")
         return Response(status=204)
 
 

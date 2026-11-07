@@ -123,6 +123,21 @@ class RoleAssignment(models.Model):
         ]
 
 
+class MfaRecoveryCode(models.Model):
+    """One-time code emailed to a user who has lost their authenticator app. Only a hash is stored; it works once and expires."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
+    code_hash = models.CharField(max_length=64, unique=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "mfa_recovery_codes"
+        ordering = ["-created_at"]
+
+
 class PasswordResetToken(models.Model):
     """One-time, short-lived recovery code issued by an administrator. Only a hash is stored."""
 
