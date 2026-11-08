@@ -120,7 +120,7 @@ class StockTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = StockTransaction
         fields = ["id", "kind", "delta", "balance_after", "reason", "counterpart_unit", "external_ref", "authority_ref",
-                  "unit_cost", "currency", "actor_username", "correlation_id", "created_at"]
+                  "unit_cost", "currency", "lot", "actor_username", "correlation_id", "created_at"]
         read_only_fields = fields
 
     def to_representation(self, instance):

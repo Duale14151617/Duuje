@@ -209,6 +209,8 @@ BREAK_GLASS_ENABLED = env_bool("ARMYHQ_BREAK_GLASS", True)
 
 # Summary exports stay off until approved, like personnel exports.
 REPORT_EXPORT_ENABLED = env_bool("REPORT_EXPORT_ENABLED", False)
+# When on, every ammunition receipt and every issue must name a lot number. Off by default so existing stock can be carried forward.
+AMMO_REQUIRE_LOT = env_bool("AMMO_REQUIRE_LOT", False)
 
 # --- 2.0 -----------------------------------------------------------------------------------------------------
 # Inbound, read-only integration API (aggregate analytics only). OFF until the institution approves each

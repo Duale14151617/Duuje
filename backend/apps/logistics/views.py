@@ -128,7 +128,7 @@ class AmmunitionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
         expected = d.get("expected_balance")
         txn = ammo.post(request, line, str(d.get("kind") or ""), q if isinstance(q, int) else 0, d.get("reason") or "",
                         d.get("external_ref") or "", d.get("authority_ref") or "", counterpart,
-                        expected if isinstance(expected, int) else None)
+                        expected if isinstance(expected, int) else None, lot=str(d.get("lot") or ""))
         line = self.get_queryset().get(pk=line.pk)
         return Response({"transaction": StockTransactionSerializer(txn, context=self.get_serializer_context()).data, "line": StockLineSerializer(line).data}, status=201)
 

@@ -23,13 +23,24 @@ def held(person_id, line_id):
     return SoldierRounds.objects.filter(personnel_id=person_id, stock_line_id=line_id).aggregate(s=Sum("delta"))["s"] or 0
 
 
-def post(request, person, line, kind, quantity, reference="", authority_ref="", note=""):
+def held_in_event(person_id, line_id, event_id):
+    """Rounds this soldier still has outstanding under one event: issued under it, less what came back, was fired or lost under it."""
+    return SoldierRounds.objects.filter(personnel_id=person_id, stock_line_id=line_id, event_id=event_id).aggregate(s=Sum("delta"))["s"] or 0
+
+
+def post(request, person, line, kind, quantity, reference="", authority_ref="", note="", event=None, lot=""):
     user = request.user
     if kind not in SIGN:
         raise field_error("kind", "invalid_kind")
     if not isinstance(quantity, int) or isinstance(quantity, bool) or not 0 < quantity <= 10**9:
         raise field_error("quantity", "quantity_invalid")
     reference, authority_ref, note = (reference or "").strip()[:60], (authority_ref or "").strip()[:150], (note or "").strip()[:300]
+    lot = (lot or "").strip()[:40] if kind in ("issue", "return") else ""
+    if event is not None:
+        if event.status != "open":
+            raise field_error("event", "event_closed")
+        if not person.org_unit.path.startswith(event.org_unit.path):
+            raise field_error("event", "person_outside_event_unit")
     if not ammo.is_ammunition(line.category):
         raise field_error("category", "not_ammunition")
     if kind in ("issue", "return") and not reference:
@@ -48,20 +59,23 @@ def post(request, person, line, kind, quantity, reference="", authority_ref="", 
         locked = StockLine.objects.select_for_update().get(pk=line.pk)  # serialises writers on this ammunition line
         if kind != "issue" and quantity > held(person.pk, locked.pk):
             raise field_error("quantity", "rounds_exceed_held")
+        if kind != "issue" and event is not None and quantity > held_in_event(person.pk, locked.pk, event.pk):
+            raise field_error("quantity", "rounds_exceed_event")
         who = person.service_number or str(person.pk)
         txn = None
         if kind == "issue":
             txn = ammo.post(request, locked, "issue", quantity, reason=f"Issued to {who}"[:300], external_ref=reference,
-                            authority_ref=authority_ref, via_soldier=True)
+                            authority_ref=authority_ref, via_soldier=True, lot=lot)
         elif kind == "return":
             txn = ammo.post(request, locked, "return", quantity, reason=f"Returned by {who}"[:300], external_ref=reference,
-                            authority_ref=authority_ref, via_soldier=True)
+                            authority_ref=authority_ref, via_soldier=True, lot=lot)
         row = SoldierRounds.objects.create(personnel=person, stock_line=locked, kind=kind, delta=SIGN[kind] * quantity,
                                            reference=reference, authority_ref=authority_ref, note=note, store_transaction=txn,
-                                           actor_id=user.pk, actor_username=user.username)
+                                           event=event, lot=lot, actor_id=user.pk, actor_username=user.username)
         record(f"weapon.rounds_{kind}", request=request, entity_type="soldier_rounds", entity_id=row.pk,
                metadata={"personnel": str(person.pk), "stock_line": str(locked.pk), "delta": row.delta, "reference": reference,
-                         "authority_ref": authority_ref, "store_transaction": str(txn.pk) if txn else None})
+                         "authority_ref": authority_ref, "store_transaction": str(txn.pk) if txn else None,
+                         "event": str(event.pk) if event else None, "lot": lot})
     return row
 
 
@@ -83,6 +97,7 @@ def history(person, line=None, limit=500):
                     "stock_line": str(r.stock_line_id),
                     "category": {"code": r.stock_line.category.code, "name_en": r.stock_line.category.name_en, "name_so": r.stock_line.category.name_so},
                     "reference": r.reference, "authority_ref": r.authority_ref, "note": r.note, "actor": r.actor_username,
+                    "event": str(r.event_id) if r.event_id else None, "lot": r.lot,
                     "store_transaction": str(r.store_transaction_id) if r.store_transaction_id else None, "at": r.created_at})
     out.reverse()
     return out[:limit], running

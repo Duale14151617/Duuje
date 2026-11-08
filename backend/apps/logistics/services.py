@@ -91,7 +91,7 @@ def create_stock_line(request, category, unit, uom, reorder_level):
 
 
 def _apply(user, line_id, kind, delta, reason, counterpart=None, group=None, expected_balance=None, external_ref="", authority_ref="",
-           unit_cost=None, currency=""):
+           unit_cost=None, currency="", lot=""):
     """Caller must already be inside transaction.atomic(). The row lock serialises concurrent writers."""
     line = StockLine.objects.select_for_update().get(pk=line_id)
     if expected_balance is not None and expected_balance != line.quantity:
@@ -104,7 +104,7 @@ def _apply(user, line_id, kind, delta, reason, counterpart=None, group=None, exp
         stock_line=line, kind=kind, delta=delta, balance_after=new, reason=(reason or "")[:300],
         counterpart_unit=counterpart, group=group, actor=user, actor_username=user.username,
         external_ref=(external_ref or "")[:60], authority_ref=(authority_ref or "")[:150], correlation_id=get_correlation_id(),
-        unit_cost=unit_cost, currency=currency or "")
+        unit_cost=unit_cost, currency=currency or "", lot=(lot or "")[:40])
 
 
 def post_stock(request, line, kind, delta, reason, expected_balance=None, external_ref="", unit_cost=None, currency=""):

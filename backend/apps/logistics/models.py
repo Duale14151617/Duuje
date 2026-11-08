@@ -81,6 +81,7 @@ class StockTransaction(AppendOnlyModel):
                                          on_delete=models.PROTECT, related_name="+")
     group = models.UUIDField(null=True, blank=True)  # pairs the two sides of a transfer
     external_ref = models.CharField(max_length=60, blank=True)  # voucher / delivery note / issue note number: stops one movement being entered twice
+    lot = models.CharField(max_length=40, blank=True)  # ammunition lot number printed on the box (receipts, issues and returns)
     unit_cost = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)  # procurement: price per unit on a receipt
     currency = models.CharField(max_length=3, blank=True)
     authority_ref = models.CharField(max_length=150, blank=True)  # documented authorization (adjustments, losses, damage)

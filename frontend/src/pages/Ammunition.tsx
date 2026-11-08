@@ -9,7 +9,7 @@ import { useI18n, type Key } from "../i18n";
 
 interface Named { code: string; name_en: string; name_so: string }
 interface Line { id: string; category: Named; org_unit: Named; uom: string; quantity: number }
-interface Tx { id: string; kind: string; delta: number; balance_after: number; reason: string; external_ref: string; authority_ref: string; actor: string; at: string }
+interface Tx { id: string; kind: string; delta: number; balance_after: number; reason: string; external_ref: string; lot?: string; authority_ref: string; actor: string; at: string }
 interface Statement {
   balance_start: number; opening_recorded: number; received: number; returned: number; adjusted_up: number; issued: number; expended: number;
   lost_damaged: number; adjusted_down: number; transferred_out: number; closing: number;
@@ -60,10 +60,11 @@ function LineDetail({ id, canPost, onPosted }: { id: string; canPost: boolean; o
   const [from, setFrom] = useState(today().slice(0, 8) + "01");
   const [to, setTo] = useState(today());
   const st = useFetch<Statement>(`/logistics/ammunition/${id}/statement/`, { from, to });
-  const [f, setF] = useState({ kind: "receive", quantity: "", reason: "", external_ref: "", authority_ref: "" });
+  const [f, setF] = useState({ kind: "receive", quantity: "", reason: "", external_ref: "", authority_ref: "", lot: "" });
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   const needsVoucher = ["receive", "issue", "return"].includes(f.kind);
+  const hasLot = ["opening", "receive", "issue", "return"].includes(f.kind);
   const needsAuthority = ["loss", "damage", "adjust"].includes(f.kind);
   const needsReason = ["opening", "expenditure", "loss", "damage", "adjust"].includes(f.kind);
 
@@ -71,7 +72,7 @@ function LineDetail({ id, canPost, onPosted }: { id: string; canPost: boolean; o
     e.preventDefault(); setBusy(true); setError(null);
     try {
       await api(`/logistics/ammunition/${id}/movement/`, { method: "POST", body: { ...f, quantity: Number(f.quantity) } });
-      setF({ ...f, quantity: "", reason: "", external_ref: "", authority_ref: "" }); st.reload(); onPosted();
+      setF({ ...f, quantity: "", reason: "", external_ref: "", authority_ref: "", lot: "" }); st.reload(); onPosted();
     } catch (err) { setError(err); } finally { setBusy(false); }
   }
   const d = st.data;
@@ -110,6 +111,7 @@ function LineDetail({ id, canPost, onPosted }: { id: string; canPost: boolean; o
           </Field>
           <Field label={t("ammo.quantity")}><input type="number" step={1} min={f.kind === "adjust" ? undefined : 1} value={f.quantity} required onChange={(e) => setF({ ...f, quantity: e.target.value })} /></Field>
           {f.kind === "adjust" && <p className="muted">{t("ammo.adjustHint")}</p>}
+          {hasLot && <Field label={t("ammo.lot")}><input value={f.lot} maxLength={40} onChange={(e) => setF({ ...f, lot: e.target.value })} /></Field>}
           {needsVoucher && <Field label={t("ammo.voucher")}><input value={f.external_ref} required maxLength={60} onChange={(e) => setF({ ...f, external_ref: e.target.value })} /></Field>}
           {needsReason && <Field label={t("ammo.reason")}><input value={f.reason} required maxLength={300} onChange={(e) => setF({ ...f, reason: e.target.value })} /></Field>}
           {needsAuthority && <Field label={t("ammo.authority")}><input value={f.authority_ref} required maxLength={150} onChange={(e) => setF({ ...f, authority_ref: e.target.value })} /></Field>}
@@ -121,7 +123,7 @@ function LineDetail({ id, canPost, onPosted }: { id: string; canPost: boolean; o
         {(d?.transactions ?? []).slice().reverse().map((x) => (
           <li key={x.id} className="item">
             <div className="row"><Chip tone={x.delta > 0 ? "approved" : "draft"}>{t(`ammo.kind.${x.kind}` as Key)}</Chip><b>{x.delta > 0 ? `+${x.delta}` : x.delta}</b><span className="muted">→ {x.balance_after}</span></div>
-            <p className="muted">{x.at.slice(0, 16).replace("T", " ")} · {x.actor}{x.external_ref ? ` · ${x.external_ref}` : ""}{x.authority_ref ? ` · ${x.authority_ref}` : ""}{x.reason ? ` · ${x.reason}` : ""}</p>
+            <p className="muted">{x.at.slice(0, 16).replace("T", " ")} · {x.actor}{x.external_ref ? ` · ${x.external_ref}` : ""}{x.lot ? ` · ${t("ammo.lot")} ${x.lot}` : ""}{x.authority_ref ? ` · ${x.authority_ref}` : ""}{x.reason ? ` · ${x.reason}` : ""}</p>
           </li>
         ))}
       </ul>

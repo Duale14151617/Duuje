@@ -23,7 +23,7 @@ interface Move {
   id: string; kind: Kind; quantity: number; delta: number; balance_after: number; category: Named; reference: string;
   authority_ref: string; note: string; actor: string; store_transaction: string | null; at: string;
 }
-interface AmmoLine { id: string; quantity: number; uom: string; category: Named; unit: UnitB }
+interface AmmoLine { id: string; quantity: number; uom: string; category: Named; unit: UnitB; lots?: { lot: string; quantity: number }[] }
 
 
 /** Superior's report: what each soldier holds (weapons by serial number, rounds left per ammunition type), plus issuing and recording rounds. */
@@ -124,8 +124,11 @@ function RoundsForm({ person, unitId, lines, onDone, onCancel }: {
   const [reference, setReference] = useState("");
   const [authority, setAuthority] = useState("");
   const [note, setNote] = useState("");
+  const [eventId, setEventId] = useState("");
+  const [lot, setLot] = useState("");
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  const events = useFetch<{ results: { id: string; name: string; event_date: string; org_unit: { code: string } }[] }>("/ammo-control/events/", { status: "open" });
   const store = useFetch<{ results: AmmoLine[] }>("/weapons/ammo_lines/", { org_unit: unitId });
   const storeLines = store.data?.results ?? [];
   // Return, expended and lost can only act on types the soldier already holds; issue draws from the unit's store.
@@ -141,6 +144,7 @@ function RoundsForm({ person, unitId, lines, onDone, onCancel }: {
       await api("/weapons/rounds/", { method: "POST", body: {
         personnel: person.id, stock_line: line, kind, quantity: Number(quantity),
         reference: needsVoucher ? reference : "", authority_ref: kind === "lost" ? authority : "", note,
+        event: eventId || undefined, lot: kind === "issue" || kind === "return" ? lot : undefined,
       } });
       onDone();
     } catch (err) { setError(err); } finally { setBusy(false); }
@@ -163,6 +167,22 @@ function RoundsForm({ person, unitId, lines, onDone, onCancel }: {
       {kind === "issue" && store.data && storeLines.length === 0 && <Notice kind="error">{t("hold.noLines")}</Notice>}
       <Field label={t("ammo.quantity")}><input type="number" min={1} step={1} required value={quantity} onChange={(e) => setQuantity(e.target.value)} /></Field>
       {needsVoucher && <Field label={t("ammo.voucher")}><input value={reference} required maxLength={60} onChange={(e) => setReference(e.target.value)} /></Field>}
+      {(events.data?.results.length ?? 0) > 0 && (
+        <Field label={t("hold.event")}>
+          <select value={eventId} onChange={(e) => setEventId(e.target.value)}>
+            <option value="">—</option>
+            {(events.data?.results ?? []).map((ev) => <option key={ev.id} value={ev.id}>{ev.name} · {ev.org_unit.code} · {ev.event_date}</option>)}
+          </select>
+        </Field>
+      )}
+      {kind === "issue" && (storeLines.find((l) => l.id === line)?.lots?.length ?? 0) > 0
+        ? <Field label={t("hold.lot")}>
+            <select value={lot} onChange={(e) => setLot(e.target.value)}>
+              <option value="">—</option>
+              {(storeLines.find((l) => l.id === line)?.lots ?? []).map((x) => <option key={x.lot} value={x.lot}>{x.lot} ({x.quantity})</option>)}
+            </select>
+          </Field>
+        : (kind === "issue" || kind === "return") && <Field label={t("hold.lot")}><input value={lot} maxLength={40} onChange={(e) => setLot(e.target.value)} /></Field>}
       {kind === "lost" && <Field label={t("ammo.authority")}><input value={authority} required maxLength={150} onChange={(e) => setAuthority(e.target.value)} /></Field>}
       <Field label={kind === "expended" || kind === "lost" ? t("ammo.reason") : t("att.note")}>
         <input value={note} required={kind === "expended" || kind === "lost"} maxLength={300} onChange={(e) => setNote(e.target.value)} />

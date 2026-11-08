@@ -13,6 +13,7 @@ from apps.audit.services import record_read
 from apps.core.concurrency import require_version
 from apps.core.errors import field_error
 from apps.core.params import json_body, uuid_param
+from apps.logistics import ammunition as ammo_ledger
 from apps.logistics.models import Asset, AssetEvent, InventoryCategory, StockLine
 from apps.organization.models import OrganizationalUnit
 from apps.personnel.models import Personnel
@@ -20,7 +21,7 @@ from apps.personnel.services import NOT_SERVING
 
 from . import rounds as rnd
 from . import services as svc
-from .models import SoldierRounds, WeaponCustody, WeaponDetail
+from .models import AmmoEvent, SoldierRounds, WeaponCustody, WeaponDetail
 
 
 def _uid(value):
@@ -162,7 +163,7 @@ class WeaponViewSet(viewsets.GenericViewSet):
         lines = [l for l in qs.order_by("category__code", "-org_unit__path") if unit.path.startswith(l.org_unit.path)]
         return Response({"results": [{"id": str(l.pk), "quantity": l.quantity, "uom": l.uom,
                                       "category": {"code": l.category.code, "name_en": l.category.name_en, "name_so": l.category.name_so},
-                                      "unit": _unit_brief(l.org_unit)} for l in lines[:50]]})
+                                      "unit": _unit_brief(l.org_unit), "lots": ammo_ledger.lot_balances(l)} for l in lines[:50]]})
 
     @action(detail=False, methods=["post"])
     def rounds(self, request):
@@ -177,8 +178,12 @@ class WeaponViewSet(viewsets.GenericViewSet):
         if line is None:
             raise field_error("stock_line", "out_of_scope", "That ammunition line was not found.")
         qty = d.get("quantity")
+        eid = _uid(d.get("event")) if d.get("event") else None
+        event = AmmoEvent.objects.filter(pk=eid).select_related("org_unit").first() if eid else None
+        if d.get("event") and (event is None or not scope.can(request.user, "weapons.manage", unit=event.org_unit)):
+            raise field_error("event", "out_of_scope", "That event was not found.")
         row = rnd.post(request, person, line, str(d.get("kind") or ""), qty if isinstance(qty, int) else 0,
-                       d.get("reference") or "", d.get("authority_ref") or "", d.get("note") or "")
+                       d.get("reference") or "", d.get("authority_ref") or "", d.get("note") or "", event=event, lot=str(d.get("lot") or ""))
         return Response({"id": str(row.pk), "kind": row.kind, "delta": row.delta,
                          "held": rnd.held(person.pk, line.pk), "store_balance": StockLine.objects.get(pk=line.pk).quantity}, status=201)
 

@@ -18,6 +18,7 @@ the original values: it adds a new row that keeps who, why and on whose authorit
 """
 from datetime import date, datetime, time
 
+from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.db.models import Sum
 from django.utils import timezone
@@ -40,7 +41,16 @@ def is_ammunition(category):
     return category.code.startswith(PREFIX)
 
 
-def post(request, line, kind, quantity, reason="", external_ref="", authority_ref="", counterpart=None, expected_balance=None, via_soldier=False):
+LOT_KINDS = {"opening", "receive", "issue", "return"}  # the movements that carry a lot number
+
+
+def lot_balances(line):
+    """Rounds in the store per lot, from the saved movements (lots with nothing left are left out)."""
+    rows = (StockTransaction.objects.filter(stock_line=line).exclude(lot="").order_by().values_list("lot").annotate(s=Sum("delta")))
+    return sorted(({"lot": lot, "quantity": s} for lot, s in rows if s > 0), key=lambda x: x["lot"])
+
+
+def post(request, line, kind, quantity, reason="", external_ref="", authority_ref="", counterpart=None, expected_balance=None, via_soldier=False, lot=""):
     if not is_ammunition(line.category):
         raise field_error("category", "not_ammunition")
     if kind not in SIGN:
@@ -50,6 +60,9 @@ def post(request, line, kind, quantity, reason="", external_ref="", authority_re
     if kind != "adjust" and quantity < 0:
         raise field_error("quantity", "quantity_invalid")  # the kind decides the direction; only an adjustment is signed
     reason, external_ref, authority_ref = (reason or "").strip(), (external_ref or "").strip(), (authority_ref or "").strip()
+    lot = (lot or "").strip()[:40] if kind in LOT_KINDS else ""
+    if kind in ("opening", "receive", "issue") and not lot and settings.AMMO_REQUIRE_LOT:
+        raise field_error("lot", "lot_required")
     if kind in NEEDS_VOUCHER and not external_ref:
         raise field_error("external_ref", "voucher_required")
     if kind in NEEDS_REASON and not reason:
@@ -73,6 +86,11 @@ def post(request, line, kind, quantity, reason="", external_ref="", authority_re
                 raise field_error("kind", "opening_not_first")  # an opening balance can only start an empty ledger
             if external_ref and moves.filter(kind=kind, external_ref=external_ref).exists():
                 raise field_error("external_ref", "duplicate_movement")
+            if kind == "issue" and lot and moves.exclude(lot="").exists():
+                # Once the store's receipts carry lot numbers, rounds can only be issued from a lot that has them in store.
+                in_lot = moves.filter(lot__iexact=lot).aggregate(s=Sum("delta"))["s"] or 0
+                if quantity > in_lot:
+                    raise field_error("lot", "lot_insufficient" if in_lot else "lot_unknown")
             if kind == "return":
                 issued = -(moves.filter(kind="issue").aggregate(s=Sum("delta"))["s"] or 0)
                 returned = moves.filter(kind="return").aggregate(s=Sum("delta"))["s"] or 0
@@ -87,10 +105,10 @@ def post(request, line, kind, quantity, reason="", external_ref="", authority_re
                     if (returned - l_returned) + quantity > issued - l_issued:
                         raise field_error("quantity", "return_exceeds_unassigned")
             txn = svc._apply(request.user, locked.pk, kind, delta, reason, counterpart=counterpart,
-                             expected_balance=expected_balance, external_ref=external_ref, authority_ref=authority_ref)
+                             expected_balance=expected_balance, external_ref=external_ref, authority_ref=authority_ref, lot=lot)
             record(f"ammunition.{kind}", request=request, entity_type="stock_line", entity_id=locked.pk,
                    metadata={"delta": delta, "balance": txn.balance_after, "external_ref": external_ref,
-                             "authority_ref": authority_ref})
+                             "authority_ref": authority_ref, "lot": lot})
     except IntegrityError:  # two officers booking the same voucher at once: the database refuses the second
         raise field_error("external_ref", "duplicate_movement")
     return txn
@@ -143,7 +161,7 @@ def statement(line, start, end):
         "reconciliations": recon,
         "outstanding_discrepancies": sum(1 for r in recon if r["outstanding"]),
         "transactions": [{"id": str(m.pk), "kind": m.kind, "delta": m.delta, "balance_after": m.balance_after, "reason": m.reason,
-                          "external_ref": m.external_ref, "authority_ref": m.authority_ref, "actor": m.actor_username,
+                          "external_ref": m.external_ref, "lot": m.lot, "authority_ref": m.authority_ref, "actor": m.actor_username,
                           "counterpart": m.counterpart_unit.code if m.counterpart_unit_id else None, "at": m.created_at}
                          for m in moves.select_related("counterpart_unit")[:500]],
     }

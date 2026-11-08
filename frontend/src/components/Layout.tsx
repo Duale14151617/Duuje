@@ -17,7 +17,7 @@ type NavItem = { to: string; label: Key; icon: IconName; show: boolean; match?: 
 
 /** Pages that live as tabs inside one sidebar entry. Each tab keeps its own route and its own permission check. */
 const HUBS: { id: string; tabs: string[] }[] = [
-  { id: "ammunition", tabs: ["/ammunition", "/accountability"] },
+  { id: "ammunition", tabs: ["/ammunition", "/accountability", "/ammo-control"] },
   { id: "weapons", tabs: ["/weapons", "/inventories", "/holdings"] },
   { id: "vehicles", tabs: ["/vehicles", "/equipment"] },
 ];
@@ -52,7 +52,7 @@ export function Layout() {
     { to: "/reports", icon: "file", label: "nav.reports", show: can("reports.view") },
     { to: "/summary", icon: "list", label: "nav.summary", show: can("reports.summary") },
     { to: "/logistics", icon: "box", label: "nav.logistics", show: ["logistics.view", "logistics.restricted", "logistics.configure", "logistics.approve", "logistics.restricted_approve", "logistics.report"].some(can) },
-    { to: "/ammunition", go: can("logistics.restricted") ? "/ammunition" : "/accountability", icon: "box", label: "nav.hub.ammunition", show: can("logistics.restricted") || can("weapons.view"), match: ["/ammunition", "/accountability"] },
+    { to: "/ammunition", go: can("logistics.restricted") ? "/ammunition" : "/accountability", icon: "box", label: "nav.hub.ammunition", show: can("logistics.restricted") || can("weapons.view"), match: ["/ammunition", "/accountability", "/ammo-control"] },
     { to: "/ppe", icon: "lock", label: "nav.ppe", show: can("logistics.view") },
     { to: "/weapons", icon: "lock", label: "nav.hub.weapons", show: can("weapons.view"), match: ["/weapons", "/inventories", "/holdings"] },
     { to: "/vehicles", go: can("vehicles.view") ? "/vehicles" : "/equipment", icon: "box", label: "nav.vehicles", show: ["vehicles.view", "weapons.view", "equipment.manage"].some(can), match: ["/vehicles", "/equipment"] },
@@ -76,6 +76,7 @@ export function Layout() {
   const tabDefs: { to: string; label: Key; show: boolean }[] = [
     { to: "/ammunition", label: "nav.ammunition", show: can("logistics.restricted") },
     { to: "/accountability", label: "nav.accountability", show: can("weapons.view") },
+    { to: "/ammo-control", label: "nav.ammoControl", show: can("weapons.view") },
     { to: "/weapons", label: "nav.weapons", show: can("weapons.view") },
     { to: "/inventories", label: "nav.inventories", show: can("weapons.view") },
     { to: "/holdings", label: "nav.holdings", show: can("weapons.view") },

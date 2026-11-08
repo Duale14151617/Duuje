@@ -67,6 +67,29 @@ class WeaponCustody(models.Model):
         raise AppendOnlyError("Custody records cannot be deleted; they are closed by a return.")
 
 
+class AmmoEvent(models.Model):
+    """A training or range event that ammunition is issued for. Rounds issued under an event must come back as returned, expended
+    or lost under the same event before it can be closed, so what was drawn for a purpose is accounted for at the end of it."""
+
+    class Status(models.TextChoices):
+        OPEN = "open"
+        CLOSED = "closed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=150)
+    org_unit = models.ForeignKey("organization.OrganizationalUnit", on_delete=models.PROTECT, related_name="+")
+    event_date = models.DateField()
+    status = models.CharField(max_length=8, choices=Status.choices, default=Status.OPEN)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by_username = models.CharField(max_length=150, blank=True)
+    closed_at = models.DateTimeField(null=True, blank=True)
+    closed_by_username = models.CharField(max_length=150, blank=True)
+
+    class Meta:
+        db_table = "ammo_events"
+        ordering = ["-event_date", "-created_at"]
+
+
 class SoldierRounds(AppendOnlyModel):
     """Ammunition a soldier holds, as an append-only ledger. A soldier's balance (per ammunition type) is the sum of the deltas:
     nothing is typed in. `issue` takes rounds out of the unit's ammunition store (booked there as an issue) and puts them on the
@@ -90,6 +113,9 @@ class SoldierRounds(AppendOnlyModel):
                                           related_name="soldier_rounds")
     authority_ref = models.CharField(max_length=150, blank=True)  # authorization for a loss
     note = models.CharField(max_length=300, blank=True)
+    # The training or range event the rounds were drawn for (optional), and the lot number printed on the box (optional, issues only).
+    event = models.ForeignKey("weapons.AmmoEvent", null=True, blank=True, on_delete=models.PROTECT, related_name="rounds")
+    lot = models.CharField(max_length=40, blank=True)
     actor_id = models.UUIDField(null=True, blank=True)
     actor_username = models.CharField(max_length=150, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
