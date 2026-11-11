@@ -1,1 +1,0 @@
-UI update: styles.css, App.tsx, pages/Companies.tsx

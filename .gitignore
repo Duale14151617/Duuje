@@ -1,3 +1,8 @@
+__pycache__/
+*.pyc
 .env
-bin/
-obj/
+backend/db.sqlite3
+node_modules/
+frontend/dist/
+.venv/
+*.zip

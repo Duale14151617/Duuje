@@ -1,172 +1,172 @@
-# Duale BuildLink — Phases 1-6
+# ARMY HQ: administrative platform for Puntland's Army
 
-ASP.NET Core 8 + EF Core + PostgreSQL modular-monolith backend, following the spec's proposed stack.
+> **Status: a fully functional system deployed on Render.**
+> The system has been run on Render as a live web service backed by PostgreSQL, and **every part of it works**: sign-in with MFA,
+> users and scoped roles, organization and structure, personnel, ranks, reports and approvals, attendance, vehicles, weapons,
+> logistics, training, payroll and survivor benefits, analytics, audit log, dashboard, and the English/Somali interface on desktop and phone.
+> By design it holds **no real data** yet: it runs on synthetic data while we wait for the Army's approval.
 
-## Layout
-- `src/Duale.Api` ASP.NET Core 8 API (modular monolith) · `tests/Duale.Api.Tests` xUnit
-- `web/` React + TypeScript company dashboard and platform admin ([web/README.md](web/README.md))
-- `mobile/` Flutter technician app, Android first ([mobile/README.md](mobile/README.md))
-- `scripts/` migration generation · `docs/` spec PDF and SQL reference
+**Stack:** Django 5 + Django REST Framework, PostgreSQL, React + TypeScript (Vite), shipped as one Docker image and deployed on Render.
+There is no XAMPP/WAMP/PHP in this project.
 
-## Run the API
+## What works today
+| Area | What you can do |
+|---|---|
+| Sign-in and security | Session login with CSRF protection, lockout and throttling, TOTP MFA (mandatory for privileged roles), forced password change, "sign out everywhere". |
+| Access control | Users, roles, permissions and scoped assignments (a unit and everything below it, optional service branch, validity dates). Deny by default; every check is made on the server. |
+| Organization | HQ, regional commands, directorates, Guuto, Urur and battalion sections; unit tree; structure standards; governed structure changes (proposed by one person, approved by another). |
+| Personnel | Records, effective-dated history (rank, unit, status), transfers, duplicate detection, CSV import preview and commit, profile tabs (personal information, service record, assignments, attendance, training, administrative history). |
+| Ranks | Official 16-rank Army catalogue in English and Somali with draft and approval. |
+| Reports and approvals | Configurable report and request types, draft to approved workflow, separation of duties, revisions, notifications, scoped summaries. |
+| Attendance, vehicles, weapons | Daily attendance by unit, vehicle registry with maintenance and assignment history, weapon register, ammunition ledger and soldier holdings. |
+| Logistics and training | Stock ledger, tracked assets, restricted equipment, reconciliation, course catalogue and training records. |
+| Payroll and survivors | Payroll runs, salary profiles, payments, arrears, pay decisions and survivor benefits, each step needing a different person. |
+| Dashboard and analytics | Role-aware operational dashboard (strength, attendance, pending approvals, logistics warnings, regional analytics, audit exceptions, administrative workload, security and system health) and an analytics page. |
+| Audit | Append-only audit log with correlation IDs; failed and denied events surfaced on the dashboard. |
+| Interface | English and Somali, light and dark mode, desktop and mobile layouts, universal search across the modules you are allowed to use, sortable and filterable data tables. |
+
+## Deployment status
+- **Deployed and run on Render** using `render.yaml` (one Docker web service plus a Postgres database). The container migrates, seeds reference data and
+  the Army structure, and starts gunicorn on its own; sample accounts and sample people are created only when you ask for them (see *Deploy on Render*).
+- **Everything above was exercised on that deployment** and works as described, including the weapon inventory and the consolidated sidebar. The tests have been run.
+- **Sidebar:** the Logistics and equipment section has six entries; Ammunition, Weapons (register, inventory, holdings) and Military vehicles (with the equipment catalogue) show their pages as tabs.
+- **No real data yet, by design:** no real data is hosted. Real personnel, payroll and equipment records will be loaded only after the Army approves.
+- A standalone preview with built-in sample data can also run without a backend on Netlify (see *Frontend on Netlify*).
+
+## Run it locally
+Needs Python 3.12, Node 20+, PostgreSQL 16 (or Docker: `docker compose -f docker-compose.local.yml up`, see `docs/DOCKER_WINDOWS11.md`).
+
+```bash
+cp .env.example backend/.env          # fill DJANGO_SECRET_KEY and FIELD_ENCRYPTION_KEY (commands are in the file)
+cd backend && pip install -r requirements-dev.txt
+python manage.py migrate && python manage.py createcachetable
+python manage.py seed_reference_data   # permissions, roles, branches, regions, ranks
+python manage.py apply_army_structure --apply   # Army structure: HQ, directorates, regional commands, Guuto, Urur, battalion sections
+python manage.py create_hq_admin --username admin --full-name "Admin" --role super_admin
+python manage.py runserver
+cd ../frontend && npm ci && npm run dev   # http://localhost:5173
+python manage.py test                       # backend tests (from backend/)
+cd frontend && npm test && npm run typecheck && npm run lint
 ```
-cp .env.example .env              # fill in secrets, including Mfa__Key (openssl rand -base64 32)
-dotnet tool install -g dotnet-ef
-scripts/make-migrations.sh        # Windows: scripts\make-migrations.ps1   (creates src/Duale.Api/Migrations)
-docker compose up -d db
-dotnet test                       # tenant isolation, documents, MFA and recovery tests (SQLite in memory)
-docker compose up --build api     # Database__AutoMigrate=true applies migrations at startup
-```
-`Bootstrap__*` creates the first platform admin. **Migrations are not included in this drop**: the environment that produced it had
-no .NET SDK, and an EF migration plus its model snapshot must be generated from the compiled model, so a hand-written one would
-drift. The script runs `dotnet ef migrations add Initial` and then adds a second migration, `PostgresConstraints`, that applies the
-PostgreSQL-only overlap constraint (`src/Duale.Api/Data/PostgresConstraints.cs`). Commit the generated `Migrations/` folder.
 
-## Included
-- Auth: register, login (JWT, 30 min), log out everywhere (token-version revocation), suspended users rejected, auth rate limiting.
-- Company onboarding: create (creator becomes owner) -> review queue -> approve / reject / request info -> owner resubmits. Reviewers cannot decide on their own company.
-- RBAC: roles, permissions, role_permissions, memberships, platform role assignments. Permissions are read from the DB on every request; non-members get 404, members lacking a permission get 403.
-- Staff: add/remove members (company roles only, company must be approved, last owner protected).
-- Trade/skill catalog (trade names seeded from the spec); technician profile, skill claims, platform verification with expiry.
-- Append-only audit events written in the same transaction as each change; no cascade deletes.
+## Deploy on Render
+`render.yaml` is a Blueprint: one Docker web service plus a Postgres database. The container runs, in order: `migrate`,
+`createcachetable`, `seed_reference_data`, `apply_army_structure --apply`, `seed_sample_data` (only when `ARMYHQ_SAMPLE_MODE=1`), `seed_test_personnel --from-env`, then gunicorn.
+Set in the Render dashboard: `FIELD_ENCRYPTION_KEY` (keep it safe: losing it makes encrypted records unreadable), `ARMYHQ_SAMPLE_PASSWORD`,
+and the switches below. See `RENDER_DEPLOY_GUIDE.md` and `docs/DEPLOY_ROLLBACK.md`.
 
-## Added in this drop
-- **Branches:** create, edit, close/reopen (never deleted), assign staff. Company id is part of every lookup; foreign branch or membership ids are rejected. New permission `branch.manage` (owner).
-- **Service areas:** platform-managed list; technicians choose theirs; a service location may carry an area, and matching blocks technicians who do not serve it (with the reason shown).
-- **Technician documents:** multipart upload (kind identity/qualification/other), 5 MB limit, content type taken from the file's bytes (PDF/JPEG/PNG only), random storage key, SHA-256 recorded, stored outside the web root. Reads only through a signed link valid 120 s, bound to the document and the user it was issued to, and re-authorized at read time (owner or `technician.verify`). Reviewers decide approve/reject/request-info with a note; nobody reviews their own documents. Views and decisions are audited. A skill review queue is at `GET /platform/technician-skills`.
-- **MFA (TOTP, RFC 6238):** setup, enable (returns 10 single-use recovery codes, stored hashed), disable (password + code, signs out everywhere). Login returns a 5-minute `mfaToken` with a different audience, so it cannot act as an access token. Codes cannot be replayed; 5 failures lock the factor for 15 minutes. Secrets are AES-GCM encrypted with `Mfa__Key`.
-- **Account recovery:** `POST /auth/recovery/request` always answers 204; reset tokens are random, stored hashed, single-use, 30 minutes; a reset ends all sessions and still requires the second factor when MFA is on. Lost device and codes: a user with `user.support` resets MFA for someone else (never themselves); the user is notified and signed out.
-- `GET /me` for the UIs. **React web** and **Flutter app** as above.
+| Variable | Effect |
+|---|---|
+| `ARMYHQ_SAMPLE_MODE=1` (older `ARMYHQ_DEMO_MODE` still works) | Creates the synthetic sample accounts and sample data (usernames in `docs/SETUP.md`, shared password from `ARMYHQ_SAMPLE_PASSWORD`; privileged sample roles enrol an authenticator app at first login). |
+| `ARMYHQ_TEST_PERSONNEL=150` | Keeps 150 synthetic Army people. Unset/0 deletes them all. |
+| `PERSONNEL_EXPORT_ENABLED`, `REPORT_EXPORT_ENABLED`, `INTEGRATIONS_ENABLED` | Stay 0 until the institution approves them. |
 
-## Before production (still open)
-- **Recovery delivery is not wired.** No email/SMS provider is chosen, so in non-development environments nothing is sent (logged as an error). Implement `IRecoveryDelivery` once the provider is selected. In Development the token is written to the log.
-- **Upload scanning is a no-op** (`NoopUploadScanner`); plug in a real scanner (e.g. ClamAV) before accepting real identity documents. Files are on a local volume; move to private object storage with the same `IFileStore` interface.
-- MFA is optional for everyone; decide which roles (platform staff at least) must use it.
-- Branch membership is recorded but not yet used to restrict what branch staff can see, and jobs have no branch yet. That needs a business rule for "no branch = company-wide?".
-- Not compiled or run anywhere yet (no .NET, Flutter or network access in the build environment): expect small fixes on first `dotnet build`, `npm run build`, `flutter analyze`.
-- Phases 3-6 are below.
+## Frontend on Netlify (no backend)
+`cd frontend && npm run build:preview` builds a standalone preview with built-in sample data (no backend); `API_ORIGIN=https://your-backend npm run build:netlify`
+builds against a real backend. Deploy `frontend/dist`, or connect the repo with Base directory `frontend`. See `docs/NETLIFY.md`.
 
-## Business decisions still needed (not invented here)
-Business categories and company verification evidence, role-to-permission assignments (a starting point is in `Data/Seed.cs`), trade qualifications, launch city, hosting and identity provider.
+## Army-only build
+This build is Army-only.
+Useful commands: `create_command_authority`, `report_duplicate_identities`, `seed_test_personnel`, `remove_legacy_structure`, `access_report`.
 
----
+## Documentation
+`docs/SETUP.md` (run it), `docs/DEPLOY_ROLLBACK.md` (migrations and rollback), `docs/RUNBOOK.md` (backup, restore, monitoring, incidents),
+`docs/SECURITY.md`, `docs/LIMITATIONS.md`, `docs/ROLE_CATALOGUE.md` (what each role can do), `docs/INTEGRATIONS.md`, `CHANGELOG.md`.
 
-## Phase 2 — Relationships and dispatch (added)
-- **Relationships:** company invites a technician (must have a verified skill), technician accepts or declines; Employed or Independent; company can suspend, reactivate or end; both sides are blocked from ending while offers/jobs are open.
-- **Availability:** technicians publish non-overlapping windows (max 31 days each).
-- **Customers and service locations:** company-scoped; foreign customer/location ids are rejected.
-- **Jobs:** unique reference, required skills (must belong to the trade), schedule, priority, status history, cancel, reschedule (withdraws any live offer and re-opens the job).
-- **Matching:** `GET .../jobs/{id}/candidates` filters on active relationship valid for the time, verified and unexpired skills, availability covering the window, and no overlapping confirmed job. It ranks with configurable weights (`Matching:EmployedBonus`, `Matching:SameDayJobPenalty`) and explains every score or blocker. **Recommending never assigns.**
-- **Dispatch:** explicit `offer` by staff with `job.dispatch`, technician `respond` (accept re-checks eligibility inside a serializable transaction), `withdraw`, `reassign` (old assignment kept as `Reassigned`). One live assignment per job is enforced by a filtered unique index.
-- **Job state machine:** full spec state list in `JobRules`; all changes go through `JobFlow.Move`.
-- **In-app notifications** (`/notifications`) written in the same transaction as the event.
+## Release history
+Administrative web platform for Puntland's Army. Stack: Django + DRF, PostgreSQL, React + TypeScript. Recent interface work (universal search,
+shared data tables, personnel profile tabs, the redesigned dashboard) is listed in `CHANGELOG.md`.
 
-### Before production
-- Apply `docs/postgres-constraints.sql` in the first migration (overlap exclusion constraint).
-- Ranking ignores service areas (not modelled yet) and acceptance history; the weights are placeholders, not validated business rules.
-- Notifications are in-app rows only; the persistent delivery queue and provider integrations are Phase 5.
+## Included in 1.0
+- Login (session cookie + CSRF), lockout, throttling, TOTP MFA (mandatory for privileged roles),
+  forced password change, session revocation (disable, role revoke, admin "sign out everywhere").
+- Users, roles, permissions, scoped role assignments (subtree of the organization + optional service branch,
+  validity dates). Deny by default; every check is server-side.
+- Configurable organization: HQ → region → branch command → unit. Seeded: Bari, Nugaal, Mudug;
+  Army.
+- Rank catalogue (service-specific, English/Somali, draft/approved), managed in the database. The Army list is the
+  16 official Puntland Army ranks (Dable ... Sarreye Guud), stored as supplied with no invented translations.
+- Organizational template for the Army: Taliska Guud (regional command), Qayb, Gaas, Guuto, Urur, Horin, Koox, Unug,
+  with reference strengths (information only), approved strength exceptions, specialist designations (Sahan, Sanco) and
+  expected-relationship checks, on the **Structure** page.
+- Append-only audit log (model guard + PostgreSQL trigger), correlation IDs.
+- Role-aware dashboard (real counts for scope/ranks/accounts/audit; clearly labelled synthetic sample figures).
+- Somali/English UI, mobile-first (bottom nav on phones, sidebar on desktop).
+- OpenAPI at `/api/v1/docs/` when `ENABLE_API_DOCS=1`.
 
----
+## Added in 1.1 (Personnel)
+- Personnel records: system ID, optional unique service number, name, phone, branch (derived from unit), unit,
+  **approved** rank of the same branch, service status. Scoped on every list, detail, edit, search, history, import, export.
+- Effective-dated history for rank, unit and status; transfer / change-rank / change-status workflows (no future-dated changes).
+- Duplicate detection (service number hard-blocked; same name+phone/unit needs explicit confirmation).
+- CSV import: preview (validated against *your* scope, no personal data echoed back) then commit (all-or-nothing, re-validated).
+- CSV export: separate permission, **disabled unless `PERSONNEL_EXPORT_ENABLED=1`**, scoped, audited, formula-safe.
+- Headquarters administrators get **no** personnel access by default; personnel permissions go to regional chiefs,
+  branch/unit administrators, reporting users and read-only users within their scope.
+- Personnel needs approved ranks: approve ranks (with Somali names) before adding people.
 
-## Phase 3 — Execution and quality (added)
-- **Technician field workflow:** Accepted -> EnRoute -> Arrived -> InProgress, each recorded in the job's status history (device time kept in the reason). Skipping steps is refused by the state machine.
-- **Minimum necessary customer data:** the customer's name, phone, address and access notes are returned only to the technician whose assignment is *Accepted* and only while the job is in the field; never before acceptance, never to other technicians.
-- **Evidence:** multipart upload (before / progress / after / other), PDF/JPEG/PNG sniffed from the bytes, 5 MB, random storage key, SHA-256, scanner hook, 40 per job. Reads only via a 120 s signed link bound to the evidence and the user, re-authorized at read time (own technician, or company staff with `job.read`). Views are audited.
-- **Work reports** are versioned. Submitting needs `Jobs:MinEvidence` (default 1) new evidence items since the last return. **Scope changes** are reported on site and decided by a reviewer; a pending one blocks approval.
-- **Supervisor review** (`job.review`: supervisor, owner): approve -> Completed (stamps `CompletedAt` and warranty end), or return with a required note -> ReturnedForCorrection. Nobody can review their own work.
-- **Complaints** (raise, resolve) and **callbacks**: a callback is a new Open job linked to the completed one, recording rework responsibility and whether it was under warranty. Warranty length is set per job (`warrantyDays`) because the terms are a business decision.
-- **Idempotency:** status, evidence, scope-change and report requests honour an `Idempotency-Key` header; the first result is stored in the same transaction, so a retry after a dropped connection replays it instead of repeating it.
-- **Clients:** Flutter `JobDetailScreen` (status steps, evidence, scope change, report) and a web **Review** tab for supervisors.
+## Added in 1.2 (Requests, reports, approvals)
+- Configurable request/report types (seeded: monthly administrative report with whitelisted numeric figures, transfer
+  request, training request). HQ administrators can add types; types in use cannot change kind/figures.
+- Workflow: draft → submitted → under review → approved / rejected / returned for correction; approved items can be
+  amended and re-approved. Every submit creates an immutable revision; every step records actor, time, comment.
+- Separation of duties per type (default on): nobody who submitted any revision can review it. Denials are audited.
+- Identity, status, scope and approval state are never read from the client: actor = session, transitions only through
+  action endpoints, scope enforced per item and per summary row, optimistic concurrency on every change.
+- Summaries: approved content only, by region and consolidated, date/type/unit filters, limited to the caller's scope.
+  A previously approved revision keeps counting while an amendment is pending.
+- Notifications: submit/resubmit → reviewers in scope; review/decision → submitter. Private to the recipient and
+  re-authorized when read (no title once scope is lost).
+- Summary CSV export: own permission, **off unless `REPORT_EXPORT_ENABLED=1`**, scoped, audited, formula-safe.
 
-### Open for Phase 3
-- Financial follow-up after completion (`PHASE4-HOOK` in the review endpoint) arrives in Phase 4.
-- Offline queueing on the phone (store-and-forward with the same idempotency keys) is part of Phase 6.
+## Added in 1.3 (Logistics and training)
+- **Categories:** created by HQ administrators as drafts; usable only after *institutional review* by a separate
+  `logistics_reviewer` (creator cannot approve; Somali name required; restricted categories need the stronger
+  `logistics.restricted_approve`). Renaming an approved category sends it back for review.
+- **Stock:** quantity lines per unit with an append-only ledger (receive / issue / adjust / transfer). Row-locked,
+  never negative (also a database CHECK), optional `expected_balance` guard, reasons required for adjustments,
+  transfers only into units you also manage.
+- **Assets:** individually tracked items with unit-level issue/return, maintenance, missing/lost/retired, transfer, an
+  accountable custodian (a user authorised for that unit) and a full event history.
+- **Restricted equipment:** a separate permission (`logistics.restricted`) controls visibility *and* every action;
+  restricted categories, items, reconciliations and summary rows are invisible to everyone else. The inventory has
+  **no link to personnel records** (a test enforces this): items are accounted to units and custodians, never as a
+  person-by-person assignment directory.
+- **Reconciliation:** one open count per unit; variances become audited adjustments against the *current* balance;
+  items not found become "missing", found ones are restored. Restricted lines only in restricted reconciliations.
+- **Training:** HQ-managed course catalogue (English/Somali); records tied to personnel with a strict status flow
+  (enrolled → in progress → completed/failed, or withdrawn), completion dates validated. Training staff pick people
+  through a minimal roster (name + unit only) and get **no** general personnel access.
+- **Summaries:** logistics (by category and region; stock totals, below-reorder, assets by status) and training
+  (by course and region and status), both limited to the caller's scope.
 
----
+## Added in 1.4 (Hardening: no new product features)
+- Fixes found in review: rate-limit bypass through a spoofed `X-Forwarded-For`, TOTP code replay, no absolute session
+  lifetime, admin-chosen recovery passwords (now one-time codes), timing difference for locked accounts, unprotected
+  history tables (now PostgreSQL triggers), unaudited audit reads, unbounded request size, missing headers.
+- Guard rails: `manage.py check --deploy` rules, secret redaction in logs, health endpoints, bulk-operation rate limit,
+  retention job for CSV import data, `security_report` for alerting.
+- Evidence: deny-by-default sweep over every route, cross-region canary matrix across all modules, CSRF/CORS/session/MFA/
+  recovery tests, migration safety and query-count tests, PostgreSQL concurrency test.
+- Operations: `docs/SECURITY.md` (findings, residual risks, items for independent review), `docs/RUNBOOK.md` (backup,
+  restore, monitoring, incident response, rollback), `docs/TEST_PLAN_1.4.md`, `ops/` scripts, `deploy/` proxy template,
+  `backend/Dockerfile`, CI workflow, accessibility/layout end-to-end scaffolding.
 
-## Phase 4 — Finance (added)
-**Money model.** `NUMERIC(19,4)` / `decimal` everywhere, positive, at most 4 decimals; every record carries its currency and currencies are never mixed
-(a payment in another currency than its invoice/payable is refused; reports are one block per currency). Allowed currencies and methods are configuration, not code.
 
-- **Financial terms** per job (`/companies/{id}/jobs/{jobId}/financial-terms`): versioned, proposed by `finance.terms` (dispatcher, owner), approved by `finance.terms.approve` (owner).
-  Approver must differ from proposer unless the amount is within `Finance:SelfApprovalLimit` (default 0). One approved version per job (unique index); once obligations exist, terms cannot change.
-  Each terms row says who pays the technician: `company` or `customer` (direct). Platform fee is an amount on the terms; the revenue model that produces it is **not** decided here.
-- **Completion starts the finance workflow, separately from the approval.** When a supervisor approves work (or terms are approved after completion) the system creates the technician payable
-  (company-paid: `Accrued` until finance approves it; direct: `Approved`, tracked only) and a platform-fee record. Missing terms never block completion; finance is notified instead.
-- **Invoices** (`finance.invoice`): from a completed job with approved terms; lines must sum to the approved customer charge; one live invoice per job; void (owner) reverses the ledger and never deletes.
-- **Payments:** initiate -> confirm -> reconcile, three steps, and the person cannot be the same at consecutive steps (initiator != confirmer, confirmer != reconciler; reversal != confirmer).
-  Cash needs the acknowledging party; other methods need a provider/bank reference. Manual confirmation is stored as `verified=false`; only a signed provider callback sets `verified=true`.
-  Over-payment is refused (initiated + confirmed <= amount due); the same provider reference cannot be posted twice (unique index); concurrent changes to one invoice/payable/refund are serialised by a concurrency token.
-  Failed, reversed and refunded money is kept and reported separately; every step is appended to `PaymentEvents`.
-- **Provider callback** `POST /payments/provider-callback` (anonymous, HMAC-SHA256 of the raw body in `X-Signature`, secret `Finance:CallbackSecret`). Provider-neutral: the body carries our payment `reference`.
-  Duplicates answer 200 without posting again; amount/currency mismatches are refused and logged for review. No provider is selected, so this is an interface, not an integration.
-- **Direct customer-to-technician payments:** the technician records what they received (`/technicians/me/payables/{id}/acknowledge`, idempotent). It is *self-reported* until company finance reconciles it, and it never touches the company ledger.
-- **Refunds:** requested (`finance.refund.request`), decided by someone else (`finance.refund.approve`), paid through the normal payment flow; total refunds cannot exceed what was collected.
-- **Disputes:** technician or finance raises; an open dispute blocks payout; decided by someone else with a written resolution. Any adjustment is posted separately (refund/reversal) and referenced in the resolution.
-- **Ledger:** double-entry, immutable (`LedgerEntries`), unique `LineKey` so a posting cannot be made twice, reversals instead of edits. Accounts: 1000 cash, 1100 receivable, 2100 technician payable, 2200 platform fees payable,
-  4000 revenue, 4900 refunds, 5000 technician expense, 5100 platform fee expense. `GET .../finance/reconciliation` shows unreconciled and self-reported payments, stuck payments and the trial balance.
-- **Platform finance** (`platform_finance` role): list fees, mark settled or waived (note required to waive).
-- **Database backstops** (in the `PostgresConstraints` migration): positive-amount checks, one-sided ledger lines, append-only triggers on ledger/payment events/audit, and a deferred trigger that rejects an unbalanced posting.
-- New roles/permissions are in `Data/Seed.cs` (company_finance can invoice, pay, reconcile and request refunds; owner holds the approval powers). **Confirm these with the business.**
+Not yet (by design): integrations/offline (2.0, only after institutional approval), tactical features.
 
-## Phase 5 — Reporting and notifications (added)
-- **Reports** (`since`/`until` query params, default last 30 days; always scoped to the company in the URL): `reports/jobs` (volume, status, cancellations, acceptance, duration, complaints, callbacks),
-  `reports/technicians` (offers, acceptance, completions, scheduled vs available hours = utilization), `reports/finance` (per currency: receivables, payables, direct payments, refunds, disputed, platform fees,
-  payments by status, unreconciled, and the ids of the source records behind each figure). Job/technician reports need `report.read`; finance needs `finance.read`.
-  Reports aggregate in memory (decimal-safe on every database) and cap at 20,000 rows per source, flagged as `truncated`; move heavy reporting to SQL views/read replicas in Phase 6.
-- **Persistent delivery queue.** The in-app notification is the event (committed with the change). A worker fans it out to `NotificationDeliveries` for channels the user enabled, sends through `INotificationProvider`,
-  retries with exponential backoff, and marks a delivery `Dead` after `Notifications:MaxAttempts` (or at once if the recipient has no address). Providers must treat `DeliveryId` as an idempotency key (the worker is at-least-once).
-  **No email/SMS provider is registered** (not chosen yet); enabling a channel without one returns 409. Register providers in `Program.cs`.
-- **Reminders** (deduplicated by key, safe to run on several instances): job starting soon, qualification expiring, review overdue, approved payable unpaid.
-- **Platform oversight:** `GET /platform/overview` (companies, verification queues, jobs, notification queue health, open disputes) and delivery list/retry (no message bodies exposed). Needs `platform.oversight`.
-- **Clients:** web Finance and Reports tabs, notification preferences; Flutter Earnings tab (own payables, "I received money", report a problem).
+See `docs/SETUP.md` to run it and `docs/DEPLOY_ROLLBACK.md` for migrations and rollback.
 
-## Not verified / still open after Phases 4-5
-- **Nothing here was compiled or run** (no .NET SDK, Flutter or npm network in the build environment). Expect small fixes on first `dotnet build` / `dotnet test`. The new tests (`Phase4Tests`, `Phase5Tests`) are written but have not passed.
-- Concurrency is protected by concurrency tokens and unique indexes, but there is **no concurrent-request test**; the SQLite test harness shares one connection. Add a PostgreSQL integration test (Testcontainers) in Phase 6.
-- Decisions not invented: compensation model, platform revenue model (subscriptions are **not** built), supported payment providers, refund/dispute/cancellation policy, retention. Currencies/methods/limits are configuration placeholders.
-- Cancelling a job with an existing payable, cancellation charges and scope-change repricing are not modelled; use refund/reversal/dispute for now.
-- Payable cancellation, partial-refund-after-void and multi-invoice jobs are out of scope. Branch-scoped finance visibility is not implemented (same open question as jobs).
-- No migrations are included; re-run `scripts/make-migrations.sh` (the model changed). Phase 6: security review, load tests, backups, monitoring, clean-install test, offline queue on the phone.
+## Added in 2.0 (Institutional expansion; additive, 1.x contracts unchanged)
+- **Analytics** (`/api/v1/analytics/`, page *Analytics*): aggregate personnel, reports, logistics and training figures with date and region filters. Needs `analytics.view` plus the section's existing permission; limited to the caller's scope; read-only; restricted equipment excluded.
+- **Integration API** (`/api/v1/ext/`, admin at `/api/v1/integrations/clients/`, page *Integrations*): scoped, expiring, revocable bearer keys that read aggregate analytics only; small cells withheld; per-key rate limit; full call log. **Off unless `INTEGRATIONS_ENABLED=1`.** See `docs/INTEGRATIONS.md`.
+- **Governed structure changes** (`/api/v1/organization/structure-changes/`, page *Structure changes*): levels (names, order, parents, strength standards) change only by proposal + approval by a different person (role *Structure approver*); direct edits refused by default (`STRUCTURE_CHANGES_REQUIRE_APPROVAL`). See `docs/STRUCTURE_APPROVAL.md`.
+- **Unit tree** (`/api/v1/organization/units/tree/`, page *Unit tree*): scoped nested view of the organization.
+- Not built: configurable top-level categories, outbound integrations, offline access (`docs/OFFLINE_DECISION.md`).
+- Docs: `IMPACT_ASSESSMENT_v2.0.md`, `MIGRATION_PLAN_v2.0.md`, `SECURITY_REVIEW_v2.0.md`, `COMPATIBILITY_v2.0.md`, `CHANGE_REPORT_v2.0.0.md`.
+- Upgrade: `migrate` then `seed_reference_data` (see `docs/MIGRATION_PLAN_v2.0.md`).
 
----
 
-## Phase 6 — Hardening (added)
-**Read [docs/production-readiness.md](docs/production-readiness.md) first: it says plainly what is built, what is verified (almost nothing yet), and which business decisions block launch.**
-
-- **API hardening:** security headers and `X-Correlation-Id` on every response, no server banner, request-size cap, HSTS in production, per-user/IP global rate limit (`RateLimit__ApiPerMinute`) on top of the auth limit, trusted-proxy mode (`Security__TrustProxy`) for correct client addresses behind TLS termination.
-- **Configurable MFA requirement:** `Security__MfaRequiredPermissions` lists permissions (company or platform) that need a second factor. Which roles must use MFA is a business decision, so nothing is forced by default.
-- **Upload scanning:** ClamAV client (INSTREAM, fail-closed). Production **refuses to start** without `Scanner__ClamAv__Host` unless `Scanner__AllowNoop=true`. Note: the plain `docker-compose.yml` runs in Production mode too, so set `Scanner__AllowNoop=true` there for local trials.
-- **Operability:** `/health/live`, `/health/ready` (database, pending migrations, file storage), token-protected Prometheus `/metrics` (request rate/errors/latency plus queue, payment, dispute and verification gauges), `GET /platform/integrity` (ledger balance, postings for confirmed/reversed payments, invoice lines, over-payment, single live assignment, history).
-- **Retention:** idempotency records older than `Retention__IdempotencyDays` (default 14, longer than a phone should stay offline) are purged hourly by the worker. All other retention periods are undecided and nothing else is deleted.
-- **Offline phone queue (Flutter):** status, scope-change, report and evidence actions are stored on the phone when there is no connection and sent in order with their original idempotency keys on app start, resume, a 30 s timer or "Send now". Network/5xx failures keep the action; a refusal (4xx) moves it to a visible "not accepted" list instead of blocking the queue. Not run on a device yet.
-- **Ops kit:** `docker-compose.prod.yml` (Caddy TLS proxy, unprivileged read-only API, Postgres, ClamAV), unprivileged `Dockerfile` with healthcheck, CI (`.github/workflows/ci.yml`: build, tests, vulnerable packages, secret scan, migrations on empty PostgreSQL, web build/audit, Flutter analyze/test, image scan), `scripts/backup.sh`, `scripts/restore-drill.sh`, `scripts/smoke.sh`, `scripts/clean-install-check.sh`, `ops/loadtest/k6-smoke.js`.
-- **Documentation:** `docs/ops/` — deployment, backup-restore, monitoring/alerts, incident-response, operations-runbook (permission administration, verification, payment reconciliation, failed notifications, disputes, data requests), release (CI/CD, migrations, rollback vs forward-fix), pilot-uat, security (controls ↔ tests, known gaps), restore-drills log; `docs/permission-matrix.md` generated from `Seed.cs`.
-- **Tests (`Phase6Tests`):** security headers; readiness; metrics hidden without token; rate limiting; MFA-required permissions; cross-company id substitution sweep incl. evidence links; role escalation; malicious uploads and scanner rejection; audit/ledger/payment-event immutability; idempotency purge; replay of queued requests; 250-message backlog through a provider outage; integrity check clean vs tampered.
-
-### Still open after Phase 6 (honest list)
-Nothing has been compiled or run · no restore drill, load test, clean install, pen test or pilot has happened · no PostgreSQL concurrency/constraint tests (SQLite harness) · PITR/WAL archiving depends on hosting · identity provider, object storage and email/SMS/payment providers not selected · audit rows are not hash-chained · retention, MFA-role, privacy/legal and all business decisions listed in the readiness report.
-
----
-
-## Phase 7 — Remaining spec items (added)
-Closes the gaps between the spec's minimum schema/workflows and Phase 6. **Not compiled or run** (same limitation as every earlier drop: no .NET SDK in the build environment).
-
-- **Outbox (`OutboxEvents`).** Spec: "use an outbox pattern for reliable event delivery". `Outbox.Add` writes the event in the same transaction as the change. Wired to `job.offered`, `job.approved`/`job.returned`, `finance.payment_confirmed`, `finance.payable_cancelled` and the subscription events. `OutboxDispatcher` (run by the maintenance worker) sends to every registered `IOutboxPublisher`, retries with exponential backoff (cap 1 h), and marks an event `Dead` after `Outbox:MaxAttempts` (default 8). **No publisher is registered** (consumers are not chosen), so events stay `Pending` and are visible in `/platform/overview`, `/platform/outbox` (no payloads) and the `duale_outbox_*` metrics. Delivery is at-least-once: consumers de-duplicate on the event id. Payloads carry ids and amounts only, never customer data.
-- **Payable cancellation.** `POST /companies/{id}/payables/{pid}/cancel` (`finance.adjust`, reason required). Refused while a payment is initiated or confirmed (fail/reverse it first) or a dispute is open. An approved company-paid accrual is reversed in the ledger (`payable-cancel:{id}`); nothing is deleted; the technician is notified. The platform-fee record for the job is **not** touched (decide fee policy first). Cancelling does not create a replacement payable: accrual only runs at job approval / terms approval.
-- **Platform subscriptions (`PlatformSubscriptions`).** Platform finance records a subscription (plan label, amount, currency, inclusive period) per company, cancels with a reason, and the company owner/staff can read their own (`GET /companies/{id}/subscription`). Overlapping active periods are refused in the app and by a PostgreSQL exclusion constraint. **No billing, pricing or enforcement**: the revenue model is a business decision and nothing in the system is gated by a subscription.
-- **Integration accounts (`IntegrationAccounts`).** `platform_admin` registers provider metadata (kind, provider, display name, `SecretRef`). `SecretRef` is validated as a secret *name*; values never enter the database. Enabling an account does not add provider code; register a provider in `Program.cs`.
-- **Fixed a compile error in the Phase 6 drop:** `ReasonReq` was declared in both `Phase2Endpoints.cs` and `Phase4Endpoints.cs`.
-- New permission `integration.manage` (platform_admin). Tests: `Phase7Tests`.
-
-### Deliberate deviations from the spec's minimum schema
-- `file_metadata`: file metadata (type, size, SHA-256, storage key, reviewer) lives on `TechnicianDocuments` and `JobEvidence` rather than in one shared table; the access rules differ per owner, so a shared table would add joins without adding control.
-- `financial_allocations`: each payment targets exactly one invoice, payable or refund (`PaymentRecords`), so allocation is the payment's own foreign key. Split payments across several invoices are out of scope (one invoice per job).
-
-### Still open after Phase 7
-Migrations are still not included (run `scripts/make-migrations.sh`; it will pick up the three new tables) · PostgreSQL concurrency/constraint tests (Testcontainers) not written · `jobs.BranchId` and branch-scoped visibility need the "no branch = company-wide?" decision · audit rows are not hash-chained · web UI for subscriptions, integrations and the outbox is not built (API only) · everything in the readiness report's decision list.
-
----
-
-## Render deployment (added)
-`render.yaml` + `Dockerfile.render` deploy the dashboard and API as one service with a private PostgreSQL database. See [docs/ops/render.md](docs/ops/render.md) for the steps and the limits (staging/pilot shape, no virus scanner, single instance, migrations must be committed after the first deploy). Not run on Render by the authors.
+## Frontend on Netlify (2.1.2, no backend)
+`cd frontend && npm run build:preview` builds a standalone preview with built-in sample data (no backend); `API_ORIGIN=https://your-backend npm run build:netlify`
+builds against a real backend. Deploy `frontend/dist`, or connect the repo with Base directory `frontend`. See `docs/NETLIFY.md`.
