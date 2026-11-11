@@ -1,3 +1,6 @@
+import re
+import unicodedata
+
 from django.contrib.sessions.models import Session
 from django.db.models import F
 from django.utils import timezone
@@ -29,3 +32,27 @@ def other_admins_exist(*, excluding_user_id=None, excluding_assignment_id=None):
     if excluding_assignment_id:
         qs = qs.exclude(pk=excluding_assignment_id)
     return qs.exists()
+
+
+USERNAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_.-]{2,63}$")  # lowercase letters, digits, dot, underscore, dash
+
+
+def _name_tokens(full_name):
+    folded = unicodedata.normalize("NFKD", full_name or "").encode("ascii", "ignore").decode().lower()
+    return [t for t in re.split(r"[^a-z0-9]+", folded) if t]
+
+
+def suggest_usernames(full_name, limit=5):
+    """Free `firstname.lastname` usernames for a person, best first.
+
+    Order: first.last, then with each middle name's initial (ali.h.warsame), then with a number (ali.warsame2 ...).
+    Only names that are valid and not already taken are returned."""
+    tokens = _name_tokens(full_name)
+    if not tokens:
+        return []
+    first, last = tokens[0], tokens[-1]
+    base = f"{first}.{last}" if len(tokens) > 1 else first
+    names = [base] + [f"{first}.{m[0]}.{last}" for m in tokens[1:-1]] + [f"{base}{n}" for n in range(2, 10)]
+    names = [n for n in dict.fromkeys(names) if USERNAME_PATTERN.match(n)]
+    taken = set(User.objects.filter(username__in=names).values_list("username", flat=True))
+    return [n for n in names if n not in taken][:limit]

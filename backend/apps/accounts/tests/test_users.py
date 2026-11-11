@@ -18,10 +18,11 @@ class UserAdminTests(BaseApiTest):
 
     def test_admin_creates_user_with_forced_password_change(self):
         c = self.client_for(self.make_user("adm", "hq_admin"))
-        r = c.post("/api/v1/users/", {"username": "Fatima.Demo", "full_name": "Fatima Demo",
+        r = c.post("/api/v1/users/", {"username": "fatima.demo", "full_name": "Fatima Demo",
                                       "initial_password": "Abcdefghijk-123"}, format="json")
         self.assertEqual(r.status_code, 201, r.data)
         self.assertEqual(r.data["username"], "fatima.demo")
+        self.assertIsNone(r.data["personnel_id"])
         self.assertTrue(r.data["must_change_password"])
         self.assertNotIn("password", r.data)
         self.assertTrue(AuditEvent.objects.filter(action="user.create", outcome="success").exists())
@@ -88,3 +89,29 @@ class UserAdminTests(BaseApiTest):
         self.assertIsNotNone(r.data["next"])
         for key in ("password", "mfa_secret_enc", "auth_epoch"):
             self.assertNotIn(key, r.data["results"][0])
+
+    def test_username_allows_only_lowercase_digits_dot_underscore_dash(self):
+        c = self.client_for(self.make_user("adm", "hq_admin"))
+        for bad in ("Fatima.Demo", "fatima demo", "fatima@demo", "fa", "fatima/demo", ".fatima"):
+            r = c.post("/api/v1/users/", {"username": bad, "full_name": "F D", "initial_password": "Abcdefghijk-123"}, format="json")
+            self.assertEqual(r.status_code, 400, bad)
+            self.assertIn("invalid_username", self.codes(r, "username"), bad)
+        r = c.post("/api/v1/users/", {"username": "f_a-t.ima9", "full_name": "F D", "initial_password": "Abcdefghijk-123"}, format="json")
+        self.assertEqual(r.status_code, 201, r.data)
+
+    def test_suggest_username_adds_middle_initial_then_number(self):
+        c = self.client_for(self.make_user("adm", "hq_admin"))
+        get = lambda name: c.get("/api/v1/users/suggest-username/", {"full_name": name}).json()["suggestions"]
+        self.assertEqual(get("Ali Warsame")[0], "ali.warsame")
+        User.objects.create_user("ali.warsame", password="x", full_name="Ali Warsame")
+        self.assertEqual(get("Ali Warsame")[0], "ali.warsame2")
+        self.assertEqual(get("Ali Hassan Warsame")[:2], ["ali.h.warsame", "ali.warsame2"])
+        self.assertEqual(get("Cabdi Xaashi Nuur")[0], "cabdi.nuur")
+        self.assertEqual(get(""), [])
+        r = c.post("/api/v1/users/", {"username": "ali.warsame", "full_name": "Ali Warsame", "initial_password": "Abcdefghijk-123"}, format="json")
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("ali.warsame2", str(r.data))
+
+    def test_non_admin_cannot_use_suggest_username(self):
+        c = self.client_for(self.make_user("reader", "read_only"))
+        self.assertEqual(c.get("/api/v1/users/suggest-username/", {"full_name": "A B"}).status_code, 403)

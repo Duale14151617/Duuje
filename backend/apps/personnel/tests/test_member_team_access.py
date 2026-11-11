@@ -237,3 +237,11 @@ class ReportingScreenApiTests(PersonnelBase):
         self.assertEqual(self.post(self.csv("A-0002,A-0001", header="service_number,boss")).status_code, 400)
         member = self.client_for(self.make_user("mem2", "member", unit="BARI-ARMY"))
         self.assertEqual(member.post(f"{URL}reporting-lines/", {"file": self.csv("A-0002,A-0001,")}, format="multipart").status_code, 403)
+
+    def test_user_page_reports_the_linked_personnel_record(self):
+        from apps.accounts.models import User
+        admin = self.client_for(self.make_user("adm", "hq_admin"))
+        self.assertEqual(admin.get(f"/api/v1/users/{self.sgt_user.pk}/").json()["personnel_id"], str(self.sgt.pk))
+        unlinked = User.objects.create_user("no.link", password="x", full_name="No Link")
+        self.assertIsNone(admin.get(f"/api/v1/users/{unlinked.pk}/").json()["personnel_id"])
+

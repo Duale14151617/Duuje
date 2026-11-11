@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
-import type { Assignment, Branch, Page, Role, Unit, UserRow } from "../api/types";
+import type { Assignment, Branch, Page, Person, Role, Unit, UserRow } from "../api/types";
 import { useFetch } from "../api/useFetch";
 import { useAuth } from "../auth/AuthContext";
 import { DataTable, type Column } from "../components/DataTable";
@@ -17,6 +17,17 @@ function AddUser({ onDone }: { onDone: () => void }) {
   const [language, setLanguage] = useState("so");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<unknown>(null);
+  const [touched, setTouched] = useState(false);  // true once the administrator typed a username themselves
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+
+  async function suggest() {
+    if (!fullName.trim()) { setSuggestions([]); return; }
+    try {
+      const r = await api<{ suggestions: string[] }>("/users/suggest-username/", { query: { full_name: fullName.trim() } });
+      setSuggestions(r.suggestions);
+      if (!touched && r.suggestions[0]) setUsername(r.suggestions[0]);
+    } catch { /* suggestions are a convenience; the server still validates the username */ }
+  }
 
   async function save(e: FormEvent) {
     e.preventDefault();
@@ -31,8 +42,18 @@ function AddUser({ onDone }: { onDone: () => void }) {
     <form className="card" onSubmit={(e) => void save(e)}>
       <h2>{t("users.add")}</h2>
       <ErrorNotice error={error} />
-      <Field label={t("users.username")}><input value={username} onChange={(e) => setUsername(e.target.value)} autoCapitalize="none" required /></Field>
-      <Field label={t("users.fullName")}><input value={fullName} onChange={(e) => setFullName(e.target.value)} required /></Field>
+      <Field label={t("users.fullName")}><input value={fullName} onChange={(e) => setFullName(e.target.value)} onBlur={() => void suggest()} required /></Field>
+      <Field label={t("users.username")}>
+        <input value={username} onChange={(e) => { setTouched(true); setUsername(e.target.value.toLowerCase()); }}
+               autoCapitalize="none" autoComplete="off" spellCheck={false} minLength={3} maxLength={64}
+               pattern={"[a-z0-9][a-z0-9_.\\-]{2,63}"} title={t("users.usernameRule")} required />
+      </Field>
+      <p className="muted">{t("users.usernameRule")}</p>
+      {suggestions.length > 1 && (
+        <div className="row">
+          {suggestions.map((s) => <button key={s} type="button" className="secondary" onClick={() => { setTouched(true); setUsername(s); }}>{s}</button>)}
+        </div>
+      )}
       <Field label={t("users.email")}><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
       <Field label={t("users.language")}>
         <select value={language} onChange={(e) => setLanguage(e.target.value)}>
@@ -42,6 +63,7 @@ function AddUser({ onDone }: { onDone: () => void }) {
       <Field label={t("users.initialPassword")}>
         <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" minLength={12} required />
       </Field>
+      <p className="muted">{t("users.tempPasswordHelp")}</p>
       <button type="submit">{t("common.create")}</button>
     </form>
   );
@@ -71,6 +93,71 @@ export function Users() {
                  filtered={!!q} onReset={() => { setQ(""); setPage(1); }} empty={{ icon: "users", title: t("common.empty") }}
                  page={page} count={users.data?.count} pageSize={25} onPage={setPage} />
     </>
+  );
+}
+
+function PersonnelLink({ user, onChanged }: { user: UserRow; onChanged: () => void }) {
+  const { t, name } = useI18n();
+  const [q, setQ] = useState("");
+  const [debounced, setDebounced] = useState("");
+  const [pick, setPick] = useState("");
+  const [error, setError] = useState<unknown>(null);
+  useEffect(() => { const h = setTimeout(() => setDebounced(q.trim()), 250); return () => clearTimeout(h); }, [q]);
+  const linked = user.personnel_id ?? null;
+  const record = useFetch<Person>(linked ? `/personnel/${linked}/` : null);
+  const results = useFetch<Page<Person>>(!linked && debounced.length >= 2 ? "/personnel/" : null, { q: debounced, page_size: 20 });
+  const options = results.data?.results ?? [];
+  const label = (p: Person) => `${p.rank.code} ${name(p.rank)} · ${p.full_name}${p.service_number ? ` · ${p.service_number}` : ""}`;
+
+  async function link(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const person = options.find((p) => p.id === pick);
+    if (!person) return;
+    try {
+      await api(`/personnel/${person.id}/`, { method: "PATCH", body: { version: person.version, account_username: user.username } });
+      setQ(""); setPick(""); onChanged();
+    } catch (err) { setError(err); }
+  }
+  async function unlink() {
+    if (!record.data) return;
+    setError(null);
+    try {
+      await api(`/personnel/${record.data.id}/`, { method: "PATCH", body: { version: record.data.version, account_username: null } });
+      onChanged();
+    } catch (err) { setError(err); }
+  }
+
+  return (
+    <section className="card">
+      <h2>{t("users.personnelRecord")}</h2>
+      <ErrorNotice error={error ?? record.error} />
+      {linked ? (
+        <>
+          {record.data && <p>{label(record.data)}</p>}
+          <div className="row">
+            <Link to={`/personnel/${linked}`}>{t("users.openRecord")}</Link>
+            <button type="button" className="secondary" onClick={() => void unlink()} disabled={!record.data}>{t("users.unlinkRecord")}</button>
+          </div>
+        </>
+      ) : (
+        <form onSubmit={(e) => void link(e)}>
+          <p className="muted">{t("users.linkHelp")}</p>
+          <input type="search" value={q} onChange={(e) => { setQ(e.target.value); setPick(""); }} maxLength={100}
+                 aria-label={t("rline.search")} placeholder={t("rline.search")} />
+          <ErrorNotice error={results.error} />
+          {options.length > 0 && (
+            <Field label={t("users.personnelRecord")}>
+              <select value={pick} onChange={(e) => setPick(e.target.value)} required>
+                <option value="" />
+                {options.map((p) => <option key={p.id} value={p.id}>{label(p)}</option>)}
+              </select>
+            </Field>
+          )}
+          <button type="submit" disabled={!pick}>{t("users.linkRecord")}</button>
+        </form>
+      )}
+    </section>
   );
 }
 
@@ -129,6 +216,7 @@ export function UserDetail() {
             {!u.is_active && <Chip tone="bad">{t("users.disabledBadge")}</Chip>}
             {u.mfa_enabled && <Chip tone="approved">{t("users.mfa")}</Chip>}
             {u.must_change_password && <Chip tone="draft">{t("users.mustChange")}</Chip>}
+            {u.email && (u.email_verified ? <Chip tone="ok">{t("account.verified")}</Chip> : <Chip tone="warn">{t("account.notVerified")}</Chip>)}
           </div>
           {manage && (
             <>
@@ -146,6 +234,7 @@ export function UserDetail() {
           )}
         </section>
       )}
+      {u && can("personnel.manage") && <PersonnelLink user={u} onChanged={() => user.reload()} />}
       <h2>{t("users.assignments")}</h2>
       {assignments.data && assignments.data.length === 0 && <EmptyState title={t("users.noAssignments")} />}
       <ul className="list">

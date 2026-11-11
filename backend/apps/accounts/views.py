@@ -35,7 +35,7 @@ from .serializers import (AssignmentCreateSerializer, AssignmentSerializer, Emai
                           PasswordResetSerializer,
                           RoleSerializer, UserCreateSerializer, UserSerializer, UserUpdateSerializer,
                           check_password_strength)
-from .services import other_admins_exist, revoke_user_sessions
+from .services import other_admins_exist, revoke_user_sessions, suggest_usernames
 
 MAX_FAILED_LOGINS = 5
 LOCK_MINUTES = 15
@@ -567,7 +567,7 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         "disable": ("users.manage", "global"), "enable": ("users.manage", "global"),
         "revoke_sessions": ("users.manage", "global"), "reset_mfa": ("users.manage", "global"),
         "reset_password": ("users.manage", "global"), "issue_reset_code": ("users.manage", "global"),
-        "assignments": ("users.view", "global"),
+        "assignments": ("users.view", "global"), "suggest_username": ("users.manage", "global"),
         "revoke_assignment": ("roles.assign", "global"),
     }
 
@@ -582,13 +582,19 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         return target
 
     def get_queryset(self):
-        qs = User.objects.all()
+        qs = User.objects.select_related("personnel_record")
         p = self.request.query_params
         if p.get("q"):
             qs = qs.filter(Q(username__icontains=p["q"]) | Q(full_name__icontains=p["q"]))
         if p.get("is_active") in ("true", "false"):
             qs = qs.filter(is_active=p["is_active"] == "true")
         return qs
+
+    @action(detail=False, methods=["get"], url_path="suggest-username")
+    def suggest_username(self, request):
+        """Free firstname.lastname usernames for a full name (middle initial, then number, when the plain one is taken)."""
+        names = suggest_usernames(request.query_params.get("full_name", ""))
+        return Response({"suggestions": names})
 
     @transaction.atomic
     def create(self, request, *args, **kwargs):

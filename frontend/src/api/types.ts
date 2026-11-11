@@ -53,6 +53,7 @@ export interface UserRow {
   id: string; username: string; full_name: string; email: string; preferred_language: Lang; is_active: boolean;
   mfa_enabled: boolean; must_change_password: boolean; last_login: string | null; version: number;
   email_verified?: boolean;
+  personnel_id?: string | null;
 }
 export interface Role extends Named { id: string; code: string; is_privileged: boolean; requires_branch: boolean;
   allowed_scope_levels: string[]; permissions: string[] }

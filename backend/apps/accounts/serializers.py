@@ -1,5 +1,3 @@
-import re
-
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
@@ -8,9 +6,7 @@ from apps.core.concurrency import require_version, versioned_update
 from apps.organization.models import OrganizationalUnit, ServiceBranch
 
 from .models import Role, RoleAssignment, User
-
-USERNAME_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]{2,63}$")
-
+from .services import USERNAME_PATTERN, suggest_usernames
 
 def check_password_strength(password, user=None):
     try:
@@ -135,15 +131,21 @@ class AssignmentCreateSerializer(serializers.Serializer):
 
 class UserSerializer(serializers.ModelSerializer):
     email_verified = serializers.SerializerMethodField()
+    personnel_id = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = ["id", "username", "full_name", "email", "email_verified", "preferred_language", "is_active",
-                  "mfa_enabled", "must_change_password", "last_login", "created_at", "version"]
+                  "mfa_enabled", "must_change_password", "last_login", "created_at", "version", "personnel_id"]
         read_only_fields = fields
 
     def get_email_verified(self, obj) -> bool:
         return obj.email_verified_at is not None
+
+    def get_personnel_id(self, obj):
+        """The personnel record linked to this login, if any (id only: the record's own access rules decide what can be read)."""
+        rec = getattr(obj, "personnel_record", None)  # a missing reverse one-to-one raises an AttributeError subclass, so the default applies
+        return str(rec.pk) if rec else None
 
 
 class UserCreateSerializer(serializers.Serializer):
@@ -154,11 +156,15 @@ class UserCreateSerializer(serializers.Serializer):
     initial_password = serializers.CharField(trim_whitespace=False)
 
     def validate_username(self, value):
-        value = value.lower()
-        if not USERNAME_RE.match(value):
-            raise serializers.ValidationError("3-64 chars: a-z, 0-9, _ . -", code="invalid_username")
+        value = value.strip()
+        if not USERNAME_PATTERN.match(value):
+            raise serializers.ValidationError(
+                "Use 3-64 characters: lowercase letters, digits, dots, underscores and dashes only (for example ali.warsame).",
+                code="invalid_username")
         if User.objects.filter(username=value).exists():
-            raise serializers.ValidationError("Username is taken.", code="username_taken")
+            free = suggest_usernames((self.initial_data or {}).get("full_name", ""), limit=3)
+            hint = f" Try: {', '.join(free)}." if free else " Add a middle initial or a number (for example ali.warsame2)."
+            raise serializers.ValidationError("Username is taken." + hint, code="username_taken")
         return value
 
     def validate(self, attrs):
