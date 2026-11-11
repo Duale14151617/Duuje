@@ -1,0 +1,39 @@
+# Production-shaped stack: TLS proxy in front, API and worker unprivileged, database/scanner not published.
+# Secrets come from the host (env file outside source control, or your secret manager) — never from this repo.
+#   docker compose -f docker-compose.prod.yml --env-file /etc/duale/prod.env up -d
+services:
+  proxy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment: { DOMAIN: "${DOMAIN:?set DOMAIN}", ACME_EMAIL: "${ACME_EMAIL:?set ACME_EMAIL}" }
+    volumes: [./ops/caddy/Caddyfile:/etc/caddy/Caddyfile:ro, caddy_data:/data, caddy_config:/config]
+    depends_on: [api]
+  api:
+    build: .
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    env_file: ${APP_ENV_FILE:-/etc/duale/prod.env}
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Default: Host=db;Database=duale;Username=duale;Password=${DB_PASSWORD:?set DB_PASSWORD}
+      Security__TrustProxy: "true"
+      Scanner__ClamAv__Host: clamav
+      Database__AutoMigrate: "${AUTO_MIGRATE:-false}"   # prefer applying migrations as a separate, reviewed release step
+    volumes: [files:/data/files]
+    depends_on: { db: { condition: service_healthy }, clamav: { condition: service_started } }
+    expose: ["8080"]
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment: { POSTGRES_DB: duale, POSTGRES_USER: duale, POSTGRES_PASSWORD: "${DB_PASSWORD:?set DB_PASSWORD}" }
+    volumes: [dbdata:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U duale -d duale"], interval: 10s, timeout: 5s, retries: 10 }
+  clamav:
+    image: clamav/clamav:stable
+    restart: unless-stopped
+    volumes: [clamdb:/var/lib/clamav]
+volumes: { caddy_data: {}, caddy_config: {}, dbdata: {}, files: {}, clamdb: {} }

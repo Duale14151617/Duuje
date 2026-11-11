@@ -1,12 +1,21 @@
-# Local PostgreSQL for development only. Do not reuse these credentials anywhere else.
+# Local development only. HTTPS termination (reverse proxy) is a Phase 6 deployment task.
 services:
   db:
     image: postgres:16
     environment:
-      POSTGRES_DB: armyhq
-      POSTGRES_USER: armyhq_owner
-      POSTGRES_PASSWORD: dev-only-change-me
-    ports: ["127.0.0.1:5432:5432"]
-    volumes: ["armyhq_pg:/var/lib/postgresql/data"]
+      POSTGRES_DB: duale
+      POSTGRES_USER: duale
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes: [dbdata:/var/lib/postgresql/data]
+    ports: ["5432:5432"]
+  api:
+    build: .
+    depends_on: [db]
+    env_file: .env
+    environment:
+      ConnectionStrings__Default: Host=db;Database=duale;Username=duale;Password=${DB_PASSWORD}
+    volumes: [files:/data/files]
+    ports: ["8080:8080"]
 volumes:
-  armyhq_pg:
+  dbdata:
+  files:

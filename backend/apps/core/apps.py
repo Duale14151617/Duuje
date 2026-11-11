@@ -1,8 +1,0 @@
-from django.apps import AppConfig
-
-
-class CoreConfig(AppConfig):
-    name = "apps.core"
-
-    def ready(self):
-        from . import checks  # noqa: F401  (registers `manage.py check --deploy` checks)

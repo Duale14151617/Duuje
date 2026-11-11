@@ -1,0 +1,13 @@
+{$DOMAIN} {
+	email {$ACME_EMAIL}
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+	# Operational endpoints are not for the internet.
+	@internal path /metrics /health/*
+	respond @internal 404
+	request_body { max_size 12MB }
+	reverse_proxy api:8080
+}
