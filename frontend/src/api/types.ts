@@ -14,8 +14,6 @@ export interface Me {
   features: { personnel_export: boolean; report_export: boolean; integrations: boolean; email_verification?: boolean };
   /** The personnel record this login belongs to, if one is linked. */
   personnel_id?: string | null;
-  temp_password_expires_at?: string | null;
-  role_count?: number | null;
 }
 export interface Page<T> { count: number; next: string | null; previous: string | null; results: T[] }
 export interface Unit extends Named {
@@ -56,6 +54,8 @@ export interface UserRow {
   mfa_enabled: boolean; must_change_password: boolean; last_login: string | null; version: number;
   email_verified?: boolean;
   personnel_id?: string | null;
+  temp_password_expires_at?: string | null;
+  role_count?: number | null;
 }
 export interface Role extends Named { id: string; code: string; is_privileged: boolean; requires_branch: boolean;
   allowed_scope_levels: string[]; permissions: string[] }
