@@ -571,6 +571,7 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
 
     serializer_class = UserSerializer
     permission_classes = [ScopedPermission]
+    throttle_scope = None  # set per action (bulk create)
     permission_map = {
         "list": ("users.view", "global"), "retrieve": ("users.view", "global"),
         "create": ("users.manage", "global"), "partial_update": ("users.manage", "global"),
