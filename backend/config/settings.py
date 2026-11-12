@@ -231,6 +231,8 @@ MFA_RECOVERY_CODE_MINUTES = int(os.environ.get("MFA_RECOVERY_CODE_MINUTES", "15"
 EMAIL_VERIFICATION_ENABLED = env_bool("EMAIL_VERIFICATION_ENABLED", False)
 EMAIL_VERIFY_CODE_MINUTES = int(os.environ.get("EMAIL_VERIFY_CODE_MINUTES", "15"))
 PASSWORD_FORGOT_ENABLED = env_bool("PASSWORD_FORGOT_ENABLED", False)
+# A temporary password (set by an administrator, must be changed at first sign-in) stops working after this many days.
+TEMP_PASSWORD_DAYS = int(os.environ.get("TEMP_PASSWORD_DAYS", "7"))
 PASSWORD_FORGOT_CODE_MINUTES = int(os.environ.get("PASSWORD_FORGOT_CODE_MINUTES", "30"))
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
 # Brevo sends over HTTPS (port 443), for hosts that block outgoing SMTP (Render's free web services do). It wins over SMTP when set.

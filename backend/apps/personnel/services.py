@@ -12,6 +12,23 @@ from apps.ranks.models import Rank
 
 from .models import Personnel, PersonnelHistory
 
+LEAVING = ("retired", "discharged")  # statuses that end a person's service (death has its own workflow and closes the login too)
+
+
+def close_login_on_leaving(request, actor, person, new_status):
+    """Retirement or discharge ends the person's login (their appointments already end). The link to the record is kept.
+    Returns the outcome ("closed", "already", "blocked_last_admin") or None when nothing applies."""
+    if new_status not in LEAVING or not person.account_id:
+        return None
+    from apps.accounts.services import close_login
+    result = close_login(User.objects.get(pk=person.account_id))
+    record("personnel.account_closed" if result != "blocked_last_admin" else "personnel.account_close_blocked", request=request,
+           actor=actor, entity_type="personnel", entity_id=person.pk,
+           outcome="success" if result != "blocked_last_admin" else "denied",
+           metadata={"result": result, "reason": new_status, "account": str(person.account_id)})
+    return result
+
+
 PHONE_RE = re.compile(r"^\+?[0-9 ()-]{6,20}$")
 SERVICE_NO_RE = re.compile(r"^[A-Za-z0-9/-]{3,32}$")
 STATUSES = {s.value for s in Personnel.Status}

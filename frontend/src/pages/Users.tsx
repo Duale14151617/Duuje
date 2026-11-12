@@ -10,7 +10,7 @@ import { Chip, ErrorNotice, Field, formatDate, Loading, Notice, PageHeader, Empt
 import { useI18n } from "../i18n";
 
 function AddUser({ onDone }: { onDone: () => void }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [username, setUsername] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -19,6 +19,7 @@ function AddUser({ onDone }: { onDone: () => void }) {
   const [error, setError] = useState<unknown>(null);
   const [touched, setTouched] = useState(false);  // true once the administrator typed a username themselves
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [created, setCreated] = useState<{ username: string; password: string; expires: string } | null>(null);
 
   async function suggest() {
     if (!fullName.trim()) { setSuggestions([]); return; }
@@ -33,10 +34,21 @@ function AddUser({ onDone }: { onDone: () => void }) {
     e.preventDefault();
     setError(null);
     try {
-      await api("/users/", { method: "POST", body: {
+      const r = await api<UserRow & { temporary_password?: string }>("/users/", { method: "POST", body: {
         username, full_name: fullName, email, preferred_language: language, initial_password: password } });
-      onDone();
+      if (r.temporary_password) setCreated({ username: r.username, password: r.temporary_password, expires: r.temp_password_expires_at ?? "" });
+      else onDone();
     } catch (err) { setError(err); }
+  }
+  if (created) {
+    return (
+      <section className="card">
+        <h2>{t("users.add")}</h2>
+        <Notice>{t("users.tempResult", { user: created.username, password: created.password, date: created.expires ? formatDate(created.expires, lang) : "" })}</Notice>
+        <p className="muted">{t("users.tempOnce")}</p>
+        <button type="button" onClick={onDone}>{t("users.done")}</button>
+      </section>
+    );
   }
   return (
     <form className="card" onSubmit={(e) => void save(e)}>
@@ -61,7 +73,7 @@ function AddUser({ onDone }: { onDone: () => void }) {
         </select>
       </Field>
       <Field label={t("users.initialPassword")}>
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" minLength={12} required />
+        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" minLength={12} placeholder={t("users.generateHint")} />
       </Field>
       <p className="muted">{t("users.tempPasswordHelp")}</p>
       <button type="submit">{t("common.create")}</button>
@@ -69,28 +81,60 @@ function AddUser({ onDone }: { onDone: () => void }) {
   );
 }
 
+type UserFilters = { is_active: string; email_verified: string; linked: string; has_role: string; never_signed_in: string };
+const NO_FILTERS: UserFilters = { is_active: "", email_verified: "", linked: "", has_role: "", never_signed_in: "" };
+
 export function Users() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { can } = useAuth();
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [adding, setAdding] = useState(false);
-  const users = useFetch<Page<UserRow>>("/users/", { q, page });
+  const [f, setF] = useState<UserFilters>(NO_FILTERS);
+  const users = useFetch<Page<UserRow>>("/users/", { q, page, ...f });
+  const set = (k: keyof UserFilters) => (v: string) => { setF((p) => ({ ...p, [k]: v })); setPage(1); };
+  const yesNo = [{ value: "true", label: t("users.f.yes") }, { value: "false", label: t("users.f.no") }];
+  const reset = () => { setQ(""); setF(NO_FILTERS); setPage(1); };
+  const anyFilter = !!q || Object.values(f).some((v) => v !== "");
 
   const columns: Column<UserRow>[] = [
     { id: "name", header: t("pers.fullName"), width: 240, locked: true, sort: (u) => u.full_name, cell: (u) => <Link to={`/users/${u.id}`}>{u.full_name}</Link> },
     { id: "username", header: t("users.username"), width: 200, sort: (u) => u.username, cell: (u) => u.username },
     { id: "state", header: t("pers.status"), width: 260,
-      cell: (u) => <>{!u.is_active && <Chip tone="bad">{t("users.disabledBadge")}</Chip>}{u.mfa_enabled && <> <Chip tone="ok">{t("users.mfa")}</Chip></>}{u.is_active && !u.mfa_enabled && <span className="muted">—</span>}</> },
+      cell: (u) => <>{!u.is_active && <Chip tone="bad">{t("users.disabledBadge")}</Chip>}{u.mfa_enabled && <> <Chip tone="ok">{t("users.mfa")}</Chip></>}{u.must_change_password && <> <Chip tone="draft">{t("users.mustChange")}</Chip></>}{u.is_active && !u.mfa_enabled && !u.must_change_password && <span className="muted">—</span>}</> },
+    { id: "roles", header: t("users.col.roles"), width: 120, sort: (u) => u.role_count ?? 0,
+      cell: (u) => (u.role_count ?? 0) > 0 ? String(u.role_count) : <Chip tone="warn">{t("users.col.noRole")}</Chip> },
+    { id: "email", header: t("users.email"), width: 190,
+      cell: (u) => !u.email ? <span className="muted">—</span> : u.email_verified ? <Chip tone="ok">{t("account.verified")}</Chip> : <Chip tone="warn">{t("account.notVerified")}</Chip> },
+    { id: "record", header: t("users.personnelRecord"), width: 170,
+      cell: (u) => u.personnel_id ? <Link to={`/personnel/${u.personnel_id}`}>{t("users.openRecord")}</Link> : <span className="muted">—</span> },
+    { id: "lastLogin", header: t("users.lastLogin"), width: 170, sort: (u) => u.last_login ?? "",
+      cell: (u) => u.last_login ? formatDate(u.last_login, lang) : <span className="muted">{t("users.never")}</span> },
   ];
+  const actions = can("users.manage") && !adding
+    ? <div className="row">
+        <button onClick={() => setAdding(true)}>{t("users.add")}</button>
+        {can("roles.assign") && <Link to="/users/import"><button type="button" className="secondary">{t("users.bulk.open")}</button></Link>}
+        <Link to="/users/review"><button type="button" className="secondary">{t("review.open")}</button></Link>
+      </div>
+    : <Link to="/users/review"><button type="button" className="secondary">{t("review.open")}</button></Link>;
   return (
     <>
-      <PageHeader title={t("users.title")} actions={can("users.manage") && !adding ? <button onClick={() => setAdding(true)}>{t("users.add")}</button> : undefined} />
+      <PageHeader title={t("users.title")} actions={actions} />
       {adding && <AddUser onDone={() => { setAdding(false); users.reload(); }} />}
-      <FilterBar search={{ value: q, label: t("common.search"), onChange: (v) => { setQ(v); setPage(1); } }} onReset={() => { setQ(""); setPage(1); }} />
+      <FilterBar search={{ value: q, label: t("common.search"), onChange: (v) => { setQ(v); setPage(1); } }} onReset={reset}
+                 filters={[
+                   { id: "active", label: t("pers.status"), value: f.is_active, onChange: set("is_active"),
+                     options: [{ value: "true", label: t("users.f.active") }, { value: "false", label: t("users.disabledBadge") }] },
+                   { id: "role", label: t("users.f.hasRole"), value: f.has_role, onChange: set("has_role"), options: yesNo },
+                   { id: "email", label: t("users.f.emailVerified"), value: f.email_verified, onChange: set("email_verified"), options: yesNo },
+                   { id: "linked", label: t("users.f.linked"), value: f.linked, onChange: set("linked"), options: yesNo, advanced: true },
+                   { id: "never", label: t("users.f.neverSignedIn"), value: f.never_signed_in, onChange: set("never_signed_in"),
+                     options: [{ value: "true", label: t("users.f.yes") }], advanced: true },
+                 ]} />
       <ErrorNotice error={users.error} />
       <DataTable id="users" caption={t("users.title")} columns={columns} rows={users.data?.results} rowKey={(u) => u.id} loading={users.loading}
-                 filtered={!!q} onReset={() => { setQ(""); setPage(1); }} empty={{ icon: "users", title: t("common.empty") }}
+                 filtered={anyFilter} onReset={reset} empty={{ icon: "users", title: t("common.empty") }}
                  page={page} count={users.data?.count} pageSize={25} onPage={setPage} />
     </>
   );
@@ -177,6 +221,7 @@ export function UserDetail() {
   const [validFrom, setValidFrom] = useState("");
   const [validUntil, setValidUntil] = useState("");
   const [issued, setIssued] = useState<{ code: string; valid_minutes: number } | null>(null);
+  const [tempShown, setTempShown] = useState<{ password: string; expires: string } | null>(null);
   const manage = can("users.manage");
   const assign = can("roles.assign");
 
@@ -198,8 +243,16 @@ export function UserDetail() {
     catch (err) { setError(err); }
   }
   async function resetPassword() {
-    const temp = window.prompt(t("users.tempPassword"));
-    if (temp) await post("reset-password/", { temporary_password: temp });
+    const temp = window.prompt(t("users.resetPrompt"));
+    if (temp === null) return;  // cancelled
+    setError(null);
+    setTempShown(null);
+    try {
+      const r = await api<{ temporary_password?: string; expires_at?: string } | undefined>(`/users/${id}/reset-password/`, {
+        method: "POST", body: temp ? { temporary_password: temp } : {} });
+      if (r?.temporary_password) setTempShown({ password: r.temporary_password, expires: r.expires_at ?? "" });
+      user.reload(); assignments.reload();
+    } catch (err) { setError(err); }
   }
 
   const u = user.data;
@@ -216,6 +269,7 @@ export function UserDetail() {
             {!u.is_active && <Chip tone="bad">{t("users.disabledBadge")}</Chip>}
             {u.mfa_enabled && <Chip tone="approved">{t("users.mfa")}</Chip>}
             {u.must_change_password && <Chip tone="draft">{t("users.mustChange")}</Chip>}
+            {u.must_change_password && u.temp_password_expires_at && <Chip tone="warn">{t("users.tempExpires", { date: formatDate(u.temp_password_expires_at, lang) })}</Chip>}
             {u.email && (u.email_verified ? <Chip tone="ok">{t("account.verified")}</Chip> : <Chip tone="warn">{t("account.notVerified")}</Chip>)}
           </div>
           {manage && (
@@ -229,6 +283,7 @@ export function UserDetail() {
               <button className="secondary" onClick={() => void resetPassword()}>{t("users.resetPassword")}</button>
               <button className="secondary" onClick={() => void issueResetCode()}>{t("users.issueReset")}</button>
             </div>
+            {tempShown && <Notice>{t("users.tempResult", { user: u.username, password: tempShown.password, date: tempShown.expires ? formatDate(tempShown.expires, lang) : "" })}</Notice>}
             {issued && <Notice>{t("users.resetCodeShown", { minutes: issued.valid_minutes, code: issued.code })}</Notice>}
             </>
           )}

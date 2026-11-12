@@ -281,6 +281,7 @@ def _apply_rank_or_status(req, actor, request):
         if ended:
             record("personnel.appointments_ended", request=request, actor=actor, entity_type="personnel", entity_id=updated.pk,
                    metadata={"count": ended, "access_revoked": revoked, "reason": status, "change_request": str(req.pk)})
+    svc.close_login_on_leaving(request, actor, updated, status)
 
 
 def _apply_appointments(req, actor, request):

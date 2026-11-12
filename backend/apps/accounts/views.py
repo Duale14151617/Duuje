@@ -10,13 +10,14 @@ from django.conf import settings
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.core.mail import send_mail
 from django.db import transaction
-from django.db.models import F, Q
+from django.db.models import Count, F, Q
 from django.middleware.csrf import get_token
 from django.utils import timezone
 from rest_framework import mixins, status, viewsets
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -25,7 +26,7 @@ from apps.audit.services import record
 from apps.core.errors import field_error
 from apps.core import crypto
 
-from . import scope
+from . import access_review as review_mod, bulk, scope
 from .models import EmailVerificationCode, MfaRecoveryCode, PasswordResetToken, Role, RoleAssignment, User
 from .permissions import ScopedPermission
 from .security import consume_totp, restrictions
@@ -35,7 +36,7 @@ from .serializers import (AssignmentCreateSerializer, AssignmentSerializer, Emai
                           PasswordResetSerializer,
                           RoleSerializer, UserCreateSerializer, UserSerializer, UserUpdateSerializer,
                           check_password_strength)
-from .services import other_admins_exist, revoke_user_sessions, suggest_usernames
+from .services import alert_privileged_grant, generate_temp_password, other_admins_exist, sensitive_role, revoke_user_sessions, suggest_usernames, temp_password_deadline
 
 MAX_FAILED_LOGINS = 5
 LOCK_MINUTES = 15
@@ -104,6 +105,12 @@ class LoginView(APIView):
         if authed is None:
             self._register_failure(request, user, "bad_password")
             return bad
+
+        if authed.must_change_password and authed.temp_password_expires_at and authed.temp_password_expires_at < now:
+            record("auth.login", request=request, actor=authed, outcome="denied", entity_type="user", entity_id=authed.pk,
+                   metadata={"reason": "temporary_password_expired"})
+            return error("temporary_password_expired",
+                         "Your temporary password has expired. Ask an administrator for a new one.", status.HTTP_401_UNAUTHORIZED)
 
         if authed.mfa_enabled:
             if not otp:
@@ -181,8 +188,9 @@ class PasswordChangeView(APIView):
         with transaction.atomic():
             user.set_password(new)
             user.must_change_password = False
+            user.temp_password_expires_at = None
             user.auth_epoch += 1  # signs out every other session
-            user.save(update_fields=["password", "must_change_password", "auth_epoch", "updated_at"])
+            user.save(update_fields=["password", "must_change_password", "temp_password_expires_at", "auth_epoch", "updated_at"])
             update_session_auth_hash(request, user)
             request.session["auth_epoch"] = user.auth_epoch
             record("auth.password_change", request=request, entity_type="user", entity_id=user.pk)
@@ -275,9 +283,11 @@ class PasswordResetView(APIView):
                 return fail
             user.set_password(d["new_password"])
             user.must_change_password = False
+            user.temp_password_expires_at = None
             user.failed_login_count = 0
             user.locked_until = None
-            user.save(update_fields=["password", "must_change_password", "failed_login_count", "locked_until", "updated_at"])
+            user.save(update_fields=["password", "must_change_password", "temp_password_expires_at", "failed_login_count",
+                                     "locked_until", "updated_at"])
             revoke_user_sessions(user)
             record("auth.password_reset", request=request, actor=user, entity_type="user", entity_id=user.pk,
                    metadata={"via": "admin_code" if token.created_by_id else "email_code"})
@@ -567,7 +577,7 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         "disable": ("users.manage", "global"), "enable": ("users.manage", "global"),
         "revoke_sessions": ("users.manage", "global"), "reset_mfa": ("users.manage", "global"),
         "reset_password": ("users.manage", "global"), "issue_reset_code": ("users.manage", "global"),
-        "assignments": ("users.view", "global"), "suggest_username": ("users.manage", "global"),
+        "assignments": ("users.view", "global"), "suggest_username": ("users.manage", "global"), "bulk_create": ("users.manage", "global"), "access_review": ("users.view", "global"),
         "revoke_assignment": ("roles.assign", "global"),
     }
 
@@ -582,13 +592,33 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         return target
 
     def get_queryset(self):
-        qs = User.objects.select_related("personnel_record")
+        qs = User.objects.select_related("personnel_record").annotate(
+            role_count=Count("assignments", filter=Q(assignments__revoked_at__isnull=True), distinct=True))
         p = self.request.query_params
         if p.get("q"):
             qs = qs.filter(Q(username__icontains=p["q"]) | Q(full_name__icontains=p["q"]))
         if p.get("is_active") in ("true", "false"):
             qs = qs.filter(is_active=p["is_active"] == "true")
+        if p.get("email_verified") in ("true", "false"):
+            qs = qs.filter(email_verified_at__isnull=p["email_verified"] == "false")
+        if p.get("linked") in ("true", "false"):
+            qs = qs.filter(personnel_record__isnull=p["linked"] == "false")
+        if p.get("has_role") in ("true", "false"):
+            qs = qs.filter(role_count__gt=0) if p["has_role"] == "true" else qs.filter(role_count=0)
+        if p.get("never_signed_in") == "true":
+            qs = qs.filter(last_login__isnull=True)
+        if p.get("temp_password") == "true":
+            qs = qs.filter(must_change_password=True)
         return qs
+
+    @action(detail=False, methods=["get"], url_path="access-review")
+    def access_review(self, request):
+        """Who needs attention: dormant or never-used accounts, privileged roles without MFA, expired temporary passwords, fewer than
+        two administrators ... Read-only; every view is audited."""
+        data = review_mod.review()
+        record("access.review", request=request, entity_type="access_review",
+               metadata={"findings": {k: v["count"] for k, v in data["findings"].items()}, "via": "api"})
+        return Response(data)
 
     @action(detail=False, methods=["get"], url_path="suggest-username")
     def suggest_username(self, request):
@@ -596,14 +626,50 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         names = suggest_usernames(request.query_params.get("full_name", ""))
         return Response({"suggestions": names})
 
+    @action(detail=False, methods=["post"], url_path="bulk", parser_classes=[MultiPartParser], throttle_scope="bulk")
+    def bulk_create(self, request):
+        """Create many accounts from a CSV (full_name, role, unit; optional username, email, branch, service_number, language).
+        dry_run=true (default) only reports. dry_run=false re-checks everything and creates all accounts or none, and returns
+        each account's one-time temporary password. Needs both account management and role assignment authority."""
+        if not scope.can(request.user, "roles.assign"):
+            record("access.denied", request=request, outcome="denied", entity_type="user",
+                   metadata={"permission": "roles.assign", "action": "bulk_create"})
+            raise PermissionDenied()
+        upload = request.FILES.get("file")
+        if upload is None:
+            raise field_error("file", "file_required", "Choose a CSV file.")
+        try:
+            rows = bulk.parse_csv(upload)
+        except bulk.BulkError as exc:
+            raise field_error(exc.field, exc.code)
+        results = bulk.validate_rows(request.user, rows)
+        bad = [r for r in results if r["errors"]]
+        report = [{"row": r["row"], "errors": r["errors"], "username": r["data"].get("username", "")} for r in results]
+        if str(request.data.get("dry_run", "true")).lower() not in ("false", "0", "no"):
+            record("user.bulk_preview", request=request, entity_type="user", metadata={"rows": len(rows), "valid": len(rows) - len(bad)})
+            return Response({"total": len(rows), "valid": len(rows) - len(bad), "can_commit": not bad, "rows": report})
+        if bad:
+            return Response({"code": "import_has_errors", "detail": "Fix the file and preview again.", "rows": report}, status=409)
+        with transaction.atomic():
+            created = bulk.apply_rows(request, results)
+            record("user.bulk_create", request=request, entity_type="user", metadata={"created": len(created)})
+        for c in created:
+            alert = c.pop("_alert", None)
+            if alert:
+                alert_privileged_grant(request.user, *alert)  # after commit, so a rolled-back file never sends an alert
+        return Response({"total": len(rows), "created": created})
+
     @transaction.atomic
     def create(self, request, *args, **kwargs):
         ser = UserCreateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         user = ser.save()
         record("user.create", request=request, entity_type="user", entity_id=user.pk,
-               metadata={"username": user.username})
-        return Response(UserSerializer(user).data, status=201)
+               metadata={"username": user.username, "generated_password": ser.generated_password is not None})
+        data = dict(UserSerializer(user).data)
+        if ser.generated_password:
+            data["temporary_password"] = ser.generated_password  # shown once, never stored in clear
+        return Response(data, status=201)
 
     @transaction.atomic
     def partial_update(self, request, *args, **kwargs):
@@ -668,12 +734,18 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         user = self.get_object()
         ser = PasswordResetSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
-        user.set_password(ser.validated_data["temporary_password"])
+        typed = ser.validated_data.get("temporary_password")
+        password = typed or generate_temp_password()
+        user.set_password(password)
         user.must_change_password = True
-        user.save(update_fields=["password", "must_change_password", "updated_at"])
+        user.temp_password_expires_at = temp_password_deadline()
+        user.save(update_fields=["password", "must_change_password", "temp_password_expires_at", "updated_at"])
         revoke_user_sessions(user)
-        record("user.reset_password", request=request, entity_type="user", entity_id=user.pk)
-        return Response(status=204)
+        record("user.reset_password", request=request, entity_type="user", entity_id=user.pk,
+               metadata={"generated_password": not typed})
+        if typed:
+            return Response(status=204)
+        return Response({"temporary_password": password, "expires_at": user.temp_password_expires_at})  # shown once
 
     @action(detail=True, methods=["post"], url_path="issue-reset-code")
     @transaction.atomic
@@ -711,6 +783,10 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
                    metadata={"user": str(target.pk), "role": a.role.code, "org_unit": str(a.org_unit_id),
                              "branch": str(a.branch_id) if a.branch_id else None})
         a = RoleAssignment.objects.select_related("role", "org_unit", "branch").get(pk=a.pk)
+        if sensitive_role(a.role):
+            record("role_assignment.privileged", request=request, entity_type="role_assignment", entity_id=a.pk,
+                   metadata={"user": str(target.pk), "role": a.role.code, "org_unit": str(a.org_unit_id)})
+            alert_privileged_grant(request.user, target, a.role, a.org_unit)
         return Response(AssignmentSerializer(a).data, status=201)
 
     @action(detail=True, methods=["post"], url_path=r"assignments/(?P<assignment_id>[0-9a-f-]{36})/revoke")

@@ -36,8 +36,13 @@ def permission_codes(user):
     return codes
 
 
+# Holding any of these means a user can create accounts, hand out roles or override module switches: always needs MFA, even if the
+# role carrying it was not flagged "privileged".
+ADMIN_PERMS = frozenset({"users.manage", "roles.assign", "system.full_access"})
+
+
 def requires_mfa(user):
-    return any(a.role.is_privileged for a in assignments(user))
+    return any(a.role.is_privileged or (ADMIN_PERMS & a.perm_codes) for a in assignments(user))
 
 
 def is_global(a):

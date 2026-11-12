@@ -31,6 +31,8 @@ class User(AbstractBaseUser):
     preferred_language = models.CharField(max_length=2, choices=LANGUAGES, default="en")
     is_active = models.BooleanField(default=True)
     must_change_password = models.BooleanField(default=False)
+    # When a temporary password (must_change_password) stops working. Null = no deadline. Cleared once the user sets their own.
+    temp_password_expires_at = models.DateTimeField(null=True, blank=True)
     mfa_enabled = models.BooleanField(default=False)
     mfa_secret_enc = models.TextField(blank=True)  # Fernet-encrypted TOTP secret
     # Bumped on disable / role change / password change; sessions carry the value

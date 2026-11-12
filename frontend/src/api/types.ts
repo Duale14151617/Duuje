@@ -14,6 +14,8 @@ export interface Me {
   features: { personnel_export: boolean; report_export: boolean; integrations: boolean; email_verification?: boolean };
   /** The personnel record this login belongs to, if one is linked. */
   personnel_id?: string | null;
+  temp_password_expires_at?: string | null;
+  role_count?: number | null;
 }
 export interface Page<T> { count: number; next: string | null; previous: string | null; results: T[] }
 export interface Unit extends Named {
@@ -388,3 +390,14 @@ export interface OrgAnalytics {
 }
 export interface UnitDepartmentRow { id: string; unit: string; department: Department; note: string; active: boolean; version: number }
 export interface AppointmentTypeRow extends Named { id: string; code: string; unit_type: string | null; role: string; exclusive: boolean }
+
+export interface BulkUsersReport {
+  total: number; valid?: number; can_commit?: boolean; rows?: { row: number; errors: string[]; username: string }[];
+  created?: { row: number; username: string; full_name: string; role: string; unit: string; linked: boolean; temporary_password: string; expires_at: string }[];
+}
+
+export interface ReviewFinding { count: number; items: string[] }
+export interface AccessReviewData {
+  generated_at: string; users: number; active_users: number; needs_attention: number;
+  findings: Record<string, ReviewFinding>;
+}

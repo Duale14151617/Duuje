@@ -6,7 +6,7 @@ from apps.core.concurrency import require_version, versioned_update
 from apps.organization.models import OrganizationalUnit, ServiceBranch
 
 from .models import Role, RoleAssignment, User
-from .services import USERNAME_PATTERN, suggest_usernames
+from .services import USERNAME_PATTERN, generate_temp_password, suggest_usernames, temp_password_deadline
 
 def check_password_strength(password, user=None):
     try:
@@ -132,15 +132,20 @@ class AssignmentCreateSerializer(serializers.Serializer):
 class UserSerializer(serializers.ModelSerializer):
     email_verified = serializers.SerializerMethodField()
     personnel_id = serializers.SerializerMethodField()
+    role_count = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = ["id", "username", "full_name", "email", "email_verified", "preferred_language", "is_active",
-                  "mfa_enabled", "must_change_password", "last_login", "created_at", "version", "personnel_id"]
+                  "mfa_enabled", "must_change_password", "temp_password_expires_at", "last_login", "created_at", "version",
+                  "personnel_id", "role_count"]
         read_only_fields = fields
 
     def get_email_verified(self, obj) -> bool:
         return obj.email_verified_at is not None
+
+    def get_role_count(self, obj):
+        return getattr(obj, "role_count", None)  # annotated by the user list; roles not revoked (dates are not considered)
 
     def get_personnel_id(self, obj):
         """The personnel record linked to this login, if any (id only: the record's own access rules decide what can be read)."""
@@ -153,7 +158,9 @@ class UserCreateSerializer(serializers.Serializer):
     full_name = serializers.CharField(max_length=150)
     email = serializers.EmailField(required=False, allow_blank=True)
     preferred_language = serializers.ChoiceField(choices=["en", "so"], default="en")
-    initial_password = serializers.CharField(trim_whitespace=False)
+    # Leave blank to have the system generate a random temporary password (returned once in the response).
+    initial_password = serializers.CharField(trim_whitespace=False, required=False, allow_blank=True)
+    generated_password = None
 
     def validate_username(self, value):
         value = value.strip()
@@ -168,12 +175,15 @@ class UserCreateSerializer(serializers.Serializer):
         return value
 
     def validate(self, attrs):
+        if not attrs.get("initial_password"):
+            attrs["initial_password"] = self.generated_password = generate_temp_password()
         check_password_strength(attrs["initial_password"], user=User(username=attrs["username"], full_name=attrs["full_name"]))
         return attrs
 
     def create(self, validated_data):
         password = validated_data.pop("initial_password")
-        return User.objects.create_user(password=password, must_change_password=True, **validated_data)
+        return User.objects.create_user(password=password, must_change_password=True,
+                                        temp_password_expires_at=temp_password_deadline(), **validated_data)
 
 
 class UserUpdateSerializer(serializers.Serializer):
@@ -190,7 +200,7 @@ class UserUpdateSerializer(serializers.Serializer):
 
 
 class PasswordResetSerializer(serializers.Serializer):
-    temporary_password = serializers.CharField(trim_whitespace=False)
+    temporary_password = serializers.CharField(trim_whitespace=False, required=False, allow_blank=True)  # blank = generate one
 
     def validate_temporary_password(self, value):
-        return check_password_strength(value)
+        return check_password_strength(value) if value else value

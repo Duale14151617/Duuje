@@ -265,6 +265,8 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
                 if ended:
                     record("personnel.appointments_ended", request=request, entity_type="personnel", entity_id=updated.pk,
                            metadata={"count": ended, "access_revoked": revoked, "reason": new_ref})
+            if field == "status":
+                svc.close_login_on_leaving(request, request.user, updated, new_ref)
         return self._out(updated)
 
     @action(detail=True, methods=["post"])

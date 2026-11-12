@@ -68,15 +68,6 @@ services:
       # Render's free web services block SMTP. Brevo sends over HTTPS instead: set BREVO_API_KEY and a DEFAULT_FROM_EMAIL verified in Brevo.
       - key: BREVO_API_KEY
         sync: false
-      # Self-service email: confirm an address with a code (Account page), and "Forgot your password?" on the sign-in page. Both off until
-      # outgoing email works. Forgot-password only emails accounts whose address is verified, so turn on verification first.
-      - key: EMAIL_VERIFICATION_ENABLED
-        value: "0"
-      - key: PASSWORD_FORGOT_ENABLED
-        value: "0"
-      # Render's free web services block SMTP. Brevo sends over HTTPS instead: set BREVO_API_KEY and a DEFAULT_FROM_EMAIL verified in Brevo.
-      - key: BREVO_API_KEY
-        sync: false
       - key: EMAIL_HOST
         sync: false
       - key: EMAIL_PORT
@@ -87,6 +78,9 @@ services:
         sync: false
       - key: DEFAULT_FROM_EMAIL
         sync: false
+      # A temporary password (new account or administrator reset) stops working after this many days.
+      - key: TEMP_PASSWORD_DAYS
+        value: "7"
       - key: ENABLE_API_DOCS
         value: "0"
       # Sample people: owned by the Render dashboard (sync: false), left unset = off.

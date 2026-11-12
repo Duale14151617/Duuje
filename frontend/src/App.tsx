@@ -23,6 +23,8 @@ import { AmmoControl } from "./pages/AmmoControl";
 import { Survivors } from "./pages/Survivors";
 import { Payroll } from "./pages/Payroll";
 import { ReportingLines } from "./pages/ReportingLines";
+import { UsersBulk } from "./pages/UsersBulk";
+import { AccessReview } from "./pages/AccessReview";
 import { PersonnelDetail, PersonnelForm, PersonnelImport, PersonnelList } from "./pages/Personnel";
 import { AssetDetail, LogisticsHome, ReconDetail, StockDetail } from "./pages/Logistics";
 import { TrainingHome, TrainingRecordDetail } from "./pages/Training";
@@ -114,6 +116,8 @@ export default function App() {
         <Route path="training/records/:id" element={<TrainingRecordDetail />} />
         <Route path="ranks" element={<Ranks />} />
         <Route path="users" element={<Users />} />
+        <Route path="users/import" element={<UsersBulk />} />
+        <Route path="users/review" element={<AccessReview />} />
         <Route path="users/:id" element={<UserDetail />} />
         <Route path="audit" element={<AuditLog />} />
         <Route path="*" element={<Navigate to="/" replace />} />
