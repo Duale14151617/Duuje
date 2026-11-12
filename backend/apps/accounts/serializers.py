@@ -24,8 +24,8 @@ class LoginSerializer(serializers.Serializer):
 
 
 class PasswordChangeSerializer(serializers.Serializer):
-    current_password = serializers.CharField(trim_whitespace=False)
-    new_password = serializers.CharField(trim_whitespace=False)
+    current_password = serializers.CharField(max_length=256, trim_whitespace=False)
+    new_password = serializers.CharField(max_length=256, trim_whitespace=False)
 
 
 class PasswordResetRedeemSerializer(serializers.Serializer):
@@ -159,7 +159,7 @@ class UserCreateSerializer(serializers.Serializer):
     email = serializers.EmailField(required=False, allow_blank=True)
     preferred_language = serializers.ChoiceField(choices=["en", "so"], default="en")
     # Leave blank to have the system generate a random temporary password (returned once in the response).
-    initial_password = serializers.CharField(trim_whitespace=False, required=False, allow_blank=True)
+    initial_password = serializers.CharField(max_length=256, trim_whitespace=False, required=False, allow_blank=True)
     generated_password = None
 
     def validate_username(self, value):
@@ -200,7 +200,7 @@ class UserUpdateSerializer(serializers.Serializer):
 
 
 class PasswordResetSerializer(serializers.Serializer):
-    temporary_password = serializers.CharField(trim_whitespace=False, required=False, allow_blank=True)  # blank = generate one
+    temporary_password = serializers.CharField(max_length=256, trim_whitespace=False, required=False, allow_blank=True)  # blank = generate one
 
     def validate_temporary_password(self, value):
         return check_password_strength(value) if value else value

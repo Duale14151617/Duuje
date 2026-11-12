@@ -14,6 +14,9 @@ COPY backend/requirements.txt ./requirements.txt
 RUN pip install -r requirements.txt
 COPY backend/ ./
 COPY --from=frontend-build /src/frontend/dist ./frontend_dist
+# The web process and the start-up commands need no write access to the image: run them as an unprivileged user.
+RUN useradd --create-home --uid 10001 app && chown -R app:app /app
+USER app
 EXPOSE 10000
 # Fast wake-up: only migrate runs before the web server starts. The idempotent seed/cleanup
 # commands run in the background right after gunicorn begins listening, so the port opens in

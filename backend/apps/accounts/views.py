@@ -8,6 +8,7 @@ import time
 import pyotp
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
+from django.core.cache import cache
 from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Count, F, Q
@@ -240,6 +241,25 @@ class MfaConfirmView(APIView):
 
 
 RESET_CODE_MINUTES = 60
+RESET_MAX_FAILURES = 10          # wrong reset codes per account ...
+RESET_FAILURE_WINDOW = 3600      # ... per hour, from any address, before further redemptions are refused
+
+
+def _reset_fail_key(user):
+    return f"reset-fail:{user.pk}"
+
+
+def _reset_blocked(user):
+    return cache.get(_reset_fail_key(user), 0) >= RESET_MAX_FAILURES
+
+
+def _reset_register_failure(user):
+    key = _reset_fail_key(user)
+    cache.add(key, 0, RESET_FAILURE_WINDOW)
+    try:
+        cache.incr(key)
+    except ValueError:
+        cache.set(key, 1, RESET_FAILURE_WINDOW)
 
 
 def _hash_code(code):
@@ -260,10 +280,16 @@ class PasswordResetView(APIView):
         fail = error("invalid_reset", "That reset code is not valid or has expired.", status.HTTP_400_BAD_REQUEST)
         user = User.objects.filter(username=d["username"].strip().lower(), is_active=True).first()
         token = None
+        if user is not None and _reset_blocked(user):
+            record("auth.password_reset", request=request, actor=user, outcome="denied", entity_type="user", entity_id=user.pk,
+                   metadata={"reason": "too_many_wrong_codes"})
+            return fail  # same answer as a wrong code, so the lock itself reveals nothing
         if user is not None:
             token = PasswordResetToken.objects.filter(
                 user=user, token_hash=_hash_code(d["code"]), used_at__isnull=True, expires_at__gt=timezone.now()).first()
         if token is None:
+            if user is not None:
+                _reset_register_failure(user)
             record("auth.password_reset", request=request, actor=user, outcome="failure",
                    entity_type="user", entity_id=user.pk if user else "")
             return fail
@@ -288,6 +314,11 @@ class PasswordResetView(APIView):
             user.locked_until = None
             user.save(update_fields=["password", "must_change_password", "temp_password_expires_at", "failed_login_count",
                                      "locked_until", "updated_at"])
+            # Any other code (an older emailed one, an administrator's) must not survive the change it was meant for.
+            now_used = timezone.now()
+            PasswordResetToken.objects.filter(user=user, used_at__isnull=True).update(used_at=now_used)
+            MfaRecoveryCode.objects.filter(user=user, used_at__isnull=True).update(used_at=now_used)
+            cache.delete(_reset_fail_key(user))
             revoke_user_sessions(user)
             record("auth.password_reset", request=request, actor=user, entity_type="user", entity_id=user.pk,
                    metadata={"via": "admin_code" if token.created_by_id else "email_code"})
@@ -590,7 +621,21 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
             record("access.denied", request=self.request, outcome="denied", entity_type="user", entity_id=target.pk,
                    metadata={"reason": "protected_account"})
             raise PermissionDenied("Only a super administrator can change a super administrator's account.")
+        # Credential actions hand the caller the ability to sign in as the target. Nobody may do that to an account that holds
+        # authority they do not hold themselves (otherwise a user administrator could become a payroll approver, a payment officer
+        # or a command authority by resetting that person's password, bypassing the role_exceeds_authority rule).
+        if (self.action in self.CREDENTIAL_ACTIONS and target.pk != self.request.user.pk
+                and not scope.can(self.request.user, scope.FULL_ACCESS)
+                and not self._covers_authority_of(target)):
+            record("access.denied", request=self.request, outcome="denied", entity_type="user", entity_id=target.pk,
+                   metadata={"reason": "target_exceeds_authority", "action": self.action})
+            raise PermissionDenied("This account holds authority you do not hold. Only a super administrator can change its credentials.")
         return target
+
+    CREDENTIAL_ACTIONS = frozenset({"reset_password", "reset_mfa", "issue_reset_code"})
+
+    def _covers_authority_of(self, target):
+        return scope.permission_codes(target) <= scope.permission_codes(self.request.user)
 
     def get_queryset(self):
         qs = User.objects.select_related("personnel_record").annotate(

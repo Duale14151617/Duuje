@@ -107,6 +107,12 @@ def build(include_inactive=True):
                         "active_assignments": sum(1 for u in users for r in u["assignments"] if r["status"] == "active")}}
 
 
+def _cell(value):
+    """Neutralise spreadsheet formula injection: names and notes are typed by people."""
+    value = "" if value is None else str(value)
+    return "'" + value if value[:1] in ("=", "+", "-", "@", "\t", "\r") else value
+
+
 def to_csv(report):
     import csv
     import io
@@ -118,11 +124,11 @@ def to_csv(report):
         rows = u["assignments"] or [None]
         for r in rows:
             if r is None:
-                w.writerow([u["username"], u["full_name"], u["active"], u["mfa_enabled"], "", "", "no role", "", "", "", "", "", "", "", ""])
+                w.writerow([_cell(x) for x in (u["username"], u["full_name"], u["active"], u["mfa_enabled"], "", "", "no role", "", "", "", "", "", "", "", "")])
                 continue
-            w.writerow([u["username"], u["full_name"], u["active"], u["mfa_enabled"], r["role"], r["role_name"], r["status"], r["scope"]["text"],
-                        r["scope"]["branch"] or "all", r["valid_from"] or "", r["valid_until"] or "", r["granted_by"] or "",
-                        "; ".join(r["areas"]), "; ".join(r["permissions"]), "; ".join(r["notes"])])
+            w.writerow([_cell(x) for x in (u["username"], u["full_name"], u["active"], u["mfa_enabled"], r["role"], r["role_name"], r["status"],
+                        r["scope"]["text"], r["scope"]["branch"] or "all", r["valid_from"] or "", r["valid_until"] or "", r["granted_by"] or "",
+                        "; ".join(r["areas"]), "; ".join(r["permissions"]), "; ".join(r["notes"]))])
     return buf.getvalue()
 
 

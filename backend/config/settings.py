@@ -118,7 +118,7 @@ else:
             "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
             "PORT": os.environ.get("POSTGRES_PORT", "5432"),
             "CONN_MAX_AGE": 60,
-            "OPTIONS": {"sslmode": os.environ.get("POSTGRES_SSLMODE", "prefer")},
+            "OPTIONS": {"sslmode": os.environ.get("POSTGRES_SSLMODE", "prefer" if DEBUG else "require")},  # "prefer" silently falls back to plaintext
         }
     }
 
@@ -147,6 +147,10 @@ SESSION_ENGINE = "django.contrib.sessions.backends.db"
 SESSION_COOKIE_AGE = int(os.environ.get("SESSION_IDLE_SECONDS", "1800"))
 SESSION_ABSOLUTE_SECONDS = int(os.environ.get("SESSION_ABSOLUTE_SECONDS", "43200"))  # hard cap regardless of activity
 MAX_REQUEST_BYTES = int(os.environ.get("MAX_REQUEST_BYTES", "2000000"))
+# Django enforces these while reading the body, so they also cover requests that send no Content-Length (chunked).
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10_000_000
+FILE_UPLOAD_MAX_MEMORY_SIZE = 2_621_440
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 200
 if not DEBUG:  # __Host- cookies: Secure, Path=/, no Domain, so subdomains cannot overwrite them
     SESSION_COOKIE_NAME = "__Host-armyhq-session"
     CSRF_COOKIE_NAME = "__Host-armyhq-csrf"
@@ -159,6 +163,8 @@ CSRF_COOKIE_HTTPONLY = True  # the SPA gets its token from /auth/csrf/
 CSRF_COOKIE_SAMESITE = "Lax"
 SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", not DEBUG)
 SECURE_HSTS_SECONDS = 0 if DEBUG else 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
+SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 SECURE_REFERRER_POLICY = "same-origin"
@@ -207,7 +213,8 @@ ENABLE_API_DOCS = env_bool("ENABLE_API_DOCS", DEBUG)
 PERSONNEL_EXPORT_ENABLED = env_bool("PERSONNEL_EXPORT_ENABLED", False)
 
 # Emergency override of the different-person payroll rules, super admin only, written reason required, always audited (see apps/payroll/breakglass.py).
-BREAK_GLASS_ENABLED = env_bool("ARMYHQ_BREAK_GLASS", True)
+# Off by default outside development: it is an override of separation of duties, so a deployment must opt in on purpose.
+BREAK_GLASS_ENABLED = env_bool("ARMYHQ_BREAK_GLASS", DEBUG)
 
 # Summary exports stay off until approved, like personnel exports.
 REPORT_EXPORT_ENABLED = env_bool("REPORT_EXPORT_ENABLED", False)

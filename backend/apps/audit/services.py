@@ -1,3 +1,5 @@
+import ipaddress
+
 from django.conf import settings
 
 from apps.core.middleware import get_correlation_id
@@ -5,14 +7,28 @@ from apps.core.middleware import get_correlation_id
 from .models import AuditEvent
 
 
+def _valid_ip(value):
+    try:
+        return str(ipaddress.ip_address((value or "").strip()))
+    except ValueError:
+        return None
+
+
 def client_ip(request):
+    """Address of the caller. Behind `NUM_PROXIES` trusted proxies the real client is the Nth entry FROM THE RIGHT of
+    X-Forwarded-For: everything to its left was supplied by the client and can be forged. Anything that is not a valid IP is
+    discarded (a forged value would otherwise break the audit insert or let an attacker dodge per-address lockouts)."""
     if request is None:
         return None
     if settings.TRUST_PROXY_HEADERS:
-        forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
+        forwarded = [part.strip() for part in request.META.get("HTTP_X_FORWARDED_FOR", "").split(",") if part.strip()]
+        hops = max(int(getattr(settings, "NUM_PROXIES", 1) or 1), 1)
         if forwarded:
-            return forwarded.split(",")[0].strip() or None
-    return request.META.get("REMOTE_ADDR") or None
+            candidate = forwarded[-hops] if len(forwarded) >= hops else forwarded[0]
+            ip = _valid_ip(candidate)
+            if ip:
+                return ip
+    return _valid_ip(request.META.get("REMOTE_ADDR"))
 
 
 def record(action, *, request=None, actor=None, entity_type="", entity_id="", outcome="success", metadata=None):

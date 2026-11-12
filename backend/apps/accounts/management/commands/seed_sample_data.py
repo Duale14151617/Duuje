@@ -8,6 +8,7 @@ from django.conf import settings
 from django.db import transaction
 
 from apps.accounts.models import Role, RoleAssignment, User
+from apps.accounts.services import revoke_user_sessions, temp_password_deadline
 from apps.organization.models import OrganizationalUnit as OU
 from apps.organization.models import ServiceBranch
 from apps.personnel import services as personnel_services
@@ -100,6 +101,17 @@ SAMPLE_USERS.setdefault("transport.officer", ("Transport Officer", "transport_of
 SAMPLE_USERS.setdefault("vehicle.approver", ("Vehicle Disposal Approver", "vehicle_disposal_approver", "HQ", None))
 
 
+# Sample accounts that stay enabled. Every other sample account is created DISABLED and is disabled again on each run, because they
+# all share one seed password. Enable more only on purpose: ARMYHQ_SAMPLE_ACTIVE_USERS="superadmin,hqadmin,bari.reporter" (comma list).
+DEFAULT_ACTIVE_SAMPLE_USERS = ("superadmin", "hqadmin")
+
+
+def _active_sample_usernames():
+    raw = os.environ.get("ARMYHQ_SAMPLE_ACTIVE_USERS")
+    names = [n.strip().lower() for n in raw.split(",")] if raw is not None else list(DEFAULT_ACTIVE_SAMPLE_USERS)
+    return {n for n in names if n}
+
+
 class Command(BaseCommand):
     help = "Create synthetic sample accounts. Password from ARMYHQ_SAMPLE_PASSWORD (min 12 chars)."
 
@@ -113,6 +125,7 @@ class Command(BaseCommand):
         password = _env("ARMYHQ_SAMPLE_PASSWORD", "ARMYHQ_DEMO_PASSWORD", "")
         if len(password) < 12:
             raise CommandError("Set ARMYHQ_SAMPLE_PASSWORD (12+ characters).")
+        active_names = _active_sample_usernames()
         army_cmd = OU.objects.filter(code="BARI-ARMY").first()
         if not army_cmd:
             raise CommandError("Run `manage.py seed_reference_data` first.")
@@ -140,20 +153,28 @@ class Command(BaseCommand):
                 legacy.save(update_fields=["username", "full_name", "updated_at"])
             user = User.objects.filter(username=username).first()
             if user:
+                if username not in active_names and user.is_active:
+                    User.objects.filter(pk=user.pk).update(is_active=False)  # shared seed password: off unless listed on purpose
+                    revoke_user_sessions(user)
                 if _env("ARMYHQ_SAMPLE_RESET", "ARMYHQ_DEMO_RESET", "0") == "1":
                     user.set_password(password)
+                    user.must_change_password = True
+                    user.temp_password_expires_at = temp_password_deadline()
                     user.failed_login_count = 0
                     user.locked_until = None
                     user.mfa_enabled = False
                     user.mfa_secret_enc = ""
                     user.save(update_fields=[
-                        "password", "failed_login_count", "locked_until",
+                        "password", "must_change_password", "temp_password_expires_at", "failed_login_count", "locked_until",
                         "mfa_enabled", "mfa_secret_enc", "updated_at",
                     ])
                 if not multi:
                     continue
             else:
-                user = User.objects.create_user(username, password=password, full_name=full)
+                # The shared seed password is only ever temporary: first sign-in forces a new one, and it expires.
+                user = User.objects.create_user(
+                    username, password=password, full_name=full, must_change_password=True,
+                    temp_password_expires_at=temp_password_deadline(), is_active=username in active_names)
             role = Role.objects.get(code=role_code)
             branch = ServiceBranch.objects.get(code=branch_code) if branch_code else None
             if multi:  # drop any earlier Headquarters-wide assignment: this account is limited to the listed units
@@ -164,7 +185,8 @@ class Command(BaseCommand):
         self._sample_team()
         self._sample_logistics_training()
         self.stdout.write(self.style.SUCCESS(
-            "Synthetic sample users ready. Privileged roles must enrol MFA on first login."))
+            f"Synthetic sample users ready. Enabled: {', '.join(sorted(active_names))}; all other sample accounts are disabled. "
+            "Privileged roles must enrol MFA on first login."))
 
     def _sample_personnel(self, army_cmd):
         """Add a few clearly fake people (sample only). Ranks are the official approved Army ranks."""

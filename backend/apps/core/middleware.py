@@ -16,7 +16,7 @@ class CorrelationIdMiddleware:
 
     def __call__(self, request):
         incoming = request.META.get("HTTP_X_REQUEST_ID", "")
-        ok = incoming and len(incoming) <= 64 and incoming.replace("-", "").isalnum()
+        ok = incoming and len(incoming) <= 64 and incoming.isascii() and incoming.replace("-", "").isalnum()
         cid = incoming if ok else uuid.uuid4().hex
         token = _correlation_id.set(cid)
         request.correlation_id = cid
@@ -26,6 +26,14 @@ class CorrelationIdMiddleware:
             _correlation_id.reset(token)
         response["X-Request-ID"] = cid
         return response
+
+
+# Policy for the single-page app itself (the same policy deploy/nginx.conf.example sends). The one inline script is the theme
+# bootstrap in frontend/index.html; its hash must be updated if that script changes. Without this header a Render deployment (which
+# serves the SPA straight from Django) would have no script restrictions at all.
+SPA_CSP = ("default-src 'self'; script-src 'self' 'sha256-PVqCcdDSOw6gB97Rm6MrZndgC1CEV1vNsy3KIjxGPiA='; style-src 'self'; "
+           "style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; "
+           "base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
 
 
 class SecurityHeadersMiddleware:
@@ -40,8 +48,11 @@ class SecurityHeadersMiddleware:
             response.setdefault("Cache-Control", "no-store")
             response.setdefault("Pragma", "no-cache")
             response.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+        elif response.get("Content-Type", "").startswith("text/html"):
+            response.setdefault("Content-Security-Policy", SPA_CSP)
         response.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()")
         response.setdefault("Cross-Origin-Resource-Policy", "same-origin")
+        response.setdefault("Cross-Origin-Opener-Policy", "same-origin")
         return response
 
 

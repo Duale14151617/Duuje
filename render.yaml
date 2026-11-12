@@ -50,6 +50,10 @@ services:
         value: "1800"
       - key: SESSION_ABSOLUTE_SECONDS
         value: "43200"
+      # Separation-of-duties override (super admin only, written reason, always audited). Deliberately ON here: the owner is the
+      # only super admin and the only person with repository and deployment access.
+      - key: ARMYHQ_BREAK_GLASS
+        value: "1"
       - key: PERSONNEL_EXPORT_ENABLED
         value: "0"
       - key: REPORT_EXPORT_ENABLED
