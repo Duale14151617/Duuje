@@ -32,6 +32,12 @@ if not FIELD_ENCRYPTION_KEY:
     if not DEBUG:
         raise ImproperlyConfigured("FIELD_ENCRYPTION_KEY is required when DJANGO_DEBUG is off.")
     FIELD_ENCRYPTION_KEY = base64.urlsafe_b64encode(hashlib.sha256(SECRET_KEY.encode()).digest()).decode()
+# May hold several comma-separated keys while rotating ("NEW,OLD"): the first writes, all read (docs/KEY_ROTATION.md).
+FIELD_ENCRYPTION_KEYS = [k.strip() for k in FIELD_ENCRYPTION_KEY.split(",") if k.strip()]
+# Key for the weapon-ID keyed hash. It must NOT change when the encryption key rotates, so pin it explicitly before rotating.
+# Unset, it is the oldest listed key, which is what existing hashes were made with.
+FIELD_HMAC_KEY_EXPLICIT = bool(os.environ.get("FIELD_HMAC_KEY", "").strip())
+FIELD_HMAC_KEY = os.environ.get("FIELD_HMAC_KEY", "").strip() or FIELD_ENCRYPTION_KEYS[-1]
 
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1" if DEBUG else "")
 # Render injects this hostname automatically; include it without a self-referencing Blueprint variable.
@@ -215,6 +221,20 @@ PERSONNEL_EXPORT_ENABLED = env_bool("PERSONNEL_EXPORT_ENABLED", False)
 # Emergency override of the different-person payroll rules, super admin only, written reason required, always audited (see apps/payroll/breakglass.py).
 # Off by default outside development: it is an override of separation of duties, so a deployment must opt in on purpose.
 BREAK_GLASS_ENABLED = env_bool("ARMYHQ_BREAK_GLASS", DEBUG)
+
+# Fresh-MFA ("step-up") rule: credential resets, role assignment, personnel export and break-glass need an authenticator code entered
+# within this many seconds (apps/accounts/stepup.py). On by default outside development.
+STEP_UP_MFA_REQUIRED = env_bool("ARMYHQ_STEP_UP_MFA", not DEBUG)
+STEP_UP_MFA_SECONDS = int(os.environ.get("ARMYHQ_STEP_UP_SECONDS", "600"))
+
+# Security alert emails (apps/accounts/alerts.py): break-glass use, credential resets, privileged sign-ins from a new address, lockouts.
+# Sent to these addresses and to every verified super administrator email.
+SECURITY_ALERT_EMAILS = [a.strip() for a in os.environ.get("ARMYHQ_ALERT_EMAILS", "").split(",") if a.strip()]
+SECURITY_ALERTS_ASYNC = env_bool("ARMYHQ_ALERTS_ASYNC", not DEBUG)
+
+# Reset/recovery/notice emails are handed to a background worker so the reply never waits on the mail provider (and a slow reply cannot
+# reveal that an account exists). Inline in development and tests.
+EMAIL_SEND_ASYNC = env_bool("ARMYHQ_EMAIL_ASYNC", not DEBUG)
 
 # Summary exports stay off until approved, like personnel exports.
 REPORT_EXPORT_ENABLED = env_bool("REPORT_EXPORT_ENABLED", False)

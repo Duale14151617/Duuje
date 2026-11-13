@@ -15,10 +15,18 @@ def deployment_checks(app_configs, **kwargs):
         out.append(Error("DJANGO_DEBUG is on.", id="armyhq.E001"))
     if len(settings.SECRET_KEY) < 50 or settings.SECRET_KEY.startswith("dev-only"):
         out.append(Error("DJANGO_SECRET_KEY is missing, short or a development key.", id="armyhq.E002"))
+    listed = []
     try:
-        Fernet(settings.FIELD_ENCRYPTION_KEY.encode())
+        listed = [k.strip() for k in settings.FIELD_ENCRYPTION_KEY.split(",") if k.strip()]
+        if not listed:
+            raise ValueError
+        for key in listed:
+            Fernet(key.encode())
     except Exception:
-        out.append(Error("FIELD_ENCRYPTION_KEY is not a valid Fernet key.", id="armyhq.E003"))
+        out.append(Error("FIELD_ENCRYPTION_KEY is not a valid Fernet key (or comma-separated list of keys).", id="armyhq.E003"))
+    if len(listed) > 1 and not getattr(settings, "FIELD_HMAC_KEY_EXPLICIT", False):
+        out.append(Warning("Several encryption keys are listed but FIELD_HMAC_KEY is not set. Set it to the OLD key before removing that key, "
+                           "or weapon-ID matching will stop recognising existing records.", id="armyhq.W006"))
     if not settings.ALLOWED_HOSTS or "*" in settings.ALLOWED_HOSTS:
         out.append(Error("DJANGO_ALLOWED_HOSTS must list explicit host names.", id="armyhq.E004"))
     if not settings.CSRF_TRUSTED_ORIGINS or any(not o.startswith("https://") for o in settings.CSRF_TRUSTED_ORIGINS):

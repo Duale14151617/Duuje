@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { api, ApiError, refreshCsrf } from "./client";
+import { api, ApiError, refreshCsrf, setStepUpHandler } from "./client";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -43,5 +43,27 @@ describe("api client with a working backend", () => {
   it("returns undefined for 204", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
     expect(await api("/x/", { method: "DELETE" })).toBeUndefined();
+  });
+});
+
+describe("step-up authentication", () => {
+  const needCode = () => json({ code: "step_up_required", detail: "Confirm your authenticator code to continue." }, 403);
+
+  afterEach(() => setStepUpHandler(null));
+
+  it("asks for a code, then repeats the refused request once", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(needCode()).mockResolvedValueOnce(json({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    setStepUpHandler(async () => true);
+    await expect(api("/users/1/issue-reset-code/", { method: "POST", body: {} })).resolves.toEqual({ ok: true });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("gives up when the person cancels the prompt", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(needCode());
+    vi.stubGlobal("fetch", fetchMock);
+    setStepUpHandler(async () => false);
+    await expect(api("/users/1/issue-reset-code/", { method: "POST", body: {} })).rejects.toMatchObject({ code: "step_up_required" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

@@ -23,14 +23,17 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.audit.services import record
+from apps.audit.models import AuditEvent
+from apps.audit.services import client_ip, record
 from apps.core.errors import field_error
 from apps.core import crypto
+from apps.core.mailer import send_background
 
-from . import access_review as review_mod, bulk, scope
+from . import access_review as review_mod, alerts, bulk, scope
 from .models import EmailVerificationCode, MfaRecoveryCode, PasswordResetToken, Role, RoleAssignment, User
 from .permissions import ScopedPermission
 from .security import consume_totp, restrictions
+from .stepup import mark_fresh, require_fresh_mfa
 from .serializers import (AssignmentCreateSerializer, AssignmentSerializer, EmailVerifyConfirmSerializer, EmailVerifyRequestSerializer,
                           LoginSerializer, PasswordForgotSerializer,
                           MfaConfirmSerializer, MfaRecoveryRedeemSerializer, MfaRecoveryRequestSerializer, PasswordChangeSerializer, PasswordResetRedeemSerializer,
@@ -121,12 +124,22 @@ class LoginView(APIView):
                 self._register_failure(request, authed, "bad_otp")
                 return error("invalid_otp", "That code is not valid.", 401)
 
+        ip = client_ip(request)
+        watched = scope.requires_mfa(authed)  # privileged accounts: tell the owner when one signs in from an address never seen before
+        known_address = (not watched) or (ip is not None and AuditEvent.objects.filter(
+            actor_id=authed.pk, action="auth.login", outcome="success", ip_address=ip).exists())
         with transaction.atomic():
             User.objects.filter(pk=authed.pk).update(failed_login_count=0, locked_until=None)
             login(request, authed)
             request.session["auth_epoch"] = authed.auth_epoch
             request.session["login_at"] = int(time.time())
+            if authed.mfa_enabled:
+                mark_fresh(request)  # the code just verified counts as a fresh authenticator check
             record("auth.login", request=request, actor=authed, entity_type="user", entity_id=authed.pk)
+        if not known_address:
+            alerts.notify("privileged sign-in from a new address",
+                          f"{authed.username} signed in from {ip or 'an unknown address'}, which this account has not used before.",
+                          request=request, actor=authed)
         return Response(me_payload(authed))
 
     @staticmethod
@@ -140,6 +153,9 @@ class LoginView(APIView):
             User.objects.filter(pk=user.pk).update(
                 failed_login_count=0, locked_until=timezone.now() + timedelta(minutes=LOCK_MINUTES))
             reason += "+locked"
+            if scope.requires_mfa(user):
+                alerts.notify("privileged account locked", f"{user.username} was locked after repeated failed sign-ins. "
+                              "Someone may be trying to guess its password or authenticator code.", request=request, actor=user)
         record("auth.login", request=request, actor=user, outcome="failure", entity_type="user",
                entity_id=user.pk, metadata={"reason": reason})
 
@@ -236,8 +252,27 @@ class MfaConfirmView(APIView):
             raise field_error("code", "invalid_otp", "That code is not valid.")
         with transaction.atomic():
             User.objects.filter(pk=user.pk).update(mfa_enabled=True)
+            mark_fresh(request)
             record("mfa.enable", request=request, entity_type="user", entity_id=user.pk)
         return Response(me_payload(User.objects.get(pk=user.pk)))
+
+
+class StepUpView(APIView):
+    """Re-confirm the authenticator code before a sensitive action. Wrong codes count toward the same lockout as sign-in."""
+    throttle_scope = "mfa"
+
+    def post(self, request):
+        ser = MfaConfirmSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        user = User.objects.get(pk=request.user.pk)
+        if not user.mfa_enabled:
+            return error("mfa_not_enabled", "This account has no authenticator to confirm.", 409)
+        if not consume_totp(user, ser.validated_data["code"]):
+            LoginView._register_failure(request, user, "bad_step_up")
+            raise field_error("code", "invalid_otp", "That code is not valid.")
+        mark_fresh(request)
+        record("auth.step_up", request=request, entity_type="user", entity_id=user.pk)
+        return Response({"fresh_for_seconds": settings.STEP_UP_MFA_SECONDS})
 
 
 RESET_CODE_MINUTES = 60
@@ -322,8 +357,11 @@ class PasswordResetView(APIView):
             revoke_user_sessions(user)
             record("auth.password_reset", request=request, actor=user, entity_type="user", entity_id=user.pk,
                    metadata={"via": "admin_code" if token.created_by_id else "email_code"})
+            if scope.requires_mfa(user):
+                alerts.notify("privileged account password reset", f"The password of {user.username} was reset with a recovery code.",
+                              request=request, actor=user)
         if user.email and user.email_verified_at:
-            _send_mail(user.email, "Puntland Defence Forces HQ: your password was changed",
+            send_background(user.email, "Puntland Defence Forces HQ: your password was changed",
                        "The password on your account was just changed and every session was signed out. "
                        "If this was not you, tell your administrator now.")
         return Response(status=204)
@@ -345,7 +383,7 @@ def _send_mail(address, subject, body):
 
 
 def _send_recovery_mail(user, subject, body):
-    return _send_mail(user.email, subject, body)
+    return send_background(user.email, subject, body)  # queued: the reply must not reveal, by its delay, whether a mail was sent
 
 
 class MfaRecoveryRequestView(APIView):
@@ -491,7 +529,7 @@ class PasswordForgotView(APIView):
             # Supersede only earlier emailed codes: a code an administrator issued is a separate, deliberate action.
             PasswordResetToken.objects.filter(user=user, created_by__isnull=True, used_at__isnull=True).update(used_at=now)
             PasswordResetToken.objects.create(user=user, token_hash=_hash_code(code), expires_at=now + timedelta(minutes=minutes))
-        sent = _send_mail(
+        sent = send_background(  # queued, so a real account does not answer measurably slower than an unknown one
             user.email, "Puntland Defence Forces HQ: your password reset code",
             f"Your one-time password reset code is {code}\n\nOpen the reset page, enter your username and this code, and choose a new "
             f"password. It works once and expires in {minutes} minutes. If you did not ask for this, ignore this email and tell your administrator.")
@@ -581,7 +619,7 @@ class EmailVerifyConfirmView(APIView):
             User.objects.filter(pk=user.pk).update(email=row.email, email_verified_at=now, updated_at=now, version=F("version") + 1)
             record("auth.email_changed" if changed else "auth.email_verified", request=request, entity_type="user", entity_id=user.pk)
         if changed and old_email and old_verified:  # tell the previous mailbox, so a hijacked session cannot move the address silently
-            _send_mail(old_email, "Puntland Defence Forces HQ: your account email was changed",
+            send_background(old_email, "Puntland Defence Forces HQ: your account email was changed",
                        "The email address on your account was changed. If this was not you, tell your administrator now.")
         return Response(me_payload(User.objects.get(pk=user.pk)))
 
@@ -630,6 +668,8 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
             record("access.denied", request=self.request, outcome="denied", entity_type="user", entity_id=target.pk,
                    metadata={"reason": "target_exceeds_authority", "action": self.action})
             raise PermissionDenied("This account holds authority you do not hold. Only a super administrator can change its credentials.")
+        if self.action in self.CREDENTIAL_ACTIONS and target.pk != self.request.user.pk:
+            require_fresh_mfa(self.request)
         return target
 
     CREDENTIAL_ACTIONS = frozenset({"reset_password", "reset_mfa", "issue_reset_code"})
@@ -772,6 +812,8 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         user.save(update_fields=["mfa_enabled", "mfa_secret_enc", "updated_at"])
         revoke_user_sessions(user)
         record("user.reset_mfa", request=request, entity_type="user", entity_id=user.pk)
+        alerts.notify("authenticator reset", f"{request.user.username} removed the authenticator of {user.username}.",
+                      request=request, actor=request.user)
         return Response(UserSerializer(user).data)
 
     @action(detail=True, methods=["post"], url_path="reset-password")
@@ -789,6 +831,8 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         revoke_user_sessions(user)
         record("user.reset_password", request=request, entity_type="user", entity_id=user.pk,
                metadata={"generated_password": not typed})
+        alerts.notify("password reset by an administrator", f"{request.user.username} set a new temporary password for {user.username}.",
+                      request=request, actor=request.user)
         if typed:
             return Response(status=204)
         return Response({"temporary_password": password, "expires_at": user.temp_password_expires_at})  # shown once
@@ -803,6 +847,8 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         expires = timezone.now() + timedelta(minutes=RESET_CODE_MINUTES)
         PasswordResetToken.objects.create(user=user, token_hash=_hash_code(code), expires_at=expires, created_by=request.user)
         record("user.issue_reset_code", request=request, entity_type="user", entity_id=user.pk)
+        alerts.notify("recovery code issued", f"{request.user.username} issued a one-time recovery code for {user.username}.",
+                      request=request, actor=request.user)
         return Response({"code": code, "expires_at": expires, "valid_minutes": RESET_CODE_MINUTES})
 
     @action(detail=True, methods=["get", "post"])
@@ -815,6 +861,7 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
             record("access.denied", request=request, outcome="denied", entity_type="role_assignment",
                    metadata={"permission": "roles.assign"})
             raise PermissionDenied()
+        require_fresh_mfa(request)
         ser = AssignmentCreateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         beyond = sorted(c for c in ser.validated_data["role"].permissions.values_list("code", flat=True)
@@ -833,6 +880,8 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
             record("role_assignment.privileged", request=request, entity_type="role_assignment", entity_id=a.pk,
                    metadata={"user": str(target.pk), "role": a.role.code, "org_unit": str(a.org_unit_id)})
             alert_privileged_grant(request.user, target, a.role, a.org_unit)
+            alerts.notify("privileged role granted", f"{request.user.username} gave {target.username} the role {a.role.code} "
+                          f"over {a.org_unit.name_en} [{a.org_unit.code}].", request=request, actor=request.user)
         return Response(AssignmentSerializer(a).data, status=201)
 
     @action(detail=True, methods=["post"], url_path=r"assignments/(?P<assignment_id>[0-9a-f-]{36})/revoke")

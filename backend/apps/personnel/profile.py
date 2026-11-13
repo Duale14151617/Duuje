@@ -74,7 +74,7 @@ def _weapon_key(weapon_id):
     if not weapon_id:
         return None
     msg = weapon_id.strip().upper().encode()
-    return hmac.new(settings.FIELD_ENCRYPTION_KEY.encode(), msg, hashlib.sha256).hexdigest()
+    return hmac.new(settings.FIELD_HMAC_KEY.encode(), msg, hashlib.sha256).hexdigest()
 
 
 def _load(profile):

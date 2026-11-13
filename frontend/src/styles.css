@@ -941,3 +941,8 @@ main:has(> .dash) { max-width: 80rem; }
 .trend-line { display: block; width: 100%; max-width: 28rem; height: auto; }
 .trend-line polyline { stroke: var(--accent-text); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .trend-line circle { fill: var(--accent-text); }
+
+/* Step-up (fresh authenticator code) dialog */
+dialog.stepup { max-width: min(26rem, calc(100vw - 2rem)); padding: 1.25rem; border: 1px solid var(--line); border-radius: .75rem;
+  background: var(--paper); color: var(--ink); }
+dialog.stepup::backdrop { background: rgba(13, 21, 34, .6); }

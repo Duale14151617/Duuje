@@ -248,7 +248,7 @@ class ForgotPasswordTests(BaseApiTest):
     def test_a_mail_failure_looks_the_same_to_the_requester_and_is_audited(self):
         ok = self.ask()
         PasswordResetToken.objects.update(created_at=timezone.now() - timedelta(minutes=2))
-        with mock.patch("apps.accounts.views.send_mail", side_effect=OSError("smtp down")):
+        with mock.patch("apps.core.mailer.send_mail", side_effect=OSError("smtp down")):  # the forgot flow sends through the mailer
             failed = self.ask()
         self.assertEqual((failed.status_code, failed.data), (ok.status_code, ok.data))
         self.assertTrue(AuditEvent.objects.filter(action="auth.password_forgot", outcome="failure").exists())

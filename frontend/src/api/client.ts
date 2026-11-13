@@ -31,6 +31,23 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Step-up: the server answers `step_up_required` when a sensitive action needs a recent authenticator code. The app registers a
+ * handler (a small dialog) that asks for the code; when it confirms, the original request is sent once more.
+ */
+type StepUpHandler = () => Promise<boolean>;
+let stepUpHandler: StepUpHandler | null = null;
+export function setStepUpHandler(handler: StepUpHandler | null): void { stepUpHandler = handler; }
+
+async function withStepUp<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (e) {
+    if (e instanceof ApiError && e.code === "step_up_required" && stepUpHandler && (await stepUpHandler())) return run();
+    throw e;
+  }
+}
+
 const unreachable = () => new ApiError(0, { code: "network", detail: "Network error" });
 
 /**
@@ -58,7 +75,11 @@ export async function refreshCsrf(): Promise<void> {
 
 interface Options { method?: "GET" | "POST" | "PATCH" | "DELETE"; body?: unknown; headers?: Record<string, string>; query?: Record<string, string | number | undefined | null> }
 
-export async function api<T = unknown>(path: string, opts: Options = {}): Promise<T> {
+export function api<T = unknown>(path: string, opts: Options = {}): Promise<T> {
+  return withStepUp(() => apiOnce<T>(path, opts));
+}
+
+async function apiOnce<T>(path: string, opts: Options): Promise<T> {
   const method = opts.method ?? "GET";
   if (import.meta.env.VITE_PREVIEW === "1") {
     // Standalone preview: answer from the in-memory sample data instead of calling a server.
@@ -148,7 +169,11 @@ export async function upload<T>(path: string, field: string, file: File, extra: 
   return data as T;
 }
 
-export async function downloadCsv(path: string, query: Record<string, string>, filename: string): Promise<void> {
+export function downloadCsv(path: string, query: Record<string, string>, filename: string): Promise<void> {
+  return withStepUp(() => downloadCsvOnce(path, query, filename));
+}
+
+async function downloadCsvOnce(path: string, query: Record<string, string>, filename: string): Promise<void> {
   if (import.meta.env.VITE_PREVIEW === "1") {
     const url = URL.createObjectURL(new Blob(["preview,sample\n"], { type: "text/csv" }));
     const a = document.createElement("a");

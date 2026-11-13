@@ -12,6 +12,7 @@ from apps.audit.services import record
 
 MIN_REASON = 15
 _reason = ContextVar("override_reason", default="")
+_mfa_fresh = ContextVar("override_mfa_fresh", default=True)
 
 
 class BreakGlassMiddleware:
@@ -21,11 +22,14 @@ class BreakGlassMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        from apps.accounts.stepup import is_fresh
         token = _reason.set(" ".join(str(request.META.get("HTTP_X_OVERRIDE_REASON", "")).split())[:300])
+        fresh = _mfa_fresh.set(is_fresh(request))
         try:
             return self.get_response(request)
         finally:
             _reason.reset(token)
+            _mfa_fresh.reset(fresh)
 
 
 def bypass(user, check, entity_type, entity_id):
@@ -36,6 +40,13 @@ def bypass(user, check, entity_type, entity_id):
         return False
     if FULL_ACCESS not in permission_codes(user):
         return False
+    if not _mfa_fresh.get():  # a session without a recent authenticator code cannot override anything
+        record("breakglass.override", actor=user, outcome="denied", entity_type=entity_type, entity_id=entity_id,
+               metadata={"check": check, "reason": "step_up_required"})
+        return False
     record("breakglass.override", actor=user, entity_type=entity_type, entity_id=entity_id,
            metadata={"check": check, "reason": reason})
+    from apps.accounts import alerts
+    alerts.notify("break-glass override used", f"{user.username} overrode the '{check}' check on {entity_type} {entity_id}. "
+                  f"Reason given: {reason}", actor=user)
     return True

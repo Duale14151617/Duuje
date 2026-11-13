@@ -12,6 +12,8 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 
+from apps.accounts.stepup import require_fresh_mfa
+
 from apps.accounts import scope
 from apps.accounts.models import RoleAssignment
 from apps.accounts.permissions import ScopedPermission
@@ -705,6 +707,7 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
             record("personnel.export", request=request, outcome="denied", entity_type="personnel",
                    metadata={"reason": "export_disabled"})
             raise PermissionDenied("Exports are not enabled.", code="export_disabled")
+        require_fresh_mfa(request)
         qs = _filter(_scoped(request.user, "personnel.export"), request)
         count = qs.count()
         if count > 5000:

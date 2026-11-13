@@ -54,6 +54,10 @@ services:
       # only super admin and the only person with repository and deployment access.
       - key: ARMYHQ_BREAK_GLASS
         value: "1"
+      # Security alert emails (break-glass use, credential resets, new-address admin sign-ins, lockouts). Comma-separated; set in the
+      # dashboard. Every verified super administrator email is notified as well. Needs email delivery to be configured.
+      - key: ARMYHQ_ALERT_EMAILS
+        sync: false
       - key: PERSONNEL_EXPORT_ENABLED
         value: "0"
       - key: REPORT_EXPORT_ENABLED

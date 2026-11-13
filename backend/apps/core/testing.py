@@ -51,6 +51,7 @@ class BaseApiTest(APITestCase):
         session = client.session
         session["auth_epoch"] = user.auth_epoch
         session["login_at"] = int(time.time())
+        session["mfa_at"] = int(time.time())
         session.save()
         return client
 
