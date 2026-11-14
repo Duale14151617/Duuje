@@ -1,10 +1,13 @@
 import ipaddress
+import logging
 
 from django.conf import settings
 
 from apps.core.middleware import get_correlation_id
 
 from .models import AuditEvent
+
+logger = logging.getLogger(__name__)
 
 
 def _valid_ip(value):
@@ -20,6 +23,17 @@ def client_ip(request):
     discarded (a forged value would otherwise break the audit insert or let an attacker dodge per-address lockouts)."""
     if request is None:
         return None
+    if getattr(settings, "DEBUG_CLIENT_IP", False) and not getattr(request, "_client_ip_logged", False):
+        # Temporary diagnostic (env DEBUG_CLIENT_IP=1): shows which header holds the real client address behind the host's proxies.
+        # Logged once per request. Turn it off again once NUM_PROXIES is settled; it writes client addresses to the logs.
+        try:
+            request._client_ip_logged = True
+        except AttributeError:
+            pass
+        meta = request.META
+        logger.warning("client-ip debug: remote_addr=%s xff=%s cf=%s true_client=%s real_ip=%s num_proxies=%s",
+                       meta.get("REMOTE_ADDR"), meta.get("HTTP_X_FORWARDED_FOR"), meta.get("HTTP_CF_CONNECTING_IP"),
+                       meta.get("HTTP_TRUE_CLIENT_IP"), meta.get("HTTP_X_REAL_IP"), getattr(settings, "NUM_PROXIES", None))
     if settings.TRUST_PROXY_HEADERS:
         forwarded = [part.strip() for part in request.META.get("HTTP_X_FORWARDED_FOR", "").split(",") if part.strip()]
         hops = max(int(getattr(settings, "NUM_PROXIES", 1) or 1), 1)

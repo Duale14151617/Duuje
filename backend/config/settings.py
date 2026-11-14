@@ -48,6 +48,7 @@ CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 # Public address of the app, used for links in emails (password reset). Falls back to the Render hostname.
 SITE_URL = os.environ.get("ARMYHQ_SITE_URL", f"https://{render_hostname}" if render_hostname else "").rstrip("/")
 TRUST_PROXY_HEADERS = env_bool("TRUST_PROXY_HEADERS", False)
+DEBUG_CLIENT_IP = env_bool("DEBUG_CLIENT_IP", False)  # temporary: log proxy headers to find the real client address
 if TRUST_PROXY_HEADERS:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
