@@ -507,11 +507,18 @@ function CategoryManager({ cats, onDone }: { cats: Cat[]; onDone: () => void }) 
     e.preventDefault(); setError(null);
     try { await api("/vehicles/categories/", { method: "POST", body: f }); setF({ code: "", name_en: "", name_so: "" }); onDone(); } catch (err) { setError(err); }
   }
+  // Categories are switched off, never deleted, so old records keep theirs. The server refuses while vehicles still use it.
+  async function remove(c: Cat) {
+    if (!window.confirm(t("veh.removeCategoryConfirm"))) return;
+    setError(null);
+    try { await api(`/vehicles/categories/${c.id}/`, { method: "PATCH", body: { active: false } }); onDone(); } catch (err) { setError(err); }
+  }
   return (
     <form className="card" onSubmit={(e) => void submit(e)}>
       <h3>{t("veh.manageCategories")}</h3>
       <ErrorNotice error={error} />
-      <ul className="list">{cats.map((c) => <li key={c.id} className="item">{name(c)} <span className="muted">({c.code})</span></li>)}</ul>
+      <ul className="list">{cats.map((c) => <li key={c.id} className="item">{name(c)} <span className="muted">({c.code})</span>{" "}
+        <button type="button" className="secondary" onClick={() => void remove(c)}>{t("veh.removeCategory")}</button></li>)}</ul>
       <Field label={t("veh.categoryCode")}><input value={f.code} required maxLength={40} onChange={(e) => setF({ ...f, code: e.target.value })} /></Field>
       <Field label={t("veh.categoryName")}><input value={f.name_en} required maxLength={120} onChange={(e) => setF({ ...f, name_en: e.target.value })} /></Field>
       <Field label={t("veh.categoryNameSo")}><input value={f.name_so} maxLength={120} onChange={(e) => setF({ ...f, name_so: e.target.value })} /></Field>

@@ -1735,6 +1735,8 @@ export const en = {
   "veh.noCustodian2": "No custodian",
   "veh.manageCategories": "Manage vehicle categories",
   "veh.newCategory": "Add category",
+  "veh.removeCategory": "Remove",
+  "veh.removeCategoryConfirm": "Remove this category? Vehicles already recorded keep it, and it can no longer be chosen for new ones.",
   "veh.categoryCode": "Code (letters, digits, underscore)",
   "veh.categoryName": "Name (English)",
   "veh.categoryNameSo": "Name (Somali)",

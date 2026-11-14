@@ -1739,6 +1739,8 @@ export const so: Record<keyof typeof en, string> = {
   "veh.noCustodian2": "Ilaaliye ma leh",
   "veh.manageCategories": "Maaree qaybaha gawaarida",
   "veh.newCategory": "Ku dar qayb",
+  "veh.removeCategory": "Ka saar",
+  "veh.removeCategoryConfirm": "Ma ka saaraa qaybtan? Gawaarida horey loo diiwaan geliyay way hayn doonaan, laakiin lama dooran karo kuwa cusub.",
   "veh.categoryCode": "Koodh (xarfo, tirooyin, hoosaad)",
   "veh.categoryName": "Magac (Ingiriisi)",
   "veh.categoryNameSo": "Magac (Soomaali)",
