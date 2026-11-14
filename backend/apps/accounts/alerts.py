@@ -46,7 +46,7 @@ def notify(event, summary, *, request=None, actor=None):
         if ip:
             lines.append(f"Address: {ip}")
         lines += ["", "If you do not recognise this, sign in, review the audit log, and reset the account's credentials now."]
-        subject, body = f"Puntland Defence Forces HQ security alert: {event}", "\n".join(lines)
+        subject, body = f"ARMY HQ security alert: {event}", "\n".join(lines)
 
         def dispatch():
             if getattr(settings, "SECURITY_ALERTS_ASYNC", False):

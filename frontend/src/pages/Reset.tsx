@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { ApiError, api } from "../api/client";
 import { ErrorNotice, Field, Notice } from "../components/ui";
 import { useI18n } from "../i18n";
@@ -7,12 +7,14 @@ import { ThemeToggle } from "../theme/ThemeToggle";
 /** Redeem a one-time code (given by an administrator, or emailed after "Forgot your password?") and choose a new password. */
 export function ResetPassword() {
   const { t, lang, setLang } = useI18n();
-  const [f, setF] = useState({ username: new URLSearchParams(window.location.search).get("u") ?? "", code: "", new_password: "" });
+  const [f, setF] = useState({ username: new URLSearchParams(window.location.search).get("u") ?? "", code: new URLSearchParams(window.location.search).get("c") ?? "", new_password: "" });
   const [otp, setOtp] = useState("");
   const [needOtp, setNeedOtp] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Keep the one-time code out of the address bar and history once the page has read it.
+  useEffect(() => { if (window.location.search) window.history.replaceState(null, "", window.location.pathname); }, []);
 
   async function submit(e: FormEvent) {
     e.preventDefault();

@@ -111,7 +111,7 @@ def alert_privileged_grant(actor, target, role, unit):
     sent = 0
     for address in user_admin_emails(exclude_user_id=actor.pk):
         try:
-            sent += send_mail("Puntland Defence Forces HQ: privileged access granted", body, None, [address], fail_silently=False)
+            sent += send_mail("ARMY HQ: privileged access granted", body, None, [address], fail_silently=False)
         except Exception:
             continue
     return sent

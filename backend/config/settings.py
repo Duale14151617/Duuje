@@ -45,6 +45,8 @@ render_hostname = os.environ.get("RENDER_EXTERNAL_HOSTNAME", "").strip()
 if render_hostname and render_hostname not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(render_hostname)
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
+# Public address of the app, used for links in emails (password reset). Falls back to the Render hostname.
+SITE_URL = os.environ.get("ARMYHQ_SITE_URL", f"https://{render_hostname}" if render_hostname else "").rstrip("/")
 TRUST_PROXY_HEADERS = env_bool("TRUST_PROXY_HEADERS", False)
 if TRUST_PROXY_HEADERS:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -264,7 +266,18 @@ PASSWORD_FORGOT_CODE_MINUTES = int(os.environ.get("PASSWORD_FORGOT_CODE_MINUTES"
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
 # Brevo sends over HTTPS (port 443), for hosts that block outgoing SMTP (Render's free web services do). It wins over SMTP when set.
 BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "")
-if BREVO_API_KEY:
+# Gmail API over HTTPS (OAuth refresh token), for a Gmail sender when there is no domain to authenticate. Wins over Brevo and SMTP.
+GMAIL_CLIENT_ID = os.environ.get("GMAIL_CLIENT_ID", "")
+GMAIL_CLIENT_SECRET = os.environ.get("GMAIL_CLIENT_SECRET", "")
+GMAIL_REFRESH_TOKEN = os.environ.get("GMAIL_REFRESH_TOKEN", "")
+# Google Apps Script web app that sends as a Gmail account (no Google Cloud project, billing or domain needed). Wins over everything else.
+APPS_SCRIPT_URL = os.environ.get("APPS_SCRIPT_URL", "")
+APPS_SCRIPT_TOKEN = os.environ.get("APPS_SCRIPT_TOKEN", "")
+if APPS_SCRIPT_URL.startswith("https://") and APPS_SCRIPT_TOKEN:
+    EMAIL_BACKEND = "apps.core.appsscript_backend.AppsScriptEmailBackend"
+elif GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET and GMAIL_REFRESH_TOKEN:
+    EMAIL_BACKEND = "apps.core.gmail_backend.GmailApiEmailBackend"
+elif BREVO_API_KEY:
     EMAIL_BACKEND = "apps.core.brevo_backend.BrevoEmailBackend"
 elif EMAIL_HOST:
     EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

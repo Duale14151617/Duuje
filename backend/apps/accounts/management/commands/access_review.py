@@ -57,7 +57,7 @@ class Command(BaseCommand):
         if email:
             for address in user_admin_emails():
                 try:
-                    sent += send_mail("Puntland Defence Forces HQ: access review", text, None, [address], fail_silently=False)
+                    sent += send_mail("ARMY HQ: access review", text, None, [address], fail_silently=False)
                 except Exception as exc:
                     self.stderr.write(f"Could not email {address}: {exc}")
             self.stdout.write(f"Emailed {sent} administrator(s).")
