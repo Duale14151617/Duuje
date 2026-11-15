@@ -1,0 +1,76 @@
+name: Encrypted database backup and restore test
+# Nightly: dump the production database, encrypt it, PROVE it restores into a scratch database, then keep it as a private artifact.
+# Needs two repository secrets (Settings > Secrets and variables > Actions):
+#   BACKUP_DATABASE_URL  the database's EXTERNAL connection string (postgres://user:pass@host/dbname?sslmode=require)
+#   BACKUP_PASSPHRASE    a long random passphrase; keep a copy in your password manager. Without it the backups cannot be opened.
+# See docs/BACKUP_AND_RECOVERY.md. The backup is useless without FIELD_ENCRYPTION_KEY as well: store that separately too.
+# Manual-only until you have added the two secrets. To turn on the nightly run, replace the `on:` block below with:
+#   on:
+#     schedule:
+#       - cron: "30 2 * * *"
+#     workflow_dispatch:
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: database-backup
+  cancel-in-progress: false
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      scratch:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: scratch-only
+          POSTGRES_DB: restore_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - name: Check secrets are present
+        env:
+          URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          PASS: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          [ -n "$URL" ] && [ -n "$PASS" ] || { echo "Set BACKUP_DATABASE_URL and BACKUP_PASSPHRASE repository secrets."; exit 1; }
+          [ "${#PASS}" -ge 20 ] || { echo "BACKUP_PASSPHRASE must be at least 20 characters."; exit 1; }
+      - name: Dump the production database
+        env:
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          # postgres:17 client can dump older servers. The dump never touches the runner's disk unencrypted except for this working copy.
+          docker run --rm -e BACKUP_DATABASE_URL postgres:17 sh -c 'pg_dump --format=custom --no-owner --no-privileges "$BACKUP_DATABASE_URL"' > backup.dump
+          test -s backup.dump
+          sha256sum backup.dump > backup.sha256
+      - name: Prove the dump restores into a scratch database
+        run: |
+          set -euo pipefail
+          docker run --rm -i --network host -e PGPASSWORD=scratch-only postgres:17 \
+            pg_restore --no-owner --no-privileges --exit-on-error -h localhost -U postgres -d restore_test < backup.dump
+          psql_scratch() { docker run --rm --network host -e PGPASSWORD=scratch-only postgres:17 psql -h localhost -U postgres -d restore_test -At -c "$1"; }
+          tables=$(psql_scratch "select count(*) from information_schema.tables where table_schema='public'")
+          migrations=$(psql_scratch "select count(*) from django_migrations")
+          audit=$(psql_scratch "select count(*) from audit_events")
+          echo "Restored: $tables tables, $migrations applied migrations, $audit audit events."
+          [ "$tables" -gt 20 ] && [ "$migrations" -gt 0 ] || { echo "Restore check failed: the dump looks empty."; exit 1; }
+      - name: Encrypt (AES-256, integrity-protected) and remove the plain dump
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          stamp=$(date -u +%Y%m%dT%H%M%SZ)
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" \
+              --symmetric --cipher-algo AES256 --s2k-mode 3 --s2k-count 65011712 -o "duuje-$stamp.dump.gpg" backup.dump
+          shred -u backup.dump backup.sha256 2>/dev/null || rm -f backup.dump backup.sha256
+          echo "FILE=duuje-$stamp.dump.gpg" >> "$GITHUB_ENV"
+          ls -l duuje-*.gpg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: database-backup
+          path: ${{ env.FILE }}
+          retention-days: 30
+          if-no-files-found: error
