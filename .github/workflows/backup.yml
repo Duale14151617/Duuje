@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 45
     services:
       scratch:
-        image: postgres:17
+        image: postgres:18
         env:
           POSTGRES_PASSWORD: scratch-only
           POSTGRES_DB: restore_test
@@ -42,16 +42,16 @@ jobs:
           BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
         run: |
           set -euo pipefail
-          # postgres:17 client can dump older servers. The dump never touches the runner's disk unencrypted except for this working copy.
-          docker run --rm -e BACKUP_DATABASE_URL postgres:17 sh -c 'pg_dump --format=custom --no-owner --no-privileges "$BACKUP_DATABASE_URL"' > backup.dump
+          # postgres:18 client can dump older servers. The dump never touches the runner's disk unencrypted except for this working copy.
+          docker run --rm -e BACKUP_DATABASE_URL postgres:18 sh -c 'pg_dump --format=custom --no-owner --no-privileges "$BACKUP_DATABASE_URL"' > backup.dump
           test -s backup.dump
           sha256sum backup.dump > backup.sha256
       - name: Prove the dump restores into a scratch database
         run: |
           set -euo pipefail
-          docker run --rm -i --network host -e PGPASSWORD=scratch-only postgres:17 \
+          docker run --rm -i --network host -e PGPASSWORD=scratch-only postgres:18 \
             pg_restore --no-owner --no-privileges --exit-on-error -h localhost -U postgres -d restore_test < backup.dump
-          psql_scratch() { docker run --rm --network host -e PGPASSWORD=scratch-only postgres:17 psql -h localhost -U postgres -d restore_test -At -c "$1"; }
+          psql_scratch() { docker run --rm --network host -e PGPASSWORD=scratch-only postgres:18 psql -h localhost -U postgres -d restore_test -At -c "$1"; }
           tables=$(psql_scratch "select count(*) from information_schema.tables where table_schema='public'")
           migrations=$(psql_scratch "select count(*) from django_migrations")
           audit=$(psql_scratch "select count(*) from audit_events")
