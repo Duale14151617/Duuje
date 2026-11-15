@@ -40,6 +40,6 @@ class RenameSampleDataTests(BaseApiTest):
 
     def test_a_clash_is_skipped_not_overwritten(self):
         Personnel.objects.create(full_name="Existing", service_number="SAMPLE-0001", org_unit=self.sample_unit,
-                                 rank=Rank.objects.get(code="PA-03"), status="active")
+                                 branch=self.sample_unit.parent.branch, rank=Rank.objects.get(code="PA-03"), status="active")
         call_command("rename_sample_data", "--apply")
         self.assertEqual(Personnel.objects.get(pk=self.person.pk).service_number, "DEMO-0001")
