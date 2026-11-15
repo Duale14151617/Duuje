@@ -13,12 +13,12 @@ class RenameSampleDataTests(BaseApiTest):
     def setUp(self):
         super().setUp()
         parent = OU.objects.get(code="BARI-ARMY")
-        self.unit = OU.objects.create(code="BARI-ARMY-DEMO-A", name_en="Synthetic Unit A", name_so="Cutubka Tijaabada A",
+        self.sample_unit = OU.objects.create(code="BARI-ARMY-DEMO-A", name_en="Synthetic Unit A", name_so="Cutubka Tijaabada A",
                                       level=OU.Level.UNIT, parent=parent)
-        self.person = Personnel.objects.create(full_name="Demo Person 01", service_number="DEMO-0001", org_unit=self.unit,
+        self.person = Personnel.objects.create(full_name="Demo Person 01", service_number="DEMO-0001", org_unit=self.sample_unit,
                                                branch=parent.branch, rank=Rank.objects.get(code="PA-03"), status="active")
         cat = InventoryCategory.objects.filter(code__startswith="weapons_").first() or InventoryCategory.objects.first()
-        self.asset = Asset.objects.create(category=cat, identifier="DEMO-RIFL-001", org_unit=self.unit, description="Synthetic demo weapon")
+        self.asset = Asset.objects.create(category=cat, identifier="DEMO-RIFL-001", org_unit=self.sample_unit, description="Synthetic demo weapon")
         self.user = self.make_user("sample.commander", "read_only")
         User.objects.filter(pk=self.user.pk).update(full_name="Bari Unit Commander (Demo)")
 
@@ -39,7 +39,7 @@ class RenameSampleDataTests(BaseApiTest):
         self.assertEqual(User.objects.get(pk=self.user.pk).full_name, "Bari Unit Commander (Sample)")
 
     def test_a_clash_is_skipped_not_overwritten(self):
-        Personnel.objects.create(full_name="Existing", service_number="SAMPLE-0001", org_unit=self.unit,
+        Personnel.objects.create(full_name="Existing", service_number="SAMPLE-0001", org_unit=self.sample_unit,
                                  rank=Rank.objects.get(code="PA-03"), status="active")
         call_command("rename_sample_data", "--apply")
         self.assertEqual(Personnel.objects.get(pk=self.person.pk).service_number, "DEMO-0001")
