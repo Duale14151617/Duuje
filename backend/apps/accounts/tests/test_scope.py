@@ -99,4 +99,4 @@ class ScopeTests(BaseApiTest):
         admin = self.client_for(self.make_user("adm", "hq_admin"))
         data = admin.get("/api/v1/dashboard/").data
         self.assertIn("accounts", data)
-        self.assertEqual(data["scope"]["units_in_scope"], 13)
+        self.assertEqual(data["scope"]["units_in_scope"], 10)  # the Army-only seeded tree plus the test-fixture commands

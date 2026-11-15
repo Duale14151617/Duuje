@@ -34,9 +34,12 @@ class AppointmentBase(PersonnelBase):
 
 class AppointmentTests(AppointmentBase):
     def test_types_are_seeded_and_tied_to_unit_types(self):
-        got = {t.code: (t.unit_type.code, t.exclusive) for t in AppointmentType.objects.all()}
-        self.assertEqual(got, {"TALIYE_QAYBEED": ("QAYB", True), "TALIYE_GUUTO": ("GUUTO", True),
-                               "TALIYE_URUR": ("URUR", True), "ABAANDUULE": ("URUR", False)})
+        # Later releases added department-level posts that are not tied to a unit type (unit_type is empty), so only the four
+        # original command posts are pinned here.
+        got = {t.code: (t.unit_type.code if t.unit_type else None, t.exclusive) for t in AppointmentType.objects.all()}
+        original = {"TALIYE_QAYBEED": ("QAYB", True), "TALIYE_GUUTO": ("GUUTO", True),
+                    "TALIYE_URUR": ("URUR", True), "ABAANDUULE": ("URUR", False)}
+        self.assertEqual({k: got.get(k) for k in original}, original)
 
     def test_appoint_a_regional_commander_and_audit_it(self):
         r = self.appoint()
@@ -152,7 +155,7 @@ class AppointmentReadTests(AppointmentBase):
 
     def test_catalogue_lists_active_types(self):
         r = self.boss.get(f"{URL}appointment-types/")
-        self.assertEqual({t["code"] for t in r.json()["results"]}, {"TALIYE_QAYBEED", "TALIYE_GUUTO", "TALIYE_URUR", "ABAANDUULE"})
+        self.assertTrue({"TALIYE_QAYBEED", "TALIYE_GUUTO", "TALIYE_URUR", "ABAANDUULE"} <= {t["code"] for t in r.json()["results"]})
 
     def test_a_member_may_read_their_own_appointments_only(self):
         self.appoint()

@@ -86,10 +86,12 @@ class PersonnelAnalyticsTests(AnalyticsData):
 
 
 class PermissionGateTests(AnalyticsData):
-    def test_administrators_get_no_analytics_by_default(self):
+    def test_administrators_can_open_analytics_but_not_without_the_permission(self):
+        # Since 2.1 the headquarters administrator holds analytics.view as part of the everyday work; a role without it is refused.
         adm = self.client_for(self.make_user("adm", "hq_admin"))
-        self.assertEqual(adm.get(BASE).status_code, 403)
-        self.assertEqual(adm.get(BASE + "personnel/").status_code, 403)
+        self.assertEqual(adm.get(BASE).status_code, 200)
+        nobody = self.client_for(self.make_user("rdo", "reporting_officer"))
+        self.assertEqual(nobody.get(BASE).status_code, 403)
 
     def test_analytics_view_alone_exposes_no_data(self):
         c = self.analyst_only()

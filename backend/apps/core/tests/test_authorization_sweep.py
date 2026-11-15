@@ -1,5 +1,5 @@
 """Deny-by-default evidence: every registered API route is exercised without credentials and without any role."""
-from django.urls import reverse
+from django.urls import NoReverseMatch, reverse
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
@@ -27,7 +27,13 @@ class RouteInventoryTests(BaseApiTest):
             if not any(issubclass(c, ScopedPermission) for c in viewset.permission_classes):
                 self.assertIn(basename, OWN_DATA_ONLY, f"{basename} has no explicit permission map")
                 continue
-            defined = {a for a in STANDARD if hasattr(viewset, a)} | {a.__name__ for a in viewset.get_extra_actions()}
+            # An extra action can serve several HTTP methods under different handler names (for example a GET list and a POST create on
+            # the same URL via .mapping.post); every handler name needs its own permission rule.
+            handlers = set()
+            for extra in viewset.get_extra_actions():
+                handlers.add(extra.__name__)
+                handlers.update(extra.mapping.values())
+            defined = {a for a in STANDARD if hasattr(viewset, a)} | handlers
             mapped = set(viewset.permission_map)
             self.assertFalse(defined - mapped - {"update"}, f"{basename}: actions without a permission rule {defined - mapped}")
             self.assertFalse(mapped - defined, f"{basename}: stale permission rules {mapped - defined}")
@@ -43,7 +49,13 @@ class RouteInventoryTests(BaseApiTest):
 
 class DenyByDefaultSweep(BaseApiTest):
     def list_urls(self):
-        return [(basename, reverse(f"{basename}-list")) for _, _, basename in registry()]
+        urls = []
+        for _, _, basename in registry():
+            try:
+                urls.append((basename, reverse(f"{basename}-list")))
+            except NoReverseMatch:  # a viewset with no list route (for example ammo-control) has nothing to sweep here
+                continue
+        return urls
 
     def test_unauthenticated_requests_are_refused_on_every_route(self):
         c = APIClient()

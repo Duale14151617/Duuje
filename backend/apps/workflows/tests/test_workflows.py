@@ -220,7 +220,7 @@ class ScopeTests(WorkflowBase):
         self.assertEqual({a["id"], b["id"]}, {x["id"] for x in r.get(URL).data["results"]})
 
     def test_users_without_report_permissions_get_nothing(self):
-        adm = self.who("adm", "hq_admin", "HQ")
+        adm = self.who("trn", "training_admin", "HQ")  # holds no report permissions (the headquarters administrator now does)
         self.assertEqual(adm.get(URL).status_code, 403)
         self.assertEqual(adm.get(SUMMARY).status_code, 403)
 

@@ -64,7 +64,7 @@ class MailerTests(BaseApiTest):
         self.assertEqual(r.status_code, 200)
         self.assertEqual((len(pool.jobs), mail.outbox), (1, []))
         pool.run_all()
-        self.assertIn("reset code", mail.outbox[0].subject)
+        self.assertIn("password reset", mail.outbox[0].subject)
 
 
 class KeyRotationTests(BaseApiTest):

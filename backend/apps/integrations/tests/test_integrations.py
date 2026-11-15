@@ -7,7 +7,7 @@ from django.test import override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.accounts.models import Role, RoleAssignment, User
+from apps.accounts.models import Permission, Role, RoleAssignment, User
 from apps.audit.models import AuditEvent
 from apps.core.testing import BaseApiTest
 from apps.integrations.authentication import IntegrationRateThrottle
@@ -23,6 +23,10 @@ EXT = "/api/v1/ext/"
 class IntegrationBase(BaseApiTest):
     def setUp(self):
         super().setUp()
+        # The seeded hq_admin deliberately does NOT hold integrations.manage (API clients are a back door; see HQ_ADMIN_RESERVED).
+        # These tests exercise the feature itself, so the test database lets hq_admin manage clients. The permission check for
+        # roles that must not manage them is covered by test_only_permitted_users_can_list and test_nobody_can_grant_access_they_do_not_hold.
+        Role.objects.get(code="hq_admin").permissions.add(*Permission.objects.filter(code__in=["integrations.view", "integrations.manage"]))
         Rank.objects.filter(branch__code="ARMY", code="PA-03").update(approval_status="approved", name_so="x")
         self.rank = Rank.objects.get(branch__code="ARMY", code="PA-03")
         self.bari = OU.objects.create(code="BARI-ARMY-A", name_en="Bari A", level="unit", parent=self.unit("BARI-ARMY"))

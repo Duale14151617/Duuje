@@ -247,7 +247,8 @@ class ChartAndAnalyticsTests(OrgStructureBase):
         bat = {u["code"]: u for u in d["by_formation"]["battalion"]}["BARI-ARMY-U9"]
         self.assertEqual((bat["total"], bat["active"], bat["inactive"]), (4, 3, 1))
         med = next(x for x in d["departments"] if x["department"]["code"] == "MEDICAL")
-        self.assertEqual((med["total"], med["established_in"], med["with_head"]), (1, 1, 0))
+        self.assertEqual((med["total"], med["with_head"]), (1, 0))
+        self.assertGreaterEqual(med["established_in"], 1)  # departments are now established in every unit, not just the one used here
         self.assertEqual(d["unassigned_department"]["total"], 3)
         self.assertGreaterEqual(d["leadership"]["with_commander"], 1)
         self.assertTrue(any(v["code"] == "BARI-ARMY-U9" and v["missing"] == ["deputy"] for v in d["leadership"]["vacancies"]))
@@ -338,11 +339,11 @@ class AutomaticAndBulkTests(OrgStructureBase):
 
     def test_csv_import_with_an_optional_department_column(self):
         def upload(text):
-            return self.hq.post(f"{PEOPLE}import/preview", {"file": SimpleUploadedFile("p.csv", text.encode(), content_type="text/csv")}, format="multipart")
+            return self.hq.post(f"{PEOPLE}import/preview/", {"file": SimpleUploadedFile("p.csv", text.encode(), content_type="text/csv")}, format="multipart")
         ok = upload("full_name,unit_code,rank_code,department_code\nCsv Medic,BARI-ARMY-U9,PA-03,medical\nCsv Plain,BARI-ARMY-U9,PA-03,\n")
         self.assertEqual(ok.status_code, 200, ok.content)
         self.assertTrue(ok.json()["can_commit"], ok.json())
-        done = self.hq.post(f"{PEOPLE}import/commit", {"batch_id": ok.json()["batch_id"]}, format="json")
+        done = self.hq.post(f"{PEOPLE}import/commit/", {"batch_id": ok.json()["batch_id"]}, format="json")
         self.assertEqual(done.status_code, 200, done.content)
         self.assertEqual(Personnel.objects.get(full_name="Csv Medic").department, self.medical)
         self.assertIsNone(Personnel.objects.get(full_name="Csv Plain").department)

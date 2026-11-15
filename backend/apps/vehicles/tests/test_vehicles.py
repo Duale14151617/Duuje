@@ -379,9 +379,9 @@ class FleetAnalyticsTests(VehicleBase):
                          ("utility", "personnel_transport", "general_transport", "protected_transport"))
 
     def test_analytics_totals_come_from_the_database_and_respect_scope(self):
-        self.veh(plate="AN-001")
-        self.veh(plate="AN-002", category="bus")
-        self.veh(plate="AN-003", category="truck", unit=self.other)
+        self.veh(plate="GD-901")
+        self.veh(plate="GD-902", category="bus")
+        self.veh(plate="GD-903", category="truck", unit=self.other)
         a = self.officer.get(URL + "analytics/").json()
         self.assertEqual(a["total"], 3)
         self.assertEqual({g["code"]: g["count"] for g in a["by_group"]}["personnel_transport"], 1)

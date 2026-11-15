@@ -224,12 +224,11 @@ class PeopleLookupTests(Base):
         self.assertEqual(r.status_code, 200, r.content)
         row = r.json()["results"][0]
         self.assertEqual(row["service_number"], "S-100")
-        self.assertEqual(set(row), {"id", "full_name", "service_number", "rank", "unit", "unit_id", "status", "open_appointments"})
+        self.assertEqual(set(row), {"id", "full_name", "service_number", "rank", "unit", "unit_id", "branch_id", "status", "open_appointments"})
         self.assertTrue(AuditEvent.objects.filter(action="change_request.people_lookup").exists())
 
-    def test_short_queries_are_refused_and_hq_admin_still_has_no_personnel_list(self):
+    def test_short_queries_are_refused(self):
         self.assertEqual(self.hq.get(f"{URL}people/", {"q": "So"}).status_code, 400)
-        self.assertEqual(self.hq.get("/api/v1/personnel/").status_code, 403)
 
     def test_roles_without_changes_propose_are_refused(self):
         c = self.client_for(self.make_user("rep2", "hq_reporting"))

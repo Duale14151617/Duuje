@@ -63,7 +63,8 @@ class RankTests(BaseApiTest):
         self.assertEqual((Rank.objects.count(), r.approval_status, r.name_so), (18, "approved", "Kabtan"))
 
     def test_approval_workflow(self):
-        c = self.client_for(self.make_user("adm", "hq_admin"))
+        # Approving a rank-catalogue entry is reserved for the super administrator (the headquarters administrator only prepares it).
+        c = self.client_for(self.make_user("adm", "super_admin"))
         Rank.objects.filter(code="PA-10").update(approval_status="draft", approved_at=None, name_so="")
         rank = Rank.objects.get(code="PA-10")
         url = f"/api/v1/ranks/{rank.pk}/"

@@ -71,6 +71,8 @@ BRANCH_ADMIN_RECORDS = {"disciplinary.view", "disciplinary.manage", "documents.v
 # Death workflow: units and regions may REPORT a death; only branch_admin may CONFIRM (a different officer from the reporter).
 DEATH_GAINS = {"unit_admin": {"personnel.record_death"}, "regional_chief": {"personnel.record_death"},
                "branch_admin": {"personnel.record_death", "personnel.confirm_death", "personnel.appointments_manage"}}
+# Withdrawn on purpose after 2.0: the headquarters administrator now PREPARES and the super administrator APPROVES (HQ_ADMIN_RESERVED).
+HQ_ADMIN_WITHDRAWN = {"ranks.approve"}
 HQ_ADMIN_GAINS = {"integrations.view", "integrations.manage", "org.structure_propose", "food.view", "food.manage", "changes.propose", "tasks.view", "tasks.manage"}
 
 
@@ -78,7 +80,8 @@ class RoleCompatibilityTests(BaseApiTest):
     def test_no_role_lost_a_permission(self):
         for role, codes in V14_ROLE_PERMISSIONS.items():
             have = set(Role.objects.get(code=role).permissions.values_list("code", flat=True))
-            self.assertFalse(set(codes) - have, f"{role} lost {set(codes) - have}")
+            withdrawn = HQ_ADMIN_WITHDRAWN if role == "hq_admin" else set()
+            self.assertFalse(set(codes) - have - withdrawn, f"{role} lost {set(codes) - have - withdrawn}")
 
     def test_roles_only_gained_the_documented_permission(self):
         for role, codes in V14_ROLE_PERMISSIONS.items():
@@ -102,13 +105,13 @@ class RoleCompatibilityTests(BaseApiTest):
         from apps.accounts.models import Permission
         self.assertTrue(NEW_PERMISSIONS <= set(Permission.objects.values_list("code", flat=True)))
 
-    def test_administrators_still_hold_no_data_permissions(self):
+    def test_administrators_hold_nothing_reserved_for_the_super_administrator(self):
+        # Since 2.1 the headquarters administrator does the everyday work (people, stock, weapons, vehicles, training, accounts) but
+        # holds no approval, money-movement, restricted or override authority: those stay with the super administrator.
         have = set(Role.objects.get(code="hq_admin").permissions.values_list("code", flat=True))
-        sensitive = ("personnel.", "changes.approve", "reports.view", "reports.submit", "reports.review", "reports.summary", "logistics.view",
-                     "logistics.manage", "logistics.restricted", "training.view", "training.manage", "analytics.", "org.structure_approve",
-                     "disciplinary.", "documents.", "reports.combined", "search.", "restricted.")
-        self.assertFalse([c for c in have if c.startswith(sensitive)])
-        self.assertTrue({"integrations.view", "integrations.manage", "org.structure_propose"} <= have)
+        self.assertFalse(have & set(HQ_ADMIN_RESERVED), have & set(HQ_ADMIN_RESERVED))
+        self.assertTrue({"integrations.view", "org.structure_propose"} <= have)
+        self.assertNotIn("integrations.manage", have)  # API clients are a back door: super administrator only
         self.assertNotIn("org.structure_approve", have)  # approving a structure change is a separate duty
 
 
@@ -132,7 +135,9 @@ class RouteCompatibilityTests(BaseApiTest):
                                  # organizational structure upgrade: department catalogue, unit departments, formation roles, org analytics
                                  ("organization/departments", "department"), ("organization/unit-departments", "unit-department"),
                                  ("organization/formation-roles", "formation-role"), ("organization/analytics", "org-analytics"),
-                                 ("ammo-control", "ammo-control")})  # attendance, weapons, ammunition and payroll modules
+                                 ("ammo-control", "ammo-control"),
+                                 # modules added after 2.0: protective equipment, equipment/vehicle models, inventory catalogue
+                                 ("ppe", "ppe"), ("equipment", "equipment"), ("inventories", "inventory")})  # attendance, weapons, ammunition and payroll modules
 
     def test_version_1_prefix_is_unchanged(self):
         self.assertEqual(self.client_for(self.make_user("hqr", "hq_reporting")).get("/api/v1/auth/me/").status_code, 200)
@@ -155,13 +160,15 @@ class RouteCompatibilityTests(BaseApiTest):
 
 
 V2_ADDED_MIGRATIONS = {  # migrations added to existing apps after v1.4 (2.0 structure changes)
+    "accounts": ["0003_mfa_recovery_code", "0004_email_verification", "0005_temp_password_expiry"],
     "organization": ["0004_structure_change", "0005_unit_restricted", "0006_station_level",
-                     "0007_change_request", "0008_change_request_kinds", "0009_change_request_batch", "0011_remove_station_level"],
+                     "0007_change_request", "0008_change_request_kinds", "0009_change_request_batch", "0010_change_request_rank_status",
+                     "0011_remove_station_level", "0012_departments_and_formation_roles"],
     "ranks": ["0004_add_command_ranks", "0005_police_rank_categories", "0006_army_rank_categories"],
     "personnel": ["0003_personnelprofile", "0004_disciplinary_and_documents", "0005_supervisor_and_account",
                   "0006_death_record_and_statuses", "0007_command_appointments", "0008_attendance_support_category",
-                  "0009_unit_tasks"],
-    "logistics": ["0003_ammunition_ledger", "0004_food_stores", "0005_food_batch_opening_source"],
+                  "0009_unit_tasks", "0010_scale_indexes", "0011_department_and_appointment_roles", "0012_strength_snapshot"],
+    "logistics": ["0003_ammunition_ledger", "0004_food_stores", "0005_food_batch_opening_source", "0006_asset_lifecycle", "0007_stock_lot"],
 }
 
 

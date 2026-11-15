@@ -241,7 +241,9 @@ class ReportingScreenApiTests(PersonnelBase):
     def test_user_page_reports_the_linked_personnel_record(self):
         from apps.accounts.models import User
         admin = self.client_for(self.make_user("adm", "hq_admin"))
-        self.assertEqual(admin.get(f"/api/v1/users/{self.sgt_user.pk}/").json()["personnel_id"], str(self.sgt.pk))
+        sgt_user = self.make_user("sgt", "member", unit="BARI-ARMY")  # this class does not create the linked account in setUp
+        Personnel.objects.filter(pk=self.sgt.pk).update(account=sgt_user)
+        self.assertEqual(admin.get(f"/api/v1/users/{sgt_user.pk}/").json()["personnel_id"], str(self.sgt.pk))
         unlinked = User.objects.create_user("no.link", password="x", full_name="No Link")
         self.assertIsNone(admin.get(f"/api/v1/users/{unlinked.pk}/").json()["personnel_id"])
 

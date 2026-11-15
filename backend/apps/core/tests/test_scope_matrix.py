@@ -3,7 +3,7 @@ summary, export and mutation route; a marker from Nugaal must never appear and n
 from datetime import date
 
 from django.test import override_settings
-from django.urls import reverse
+from django.urls import NoReverseMatch, reverse
 
 from apps.core.testing import BaseApiTest
 from apps.logistics.models import Asset, InventoryCategory, Reconciliation, ReconciliationLine, StockLine
@@ -61,7 +61,10 @@ class ScopeMatrixTests(BaseApiTest):
     def list_urls(self):
         urls = []
         for _, _, basename in router.registry:
-            base = reverse(f"{basename}-list")
+            try:
+                base = reverse(f"{basename}-list")
+            except NoReverseMatch:  # a viewset with no list route (for example ammo-control)
+                continue
             urls += [base, f"{base}?q={MARK}", f"{base}?search={MARK}&page_size=100"]
         return urls + ["/api/v1/dashboard/", "/api/v1/notifications/"]
 

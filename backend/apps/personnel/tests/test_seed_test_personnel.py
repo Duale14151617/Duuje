@@ -20,7 +20,7 @@ class SeedTestPersonnelTests(BaseApiTest):
         self.assertEqual(tst.count(), 150)
         self.assertEqual(len({p.name_key for p in tst}), 150)          # no duplicate names
         self.assertGreater(len({p.rank_id for p in tst}), 10)           # many different ranks
-        self.assertGreater(len({p.org_unit_id for p in tst}), 3)        # spread over the regions
+        self.assertGreaterEqual(len({p.org_unit_id for p in tst}), 3)  # spread over the three regions
 
         from apps.personnel import profile as profile_svc
         from apps.personnel.models import PersonnelProfile

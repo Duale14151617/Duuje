@@ -114,6 +114,10 @@ class Command(BaseCommand):
     def _delete(obj, gone, kept):
         try:
             with transaction.atomic():
+                # Units get department rows automatically (configuration, not records), and those are PROTECTed: clear them first so
+                # an otherwise unreferenced unit can go. If the unit is still referenced the whole block rolls back and it is kept.
+                if hasattr(obj, "unit_departments"):
+                    obj.unit_departments.all().delete()
                 obj.delete()
             return gone + 1, kept
         except (ProtectedError, IntegrityError):

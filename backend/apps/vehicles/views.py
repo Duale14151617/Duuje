@@ -165,7 +165,10 @@ class VehicleViewSet(viewsets.GenericViewSet):
         if p.get("status"):
             qs = qs.filter(status=p["status"])
         if p.get("reference_model"):
-            qs = qs.filter(Q(reference_model__code=p["reference_model"].lower()) | Q(reference_model_id=_uid(p["reference_model"])))
+            ref = Q(reference_model__code=p["reference_model"].lower())
+            if _uid(p["reference_model"]):  # a code is not an id: filtering on id=None would match every vehicle with no model
+                ref |= Q(reference_model_id=_uid(p["reference_model"]))
+            qs = qs.filter(ref)
         if p.get("group") in {g.value for g in VehicleCategory.Group}:
             qs = qs.filter(category__group=p["group"])
         if p.get("condition") in svc.CONDITIONS:

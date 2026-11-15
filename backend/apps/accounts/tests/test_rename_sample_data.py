@@ -16,7 +16,7 @@ class RenameSampleDataTests(BaseApiTest):
         self.unit = OU.objects.create(code="BARI-ARMY-DEMO-A", name_en="Synthetic Unit A", name_so="Cutubka Tijaabada A",
                                       level=OU.Level.UNIT, parent=parent)
         self.person = Personnel.objects.create(full_name="Demo Person 01", service_number="DEMO-0001", org_unit=self.unit,
-                                               rank=Rank.objects.get(code="PA-03"), status="active")
+                                               branch=parent.branch, rank=Rank.objects.get(code="PA-03"), status="active")
         cat = InventoryCategory.objects.filter(code__startswith="weapons_").first() or InventoryCategory.objects.first()
         self.asset = Asset.objects.create(category=cat, identifier="DEMO-RIFL-001", org_unit=self.unit, description="Synthetic demo weapon")
         self.user = self.make_user("sample.commander", "read_only")
