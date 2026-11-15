@@ -21,6 +21,7 @@ export function BarList({ rows, aria }: { rows: Bar[]; aria: string }) {
         return (
           <li key={r.key} className="hb-row">
             <span className="hb-label" title={r.label}>{r.to ? <Link to={r.to}>{r.label}</Link> : r.label}</span>
+            {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- keyboard users reach the bar's figures through its label */}
             <span className="hb-cell" tabIndex={0} aria-label={`${r.label}: ${r.value.toLocaleString()}`}>
               <span className="hb-track" aria-hidden="true">
                 {segs.map((s) => <span key={s.label} className={`hb-seg ${s.cls}`} style={{ width: `${(s.value / max) * 100}%` }} />)}

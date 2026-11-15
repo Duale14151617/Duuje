@@ -108,7 +108,7 @@ export function formatDate(iso: string | null, lang: string): string {
 export function Tabs<T extends string>({ tabs, value, onChange, label, controls = false, idPrefix = "tab" }: {
   tabs: { id: T; label: string; icon?: IconName }[]; value: T; onChange: (id: T) => void; label?: string; controls?: boolean; idPrefix?: string }) {
   const refs = useRef(new Map<string, HTMLButtonElement>());
-  const move = (e: KeyboardEvent<HTMLDivElement>) => {
+  const move = (e: KeyboardEvent<HTMLButtonElement>) => {
     const i = tabs.findIndex((x) => x.id === value);
     const to = e.key === "ArrowRight" ? (i + 1) % tabs.length : e.key === "ArrowLeft" ? (i - 1 + tabs.length) % tabs.length
       : e.key === "Home" ? 0 : e.key === "End" ? tabs.length - 1 : -1;
@@ -119,12 +119,12 @@ export function Tabs<T extends string>({ tabs, value, onChange, label, controls 
     refs.current.get(next)?.focus();
   };
   return (
-    <div className="tabs" role="tablist" aria-label={label} onKeyDown={move}>
+    <div className="tabs" role="tablist" aria-label={label}>
       {tabs.map((x) => (
         <button key={x.id} type="button" role="tab" id={`${idPrefix}-${x.id}`} className="tab"
                 ref={(el) => { if (el) refs.current.set(x.id, el); else refs.current.delete(x.id); }}
                 aria-selected={x.id === value} aria-controls={controls ? `${idPrefix}-panel-${x.id}` : undefined}
-                tabIndex={x.id === value ? 0 : -1} onClick={() => onChange(x.id)}>
+                tabIndex={x.id === value ? 0 : -1} onClick={() => onChange(x.id)} onKeyDown={move}>
           {x.icon ? <Icon name={x.icon} size={16} /> : null}<span>{x.label}</span>
         </button>
       ))}

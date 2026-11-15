@@ -86,8 +86,9 @@ def post(request, line, kind, quantity, reason="", external_ref="", authority_re
                 raise field_error("kind", "opening_not_first")  # an opening balance can only start an empty ledger
             if external_ref and moves.filter(kind=kind, external_ref=external_ref).exists():
                 raise field_error("external_ref", "duplicate_movement")
-            if kind == "issue" and lot and moves.exclude(lot="").exists():
+            if kind == "issue" and lot and moves.filter(kind__in=("opening", "receive")).exclude(lot="").exists():
                 # Once the store's receipts carry lot numbers, rounds can only be issued from a lot that has them in store.
+                # Only receipts count here: an earlier issue that merely names a lot must not switch the check on.
                 in_lot = moves.filter(lot__iexact=lot).aggregate(s=Sum("delta"))["s"] or 0
                 if quantity > in_lot:
                     raise field_error("lot", "lot_insufficient" if in_lot else "lot_unknown")

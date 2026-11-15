@@ -158,7 +158,7 @@ export function GlobalSearch() {
       <p className="sr-only" role="status" aria-live="polite">{status}</p>
 
       {popOpen && (
-        <div className="gs-pop" onMouseDown={(e) => { if ((e.target as HTMLElement).closest("button") === null) e.preventDefault(); }}>
+        <div className="gs-pop" role="presentation" onMouseDown={(e) => { if ((e.target as HTMLElement).closest("button") === null) e.preventDefault(); }}>
           {searching && phase === "done" && present.length > 1 && (
             <div className="gs-tabs" role="group" aria-label={t("gs.filterBy")}>
               <button type="button" className="gs-tab" aria-pressed={shownTab === "all"} onClick={() => setTab("all")}>{t("gs.all")}<span className="gs-count">{hits.length}</span></button>

@@ -113,7 +113,7 @@ class TraceTests(AmmoControlBase):
 
     def test_weapon_trace_names_the_holder_at_the_time_and_the_rounds_they_held(self):
         asset = self.weapon("AK-0001")
-        self.assertEqual(self.issue(asset, person=self.s1).status_code, 201)
+        self.assertEqual(self.issue(asset, person=self.s1).status_code, 200)  # weapon custody issue answers 200 (as in test_rounds)
         self.give(90, "V1", lot="LOT-9")
         later = (timezone.now() + timedelta(minutes=5)).isoformat()
         r = self.armourer.get(f"{C}trace/", {"serial": "ak-0001", "at": later})

@@ -77,6 +77,7 @@ export function RegionChart({ rows, linkFor }: { rows: RegionHeadcount[]; linkFo
           return (
             <li key={r.code ?? "hq"} className="hb-row">
               <span className="hb-label" title={text}>{links ? <Link to={links.all} aria-label={t("dash.viewRegion", { name: text })}>{text}</Link> : text}</span>
+              {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- keyboard users reach the bar's figures through its label */}
               <span className="hb-cell" tabIndex={0} aria-label={`${text}: ${t("dash.activePersonnel")} ${r.active.toLocaleString()}, ${t("dash.inactive")} ${inactive.toLocaleString()}, ${t("dash.regionTotal")} ${r.total.toLocaleString()}`}>
                 <span className="hb-track" aria-hidden="true">
                   <span className="hb-seg c1" style={{ width: `${(r.active / max) * 100}%` }} />
