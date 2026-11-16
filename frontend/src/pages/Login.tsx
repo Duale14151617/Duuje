@@ -147,7 +147,7 @@ export function Login() {
 
       <footer className="lp-footer">
         <svg className="lp-orn" viewBox="0 0 170 20" width="170" height="20" aria-hidden="true"><path d="M0 1l22 17h148" fill="none" stroke="currentColor" strokeWidth="1.4" /></svg>
-        <span>{t("app.name")} <i>·</i> {t("app.footer")}</span>
+        <span>{t("app.name")} <i>·</i> {t("app.footer")} <i>·</i> <a href="/about.html">{t("app.about")}</a> <i>·</i> <a href="/privacy.html">{t("app.privacy")}</a></span>
         <svg className="lp-orn lp-orn-r" viewBox="0 0 170 20" width="170" height="20" aria-hidden="true"><path d="M0 1l22 17h148" fill="none" stroke="currentColor" strokeWidth="1.4" /></svg>
       </footer>
     </div>

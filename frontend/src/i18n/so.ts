@@ -59,6 +59,8 @@ export const so: Record<keyof typeof en, string> = {
   "nav.users": "Isticmaalayaal",
   "nav.audit": "Diiwaanka hubinta",
   "scope.label": "Awoodaada",
+  "app.about": "Nagu saabsan",
+  "app.privacy": "Xogta gaarka ah",
   "app.footer": "Nooc tijaabo ah · xog muunad ah oo keliya · lagama ogolaan isticmaalka hawlgalka",
   "rep.strength": "Tirada Ciidanka Dhulka",
   "scope.allBranches": "Dhammaan laamaha",

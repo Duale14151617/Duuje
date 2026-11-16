@@ -36,9 +36,6 @@ beforeEach(() => {
       path.endsWith("/vehicles/categories/") ? { results: [cat] } :
       path.endsWith("/vehicles/statuses/") ? { results: statuses } :
       path.endsWith("/vehicles/summary/") ? { unit, total: 2, direct: tally, subordinate: { ...tally, total: 0 }, combined: tally, decommissioned: 0, by_child_unit: [{ unit, total: 2, direct: 2 }] } :
-      path.endsWith("/vehicles/analytics/") ? { total: 2, decommissioned: 0, by_group: [], by_category: [{ ...cat, count: 2, group: "utility" }], by_condition: { good: 2 }, by_status: { operational: 2 },
-        under_maintenance: 0, awaiting_inspection: 0, requiring_inspection: 0, overdue_maintenance: 0, available: 2, unavailable: 0, available_pct: 100, without_driver: 2,
-        inspection_window_days: 30, expenditure: { visible: false, by_currency: [] } } :
       path.endsWith("/vehicles/") ? { count: 1, next: null, previous: null, results: [row] } :
       path.endsWith("/history/") || path.endsWith("/maintenance/") || path.endsWith("/documents/") ? { results: [], cost_visible: true } :
       path.includes("/vehicles/1111") ? (method === "GET" ? detail : { ...row, version: 4 }) : {};

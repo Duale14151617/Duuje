@@ -45,11 +45,18 @@ Never keep `BREVO_API_KEY` set unless Brevo is working: the Apps Script sender i
 - Five failed sign-ins lock an account for 15 minutes. An administrator re-enabling the account clears the lock. When copying a temporary password, check there are no extra spaces.
 - Vehicle categories are switched off with the **Remove** button, never deleted.
 
+## 5b. Monthly routine
+- **Access review (first working day of each month, about 10 minutes):** sign in as an administrator, open **Users**, open the **access review**, and act on it: disable leavers and accounts nobody uses, reset expired temporary passwords, confirm at least two user administrators, and check who holds whole-system access. (The same report can be emailed with `python manage.py access_review --email`.)
+- Check that the nightly backup has a green tick in GitHub Actions and that UptimeRobot shows no unexplained downtime.
+
+## 5c. Public pages
+- `frontend/public/about.html` and `frontend/public/privacy.html` (linked from the login page footer) describe who runs the system and how data is handled. The owner details are filled in (name, Garowe, contact email, 15 November 2026); update the date, the contact and the retention periods when they change. These pages are what email providers ask to see.
+
 ## 6. Known limits of this deployment
 - Free web service sleeps when idle; the first request can take up to a minute.
 - Neon pauses an idle database; the first query after a quiet period is slower.
 - Single Gmail sender, no domain, no owner/privacy page.
-- Startup seeding prints "Background seeding stopped early" if sample mode is off and the database already has users. Harmless, but worth cleaning up.
+- When sample mode is off the start command now skips the sample-data steps instead of failing part-way.
 
 ## 7. When the ministry approves hosting
 Ask them for: where the system will run, which domain it will use, where data may be stored, who runs backups, and how email should be sent. Then:
@@ -59,8 +66,8 @@ Ask them for: where the system will run, which domain it will use, where data ma
 4. Add an owner/contact page and a privacy policy to the site.
 5. Move backups to the approved location and run a restore test before go-live.
 
-## 8. Contacts (fill in)
-- System owner: 
-- Ministry contact: 
-- Hosting/domain owner: 
-- Where the passwords and keys are stored: 
+## 8. Contacts
+- System owner and operator: Abdullaahi Ahmed Mohamoud Du'ale, Garowe, Puntland, Somalia (duujesuites@gmail.com, also the account that sends the system's email)
+- Ministry contact: (fill in when approval is granted)
+- Hosting/domain owner: (fill in; the demo uses free Render and Neon accounts held by the operator)
+- Where the passwords and keys are stored: (fill in: the password manager that holds `BACKUP_PASSPHRASE`, `FIELD_ENCRYPTION_KEY`, the Apps Script `SECRET` and the Render/Neon/GitHub logins)

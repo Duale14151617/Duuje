@@ -20,7 +20,10 @@ class SeedTestPersonnelTests(BaseApiTest):
         self.assertEqual(tst.count(), 150)
         self.assertEqual(len({p.name_key for p in tst}), 150)          # no duplicate names
         self.assertGreater(len({p.rank_id for p in tst}), 10)           # many different ranks
-        self.assertGreaterEqual(len({p.org_unit_id for p in tst}), 3)  # spread over the three regions
+        from apps.organization.models import OrganizationalUnit as OU
+        from apps.personnel.management.commands.seed_test_personnel import REGIONS
+        regions_with_an_army_command = OU.objects.filter(code__in=[f"{r}-ARMY" for r in REGIONS]).count()
+        self.assertEqual(len({p.org_unit_id for p in tst}), regions_with_an_army_command)  # one sample unit per region
 
         from apps.personnel import profile as profile_svc
         from apps.personnel.models import PersonnelProfile

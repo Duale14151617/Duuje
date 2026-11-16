@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Mail without a domain (Render free tier):** new backends `apps.core.appsscript_backend` (Google Apps Script web app sending as a Gmail account; `APPS_SCRIPT_URL`, `APPS_SCRIPT_TOKEN`; see `docs/APPS_SCRIPT_MAILER.md`) and `apps.core.gmail_backend` (Gmail API over HTTPS). Order of choice: Apps Script, Gmail API, Brevo, SMTP, console. Email subjects now say "ARMY HQ"; password-reset emails carry a link (`ARMYHQ_SITE_URL`) as well as the one-time code, and the reset page prefills and then clears it from the address bar.
+- **Client address behind proxies:** `DEBUG_CLIENT_IP=1` temporarily logs the proxy headers so `NUM_PROXIES` can be set correctly (3 on Render behind Cloudflare). Leave it off normally.
+- **Vehicle categories can be removed** (switched off, never deleted) from the manager; the server refuses while vehicles still use one. **Fix:** filtering vehicles by a model code no longer also returns vehicles that have no model.
+- **Fix:** `remove_legacy_structure --purge` now clears a unit's automatic department rows so unreferenced legacy units can be removed.
+- **Start command:** sample-data steps are skipped cleanly when `ARMYHQ_SAMPLE_MODE` is off.
+- **Public pages:** `about.html` and `privacy.html` (linked from the login footer) state who runs the system and how data is handled.
+- **Tests:** brought the suite back in line with the current role design (the headquarters administrator prepares; the super administrator approves and manages API clients), the current migrations and routes, and the current seed data. Backend 950+ tests and frontend lint pass in CI.
+- **Docs:** `docs/HANDOVER.md` (deployment, variables, email, backups, monthly routine, moving to ministry hosting).
+
 - **Email verification and self-service "forgot password"** (ported from Duale BuildLink, adapted to Duuje's username sign-in, sessions and MFA). Both are OFF until outgoing email is configured (`EMAIL_VERIFICATION_ENABLED`, `PASSWORD_FORGOT_ENABLED`).
   - *Verification:* a signed-in user confirms their address on the new Account page with a six-digit code (hashed at rest, 15 minutes, 5 wrong guesses burn it, one request a minute). A different address needs the current password; the previous address is told. One verified address per account. An administrator changing a user's address clears its verified state (`users.email_verified_at`, migration `accounts/0004`).
   - *Forgot password:* `POST /auth/password/forgot/` (username or verified address) emails a one-time code; the answer is identical whether or not the account exists, and only accounts with a verified address get a code. The code is redeemed at the existing `/auth/password/reset/`; an emailed code on an account with an authenticator app also needs the current authenticator code (without it the reset code is not used up), so a mailbox alone cannot take over an MFA account. Sessions are ended and the owner is emailed. Administrator-issued codes behave as before and are not cancelled by emailed ones.

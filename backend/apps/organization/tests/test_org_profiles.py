@@ -248,7 +248,8 @@ class ChartAndAnalyticsTests(OrgStructureBase):
         self.assertEqual((bat["total"], bat["active"], bat["inactive"]), (4, 3, 1))
         med = next(x for x in d["departments"] if x["department"]["code"] == "MEDICAL")
         self.assertEqual((med["total"], med["with_head"]), (1, 0))
-        self.assertGreaterEqual(med["established_in"], 1)  # departments are now established in every unit, not just the one used here
+        # Standard departments are established in every unit automatically, so the figure is every active MEDICAL row, not just one unit.
+        self.assertEqual(med["established_in"], UnitDepartment.objects.filter(active=True, department__code="MEDICAL").count())
         self.assertEqual(d["unassigned_department"]["total"], 3)
         self.assertGreaterEqual(d["leadership"]["with_commander"], 1)
         self.assertTrue(any(v["code"] == "BARI-ARMY-U9" and v["missing"] == ["deputy"] for v in d["leadership"]["vacancies"]))

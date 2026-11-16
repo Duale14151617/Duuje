@@ -21,7 +21,6 @@ export function BarList({ rows, aria }: { rows: Bar[]; aria: string }) {
         return (
           <li key={r.key} className="hb-row">
             <span className="hb-label" title={r.label}>{r.to ? <Link to={r.to}>{r.label}</Link> : r.label}</span>
-            {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- keyboard users reach the bar's figures through its label */}
             <span className="hb-cell" tabIndex={0} aria-label={`${r.label}: ${r.value.toLocaleString()}`}>
               <span className="hb-track" aria-hidden="true">
                 {segs.map((s) => <span key={s.label} className={`hb-seg ${s.cls}`} style={{ width: `${(s.value / max) * 100}%` }} />)}
@@ -70,16 +69,16 @@ export function FleetPanel({ f, unit }: { f: FleetAnalytics; unit?: string }) {
         <Stat label={t("fleet.underMaintenance")} value={f.under_maintenance} to={q("under_maintenance=1")} warn={f.under_maintenance > 0} />
       </div>
       <h3 className="chart-sub">{t("fleet.byGroup")}</h3>
-      <BarList aria={t("fleet.byGroup")} rows={(f.by_group ?? []).filter((g) => g.count > 0).map((g) => ({ key: g.code, label: t(`fleet.group.${g.code}` as Key), value: g.count, to: q(`group=${g.code}`) }))} />
+      <BarList aria={t("fleet.byGroup")} rows={f.by_group.filter((g) => g.count > 0).map((g) => ({ key: g.code, label: t(`fleet.group.${g.code}` as Key), value: g.count, to: q(`group=${g.code}`) }))} />
       <h3 className="chart-sub">{t("fleet.byCategory")}</h3>
-      <BarList aria={t("fleet.byCategory")} rows={(f.by_category ?? []).filter((c) => c.count > 0).map((c) => ({ key: c.code, label: name(c), value: c.count, to: q(`category=${c.code}`) }))} />
+      <BarList aria={t("fleet.byCategory")} rows={f.by_category.filter((c) => c.count > 0).map((c) => ({ key: c.code, label: name(c), value: c.count, to: q(`category=${c.code}`) }))} />
       {(f.by_model ?? []).length > 0 && <>
         <h3 className="chart-sub">{t("fleet.byModel")}</h3>
         <BarList aria={t("fleet.byModel")} rows={(f.by_model ?? []).map((m) => ({ key: m.code, label: m.name, value: m.count, to: q(`reference_model=${m.code}`) }))} />
       </>}
       <h3 className="chart-sub">{t("fleet.byCondition")}</h3>
-      <BarList aria={t("fleet.byCondition")} rows={conditionBars(f.by_condition ?? {}, t, (c) => q(`condition=${c}`))} />
-      {f.expenditure?.visible && <MoneyList rows={f.expenditure.by_currency ?? []} label={t("fleet.repairSpend")} />}
+      <BarList aria={t("fleet.byCondition")} rows={conditionBars(f.by_condition, t, (c) => q(`condition=${c}`))} />
+      {f.expenditure.visible && <MoneyList rows={f.expenditure.by_currency} label={t("fleet.repairSpend")} />}
     </ChartPanel>
   );
 }

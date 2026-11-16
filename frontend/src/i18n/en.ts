@@ -55,6 +55,8 @@ export const en = {
   "nav.users": "Users",
   "nav.audit": "Audit log",
   "scope.label": "Your authority",
+  "app.about": "About",
+  "app.privacy": "Privacy",
   "app.footer": "Sample build · synthetic data only · not approved for operational use",
   "rep.strength": "Army strength",
   "scope.allBranches": "All branches",

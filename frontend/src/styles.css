@@ -361,6 +361,7 @@ a.kpi:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
   border-top: 1.5px solid var(--lp-gold-2); background: linear-gradient(180deg, #0A1A36, #07122A); color: var(--lp-gold);
   font-size: .95rem; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; }
 .lp-footer i { margin: 0 .5em; }
+.lp-footer a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .lp-orn { flex: none; color: var(--lp-gold-2); align-self: center; }
 .lp-orn-r { transform: scaleX(-1); }
 
