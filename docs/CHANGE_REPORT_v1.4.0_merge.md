@@ -1,4 +1,4 @@
-# Merge report: Puntland Police rank catalogue and organizational hierarchy (from 1.3.1 into 1.4.0)
+# Merge report: Puntland Army rank catalogue and organizational hierarchy (from 1.3.1 into 1.4.0)
 
 Base: 1.4.0 (kept in full). Reference: 1.3.1. Only features present in 1.3.1 and missing from 1.4.0 were merged.
 `VERSION` stays 1.4.0.

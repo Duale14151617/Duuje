@@ -1,7 +1,7 @@
 """Published reference facts for catalogue entries, each with where it was read.
 
 Everything here comes from open, public sources read on 2026-11-03 (listed per entry). It describes what a KIND of equipment is.
-It never says the Police owns one. Entries stay 'unverified' until a second person holding equipment.verify checks them against
+It never says the Army owns one. Entries stay 'unverified' until a second person holding equipment.verify checks them against
 the cited source (that is what the verify step is for). Facts that sources disagree on are left out rather than guessed.
 
 Photographs are NOT included: public pictures carry their own licences. HQ uploads a photograph through the catalogue screen after
@@ -100,4 +100,4 @@ WEAPONS += [
       ("Mass (PK, with integral bipod)", "9", "kg"), ("Length", "1,203", "mm"), ("Barrel length", "605", "mm"), ("Variants", "PK, PKS, PKT, PKM, PKMS", "")]),
 ]
 
-PLACEHOLDER_SOURCE = "Supplied by Police headquarters as a reference model"
+PLACEHOLDER_SOURCE = "Supplied by Army headquarters as a reference model"

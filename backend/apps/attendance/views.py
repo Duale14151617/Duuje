@@ -88,7 +88,7 @@ def _check_entry(user, unit, e, reasons):
 
 
 class AttendanceViewSet(viewsets.ViewSet):
-    """Daily attendance and absence reporting for authorized commanders (Taliye Koox by default), plus the
+    """Daily attendance and absence reporting for authorized commanders (Taliye Guuto / Taliye Urur by default), plus the
     unit situation report built from saved records. Attendance never changes personnel status."""
 
     permission_classes = [ScopedPermission]

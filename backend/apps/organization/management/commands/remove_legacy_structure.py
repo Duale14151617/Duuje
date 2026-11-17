@@ -4,7 +4,7 @@
   python manage.py remove_legacy_structure --apply         switch them off (idempotent; safe to run at every start-up)
   python manage.py remove_legacy_structure --apply --purge also DELETE the rows nothing refers to
 
-Police personnel who sit in the Karkaar region are first transferred into the Bari Police command (a normal, audited transfer:
+Army personnel who sit in the Karkaar region are first transferred into the Bari Army command (a normal, audited transfer:
 a history entry is written for each person, and deceased files are left alone). Then the units are switched off, which hides
 them from trees, lists and drop-downs; the legacy branch is closed, its ranks deactivated and role assignments held at those
 units revoked. Personnel records, history and audit rows are never deleted: a unit that still holds people (for example
@@ -18,7 +18,7 @@ from django.utils import timezone
 
 BRANCH_CODES = ("NAVY",)
 REGION_CODES = ("KARKAAR",)
-MERGE_INTO = "BARI-ARMY"  # Police command that receives the people of the removed region
+MERGE_INTO = "BARI-ARMY"  # Army command that receives the people of the removed region
 MERGE_REASON = "Region merged into Bari"
 
 
@@ -53,8 +53,8 @@ class Command(BaseCommand):
         assignments = RoleAssignment.objects.filter(org_unit_id__in=ids, revoked_at__isnull=True)
         self.stdout.write(f"Legacy structure: {len(branches)} branches, {len(units)} units, {ranks.count()} ranks, "
                           f"{assignments.count()} active role assignments, {people} personnel records concerned.")
-        self.stdout.write(f"{mover_qs.count()} Police personnel would move to {MERGE_INTO}." if target else
-                          f"{mover_qs.count()} Police personnel would need moving, but {MERGE_INTO} is missing or inactive.")
+        self.stdout.write(f"{mover_qs.count()} Army personnel would move to {MERGE_INTO}." if target else
+                          f"{mover_qs.count()} Army personnel would need moving, but {MERGE_INTO} is missing or inactive.")
         if not apply:
             self.stdout.write("Dry run: nothing changed. Run again with --apply.")
             return
@@ -62,7 +62,7 @@ class Command(BaseCommand):
         now = timezone.now()
         moved = self._move_people(mover_qs, target, now) if target else 0
         if moved:
-            self.stdout.write(f"Moved {moved} Police personnel to {MERGE_INTO}.")
+            self.stdout.write(f"Moved {moved} Army personnel to {MERGE_INTO}.")
         with transaction.atomic():
             assignments.update(revoked_at=now)
             OU.objects.filter(pk__in=ids, active=True).update(active=False, version=F("version") + 1, updated_at=now)
@@ -86,7 +86,7 @@ class Command(BaseCommand):
 
     @staticmethod
     def _movers(Personnel, OU, unit_ids):
-        """Police personnel in the removed region who can still be changed (deceased files are closed)."""
+        """Army personnel in the removed region who can still be changed (deceased files are closed)."""
         region_ids = [u.pk for u in OU.objects.filter(code__in=REGION_CODES)]
         paths = [u.path for u in OU.objects.filter(pk__in=region_ids)]
         in_region = [u.pk for u in OU.objects.filter(pk__in=unit_ids) if any(u.path.startswith(p) for p in paths)]

@@ -71,21 +71,6 @@ def _gates(user):
 FULL_ACCESS = "system.full_access"  # maintenance override held by super_admin: lifts the restricted-unit gate
 
 
-def has_full_access(user):
-    return FULL_ACCESS in permission_codes(user)
-
-
-def self_approval_allowed(user, check, request=None, entity_type="", entity_id=""):
-    """True only for the super administrator (system.full_access), who alone may approve, verify or count their own work.
-    Every use is written to the audit log. Nobody else, including the headquarters administrator, can ever pass a
-    "must be a different person" check."""
-    if not has_full_access(user):
-        return False
-    from apps.audit.services import record
-    record("self_approval.used", request=request, actor=user, entity_type=entity_type, entity_id=entity_id, metadata={"check": check})
-    return True
-
-
 def _blocked(user, a, code, unit):
     if not code.startswith(GATED_PREFIXES):
         return False

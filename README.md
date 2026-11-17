@@ -1,4 +1,4 @@
-# POLICE HQ: administrative platform for Puntland's Police
+# ARMY HQ: administrative platform for Puntland's Army
 
 > **Status: a fully functional system deployed on Render.**
 > The system has been run on Render as a live web service backed by PostgreSQL, and **every part of it works**: sign-in with MFA,
@@ -27,7 +27,7 @@ There is no XAMPP/WAMP/PHP in this project.
 
 ## Deployment status
 - **Deployed and run on Render** using `render.yaml` (one Docker web service plus a Postgres database). The container migrates, seeds reference data and
-  the Police structure, and starts gunicorn on its own; sample accounts and sample people are created only when you ask for them (see *Deploy on Render*).
+  the Army structure, and starts gunicorn on its own; sample accounts and sample people are created only when you ask for them (see *Deploy on Render*).
 - **Everything above was exercised on that deployment** and works as described, including the weapon inventory and the consolidated sidebar. The tests have been run.
 - **Sidebar:** the Logistics and equipment section has six entries; Ammunition, Weapons (register, inventory, holdings) and Military vehicles (with the equipment catalogue) show their pages as tabs.
 - **No real data yet, by design:** no real data is hosted. Real personnel, payroll and equipment records will be loaded only after the Army approves.
@@ -41,7 +41,7 @@ cp .env.example backend/.env          # fill DJANGO_SECRET_KEY and FIELD_ENCRYPT
 cd backend && pip install -r requirements-dev.txt
 python manage.py migrate && python manage.py createcachetable
 python manage.py seed_reference_data   # permissions, roles, branches, regions, ranks
-python manage.py apply_army_structure --apply   # Police structure: HQ, directorates, regional commands, Guuto, Urur, battalion sections
+python manage.py apply_army_structure --apply   # Army structure: HQ, directorates, regional commands, Guuto, Urur, battalion sections
 python manage.py create_hq_admin --username admin --full-name "Admin" --role super_admin
 python manage.py runserver
 cd ../frontend && npm ci && npm run dev   # http://localhost:5173
@@ -74,7 +74,7 @@ Useful commands: `create_command_authority`, `report_duplicate_identities`, `see
 `docs/SECURITY.md`, `docs/LIMITATIONS.md`, `docs/ROLE_CATALOGUE.md` (what each role can do), `docs/INTEGRATIONS.md`, `CHANGELOG.md`.
 
 ## Release history
-Administrative web platform for Puntland's Police. Stack: Django + DRF, PostgreSQL, React + TypeScript. Recent interface work (universal search,
+Administrative web platform for Puntland's Army. Stack: Django + DRF, PostgreSQL, React + TypeScript. Recent interface work (universal search,
 shared data tables, personnel profile tabs, the redesigned dashboard) is listed in `CHANGELOG.md`.
 
 ## Included in 1.0
@@ -85,7 +85,7 @@ shared data tables, personnel profile tabs, the redesigned dashboard) is listed 
 - Configurable organization: HQ → region → branch command → unit. Seeded: Bari, Nugaal, Mudug;
   Army.
 - Rank catalogue (service-specific, English/Somali, draft/approved), managed in the database. The Army list is the
-  16 official Puntland Police ranks (Dable ... Sarreye Guud), stored as supplied with no invented translations.
+  16 official Puntland Army ranks (Dable ... Sarreye Guud), stored as supplied with no invented translations.
 - Organizational template for the Army: Taliska Guud (regional command), Qayb, Gaas, Guuto, Urur, Horin, Koox, Unug,
   with reference strengths (information only), approved strength exceptions, specialist designations (Sahan, Sanco) and
   expected-relationship checks, on the **Structure** page.

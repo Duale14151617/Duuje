@@ -1,5 +1,4 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { brand, emblemName } from "../lib/brand";
 import { ApiError, api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { ErrorNotice, Notice } from "../components/ui";
@@ -51,7 +50,7 @@ export function Login() {
   return (
     <div className="lp">
       <header className="lp-header">
-        <img className="lp-header-crest" src={brand.primary.img} alt="" width={64} height={64} />
+        <img className="lp-header-crest" src="/defence-force.jpg" alt="" width={64} height={64} />
         <div className="lp-header-text">
           <div className="lp-header-title">{t("app.name")}</div>
           <div className="lp-header-tag">Integrated <i>·</i> Secure <i>·</i> Efficient</div>
@@ -74,7 +73,7 @@ export function Login() {
         <div className="lp-bg lp-bg-right" aria-hidden="true" />
 
         <section className="lp-center">
-          <img className="lp-crest" src={brand.primary.img} alt={brand.primary.alt} width={176} height={176} />
+          <img className="lp-crest" src="/defence-force.jpg" alt="Puntland Defence Force crest" width={176} height={176} />
           <h1 className="lp-title">{t("app.name")}</h1>
           <div className="lp-sub"><span>Headquarters Administration</span></div>
           <div className="lp-motto">Discipline <i>·</i> Readiness <i>·</i> Security</div>
@@ -136,9 +135,9 @@ export function Login() {
             </p>
 
             <div className="lp-card-foot">
-              <img src={brand.oversight.img} alt={brand.oversight.alt} width={56} height={56} />
+              <img src="/ministry.jpg" alt="Ministry of Security Puntland emblem" width={56} height={56} />
               <div>
-                <div className="lp-foot-1">{emblemName(brand.oversight, lang)}</div>
+                <div className="lp-foot-1">Ministry of Security Puntland</div>
                 <div className="lp-foot-2">{t("app.name")} <i>·</i> {t("app.footer")}</div>
               </div>
             </div>

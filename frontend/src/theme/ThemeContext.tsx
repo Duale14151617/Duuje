@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 export type ThemeMode = "light" | "dark" | "system";
-const KEY = "policehq.theme";
+const KEY = "armyhq.theme";
 
 function read(): ThemeMode {
   try {

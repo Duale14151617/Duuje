@@ -1,14 +1,14 @@
-# POLICE HQ - handover and deployment notes (demo deployment)
+# ARMY HQ - handover and deployment notes (demo deployment)
 
 Keep this file free of passwords, keys and connection strings. Values live only in Render, Neon, GitHub and your password manager.
 
 ## 1. What this is
-- Django (API) + React (web app) in one Docker image, served from a single Render web service named `policehq` (Singapore).
+- Django (API) + React (web app) in one Docker image, served from a single Render web service named `armyhq-demo` (Singapore).
 - Database: PostgreSQL on Neon (free tier, Singapore). It does not expire. The old Render free database expired after 30 days and was lost.
 - The deployment is a **sample build with synthetic data only**. It is not approved for operational use. Do not enter real personnel records.
 - Source: this repository. Deploys are triggered from Render ("Manual Deploy" or on push).
 
-## 2. Environment variables on the `policehq` service
+## 2. Environment variables on the `armyhq-demo` service
 Names only. Set them in Render, Environment.
 
 | Purpose | Variables |
@@ -17,7 +17,7 @@ Names only. Set them in Render, Environment.
 | Core secrets | `DJANGO_SECRET_KEY`, `FIELD_ENCRYPTION_KEY`, `FIELD_HMAC_KEY` (if used) |
 | First boot users (sample mode) | `ARMYHQ_SAMPLE_MODE` (1), `ARMYHQ_SAMPLE_PASSWORD` (12+ chars, not a database password) |
 | Behind Render and Cloudflare | `TRUST_PROXY_HEADERS` (1), `NUM_PROXIES` (3 on Render today; re-check if the proxy chain changes) |
-| Public address and email links | `ARMYHQ_SITE_URL` (https://policehq.onrender.com), `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS` as needed |
+| Public address and email links | `ARMYHQ_SITE_URL` (https://armyhq-demo.onrender.com), `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS` as needed |
 | Email sending | `APPS_SCRIPT_URL`, `APPS_SCRIPT_TOKEN`, `DEFAULT_FROM_EMAIL` |
 | Email features switched on | `EMAIL_VERIFICATION_ENABLED` (1), `PASSWORD_FORGOT_ENABLED` (1) |
 | Alerts | `ARMYHQ_ALERT_EMAILS` (optional extra recipients) |

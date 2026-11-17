@@ -11,8 +11,8 @@ import { useMedia } from "./useMedia";
 import { InstallButton } from "../pwa/install";
 import { ThemeToggle } from "../theme/ThemeToggle";
 
-const SIDEBAR_KEY = "policehq.sidebar";
-const GROUPS_KEY = "policehq.navgroups"; // names of the sidebar sections the user has folded away
+const SIDEBAR_KEY = "armyhq.sidebar";
+const GROUPS_KEY = "armyhq.navgroups"; // names of the sidebar sections the user has folded away
 
 type NavItem = { to: string; label: Key; icon: IconName; show: boolean; match?: string[]; go?: string };
 
@@ -20,7 +20,7 @@ type NavItem = { to: string; label: Key; icon: IconName; show: boolean; match?: 
 const HUBS: { id: string; tabs: string[] }[] = [
   { id: "ammunition", tabs: ["/ammunition", "/accountability", "/ammo-control"] },
   { id: "weapons", tabs: ["/weapons", "/inventories", "/holdings"] },
-  { id: "vehicles", tabs: ["/vehicles", "/vehicle-log", "/vehicle-tracking", "/equipment"] },
+  { id: "vehicles", tabs: ["/vehicles", "/equipment"] },
 ];
 const TAB_PATHS = HUBS.flatMap((h) => h.tabs);
 
@@ -32,8 +32,6 @@ const NAV_SECTIONS: { key: string; title?: Key; to: string[] }[] = [
   { key: "pay", title: "nav.group.pay", to: ["/payroll", "/survivors"] },
   { key: "reporting", title: "nav.group.reporting", to: ["/reports", "/summary", "/analytics", "/tasks"] },
   { key: "logistics", title: "nav.group.logistics", to: ["/logistics", "/ammunition", "/ppe", "/weapons", "/vehicles", "/food"] },
-  { key: "custody", title: "nav.group.custody", to: ["/detention", "/occurrence-book", "/custody-facilities", "/custody-oversight"] },
-  { key: "revenue", title: "nav.group.revenue", to: ["/tax"] },
   { key: "admin", title: "nav.group.admin", to: ["/users", "/integrations", "/audit"] },
 ];
 
@@ -59,11 +57,6 @@ export function Layout() {
     { to: "/ppe", icon: "lock", label: "nav.ppe", show: can("logistics.view") },
     { to: "/weapons", icon: "lock", label: "nav.hub.weapons", show: can("weapons.view"), match: ["/weapons", "/inventories", "/holdings"] },
     { to: "/vehicles", go: can("vehicles.view") ? "/vehicles" : "/equipment", icon: "box", label: "nav.vehicles", show: ["vehicles.view", "weapons.view", "equipment.manage"].some(can), match: ["/vehicles", "/equipment"] },
-    { to: "/detention", icon: "lock", label: "nav.detention", show: can("detention.view") },
-    { to: "/occurrence-book", icon: "list", label: "nav.occurrence", show: can("detention.view") },
-    { to: "/custody-facilities", icon: "building", label: "nav.facilities", show: can("detention.view") },
-    { to: "/custody-oversight", icon: "building", label: "nav.oversight", show: can("detention.view") },
-    { to: "/tax", icon: "list", label: "nav.tax", show: can("tax.view") },
     { to: "/payroll", icon: "list", label: "nav.payroll", show: can("payroll.view") },
     { to: "/survivors", icon: "users", label: "nav.survivors", show: can("survivor.view") },
     { to: "/attendance", icon: "check", label: "nav.attendance", show: can("attendance.view") },
@@ -89,8 +82,6 @@ export function Layout() {
     { to: "/inventories", label: "nav.inventories", show: can("weapons.view") },
     { to: "/holdings", label: "nav.holdings", show: can("weapons.view") },
     { to: "/vehicles", label: "nav.vehicles", show: can("vehicles.view") },
-    { to: "/vehicle-log", label: "vlog.title", show: can("vehicles.view") },
-    { to: "/vehicle-tracking", label: "nav.tracking", show: can("vehicles.view") },
     { to: "/equipment", label: "nav.equipment", show: ["vehicles.view", "weapons.view", "equipment.manage"].some(can) },
   ];
 

@@ -50,7 +50,7 @@ def submitters_of(sub):
 
 def self_review(user, sub):
     """True when `user` is (or ever was) the submitter and the type forbids reviewing your own work."""
-    return sub.report_type.separation_of_duties and user.pk in submitters_of(sub) and not scope.has_full_access(user)  # only the super administrator may review their own
+    return sub.report_type.separation_of_duties and user.pk in submitters_of(sub)
 
 
 def capabilities(user, sub):

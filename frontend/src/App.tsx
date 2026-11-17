@@ -16,13 +16,6 @@ import { Weapons } from "./pages/Weapons";
 import { Inventories } from "./pages/Inventories";
 import { Ppe } from "./pages/Ppe";
 import { VehicleDetail, Vehicles } from "./pages/Vehicles";
-import { VehicleLog } from "./pages/VehicleLog";
-import { VehicleTracking } from "./pages/VehicleTracking";
-import { CustodyFacilities } from "./pages/CustodyFacilities";
-import { DetentionOversight } from "./pages/DetentionOversight";
-import { Detention } from "./pages/Detention";
-import { OccurrenceBook } from "./pages/OccurrenceBook";
-import { Tax } from "./pages/Tax";
 import { Equipment, EquipmentDetail } from "./pages/Equipment";
 import { Holdings } from "./pages/Holdings";
 import { AmmoAccountability } from "./pages/AmmoAccountability";
@@ -95,13 +88,6 @@ export default function App() {
         <Route path="inventories" element={<Inventories />} />
         <Route path="vehicles" element={<Vehicles />} />
         <Route path="vehicles/:id" element={<VehicleDetail />} />
-        <Route path="vehicle-log" element={<VehicleLog />} />
-        <Route path="vehicle-tracking" element={<VehicleTracking />} />
-        <Route path="detention" element={<Detention />} />
-        <Route path="occurrence-book" element={<OccurrenceBook />} />
-        <Route path="custody-facilities" element={<CustodyFacilities />} />
-        <Route path="custody-oversight" element={<DetentionOversight />} />
-        <Route path="tax" element={<Tax />} />
         <Route path="equipment" element={<Equipment />} />
         <Route path="equipment/:id" element={<EquipmentDetail />} />
         <Route path="holdings" element={<Holdings />} />
