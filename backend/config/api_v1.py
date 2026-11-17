@@ -4,7 +4,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework.routers import DefaultRouter
 
 from apps.accounts import views as acc
-from apps.core.views import LiveView, ReadyView
+from apps.core.views import LiveView, ReadyView, ProfileView
 from apps.audit.views import AuditEventViewSet
 from apps.dashboard.views import DashboardActivityView, DashboardView
 from apps.personnel.combined import CombinedReportViewSet
@@ -18,6 +18,13 @@ from apps.weapons.control_views import AmmoControlViewSet
 from apps.weapons.views import WeaponViewSet
 from apps.ppe.views import PpeViewSet
 from apps.vehicles.views import VehicleViewSet
+from apps.vehicles.logbook import VehicleLogViewSet
+from apps.vehicles.tracking import TrackerFeedView, VehicleTrackingViewSet
+from apps.detention.facility_views import CustodyFacilityViewSet
+from apps.detention.oversight import DetentionOversightViewSet
+from apps.detention.views import DetentionViewSet
+from apps.occurrence.views import OccurrenceViewSet
+from apps.tax.views import TaxViewSet
 from apps.equipment.views import EquipmentViewSet
 from apps.payroll.views import PayrollRunViewSet, SalaryProfileViewSet, SurvivorCaseViewSet
 from apps.payroll.views_ext import ArrearsViewSet, PayrollPersonnelViewSet, PaymentViewSet, PolicyViewSet
@@ -70,6 +77,13 @@ router.register("attendance", AttendanceViewSet, basename="attendance")
 router.register("weapons", WeaponViewSet, basename="weapons")
 router.register("ammo-control", AmmoControlViewSet, basename="ammo-control")
 router.register("ppe", PpeViewSet, basename="ppe")
+router.register("vehicle-log", VehicleLogViewSet, basename="vehicle-log")
+router.register("vehicle-tracking", VehicleTrackingViewSet, basename="vehicle-tracking")
+router.register("detention", DetentionViewSet, basename="detention")
+router.register("detention-oversight", DetentionOversightViewSet, basename="detention-oversight")
+router.register("custody-facilities", CustodyFacilityViewSet, basename="custody-facility")
+router.register("occurrence-book", OccurrenceViewSet, basename="occurrence-book")
+router.register("tax", TaxViewSet, basename="tax")
 router.register("vehicles", VehicleViewSet, basename="vehicle")
 router.register("equipment", EquipmentViewSet, basename="equipment")
 router.register("payroll/profiles", SalaryProfileViewSet, basename="payroll-profile")
@@ -104,8 +118,10 @@ urlpatterns = [
     path("auth/mfa/setup/", acc.MfaSetupView.as_view()),
     path("auth/mfa/confirm/", acc.MfaConfirmView.as_view()),
     path("auth/step-up/", acc.StepUpView.as_view()),
+    path("tracker/feed/", TrackerFeedView.as_view()),  # GPS trackers (key-authenticated, add-position only)
     path("dashboard/", DashboardView.as_view()),
     path("dashboard/activity/", DashboardActivityView.as_view()),
+    path("profile/", ProfileView.as_view()),
     path("health/live/", LiveView.as_view()),
     path("health/ready/", ReadyView.as_view()),
     # External (machine-client) API, 2.0: bearer-key auth, read-only, aggregate analytics only.

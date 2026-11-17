@@ -234,7 +234,7 @@ class MfaSetupView(APIView):
         if not secret:
             secret = pyotp.random_base32()
             User.objects.filter(pk=user.pk).update(mfa_secret_enc=crypto.encrypt(secret))
-        uri = pyotp.TOTP(secret).provisioning_uri(name=user.username, issuer_name="Puntland Defence Forces HQ")
+        uri = pyotp.TOTP(secret).provisioning_uri(name=user.username, issuer_name=_deployment_name())
         return Response({"secret": secret, "otpauth_uri": uri})
 
 
@@ -362,7 +362,7 @@ class PasswordResetView(APIView):
                 alerts.notify("privileged account password reset", f"The password of {user.username} was reset with a recovery code.",
                               request=request, actor=user)
         if user.email and user.email_verified_at:
-            send_background(user.email, "ARMY HQ: your password was changed",
+            send_background(user.email, "POLICE HQ: your password was changed",
                        "The password on your account was just changed and every session was signed out. "
                        "If this was not you, tell your administrator now.")
         return Response(status=204)
@@ -427,7 +427,7 @@ class MfaRecoveryRequestView(APIView):
             MfaRecoveryCode.objects.create(user=authed, code_hash=_hash_code(code),
                                            expires_at=timezone.now() + timedelta(minutes=minutes))
         sent = _send_recovery_mail(
-            authed, "ARMY HQ: your recovery code",
+            authed, "POLICE HQ: your recovery code",
             f"Your one-time recovery code is {code}\n\nIt works once and expires in {minutes} minutes. Use it to reset your "
             "authenticator app. If you did not ask for this, ignore this email and tell your administrator.")
         record("auth.mfa_recovery_request", request=request, actor=authed, outcome="success" if sent else "failure",
@@ -474,7 +474,7 @@ class MfaRecoveryRedeemView(APIView):
             revoke_user_sessions(authed)
             record("auth.mfa_recovery", request=request, actor=authed, entity_type="user", entity_id=authed.pk)
         if authed.email:
-            _send_recovery_mail(authed, "ARMY HQ: authenticator reset",
+            _send_recovery_mail(authed, "POLICE HQ: authenticator reset",
                                 "The authenticator app on your account was reset using an emailed recovery code. You must set up a new one "
                                 "at your next sign-in. If this was not you, tell your administrator now.")
         return Response(status=204)
@@ -531,10 +531,18 @@ class PasswordForgotView(APIView):
             PasswordResetToken.objects.filter(user=user, created_by__isnull=True, used_at__isnull=True).update(used_at=now)
             PasswordResetToken.objects.create(user=user, token_hash=_hash_code(code), expires_at=now + timedelta(minutes=minutes))
         sent = send_background(  # queued, so a real account does not answer measurably slower than an unknown one
-            user.email, "ARMY HQ: password reset",
+            user.email, "POLICE HQ: password reset",
             _reset_email_body(user.username, code, minutes))
         record("auth.password_forgot", request=request, actor=user, outcome="success" if sent else "failure", entity_type="user", entity_id=user.pk)
         return generic
+
+
+
+def _deployment_name():
+    """The organization name shown in an authenticator app (Army or Police deployment)."""
+    from apps.core.views import PROFILES
+
+    return PROFILES.get(getattr(settings, "ARMYHQ_PROFILE", "army"), PROFILES["army"])["name_en"]
 
 
 def _reset_email_body(username, code, minutes):
@@ -542,7 +550,7 @@ def _reset_email_body(username, code, minutes):
     for when the link is opened on another device."""
     base = (getattr(settings, "SITE_URL", "") or "").rstrip("/")
     link = f"{base}/reset?" + urlencode({"u": username, "c": code}) if base else ""
-    lines = ["A password reset was requested for your ARMY HQ account.", ""]
+    lines = ["A password reset was requested for your POLICE HQ account.", ""]
     if link:
         lines += ["Open this link to choose a new password:", link, ""]
     lines += [f"Your one-time reset code is {code}", f"It works once and expires in {minutes} minutes. If you did not ask for this, ignore this email "
@@ -585,7 +593,7 @@ class EmailVerifyRequestView(APIView):
             EmailVerificationCode.objects.filter(user=user, used_at__isnull=True).update(used_at=now)
             row = EmailVerificationCode.objects.create(
                 user=user, email=target, code_hash=_email_code_hash(user, target, code), expires_at=now + timedelta(minutes=minutes))
-        if not _send_mail(target, "ARMY HQ: your verification code",
+        if not _send_mail(target, "POLICE HQ: your verification code",
                           f"Your email verification code is {code}\n\nIt expires in {minutes} minutes. If you did not ask for this, "
                           "ignore this email."):
             row.delete()  # a failed send must not lock the user out of trying again for a minute
@@ -632,7 +640,7 @@ class EmailVerifyConfirmView(APIView):
             User.objects.filter(pk=user.pk).update(email=row.email, email_verified_at=now, updated_at=now, version=F("version") + 1)
             record("auth.email_changed" if changed else "auth.email_verified", request=request, entity_type="user", entity_id=user.pk)
         if changed and old_email and old_verified:  # tell the previous mailbox, so a hijacked session cannot move the address silently
-            send_background(old_email, "ARMY HQ: your account email was changed",
+            send_background(old_email, "POLICE HQ: your account email was changed",
                        "The email address on your account was changed. If this was not you, tell your administrator now.")
         return Response(me_payload(User.objects.get(pk=user.pk)))
 

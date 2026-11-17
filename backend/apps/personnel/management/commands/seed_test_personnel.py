@@ -130,7 +130,7 @@ def add_test_personnel(count):
     ranks = list(Rank.objects.filter(branch__code="ARMY", approval_status=Rank.Approval.APPROVED, active=True)
                  .order_by("sort_order")[:16])
     if not units or not ranks:
-        raise CommandError("Reference data missing (regional Army commands or approved ranks). Run seed_reference_data first.")
+        raise CommandError("Reference data missing (regional Police commands or approved ranks). Run seed_reference_data first.")
     have = set(Personnel.objects.filter(service_number__startswith=PREFIX).values_list("service_number", flat=True))
     taken = set(Personnel.objects.values_list("name_key", flat=True))
     names = _candidates(count + 400)  # spare names in case a real person already has one

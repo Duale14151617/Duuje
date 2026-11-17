@@ -1,4 +1,4 @@
-# ARMY HQ frontend on Netlify. The Django API is NOT part of this deploy.
+# POLICE HQ frontend on Netlify. The Django API is NOT part of this deploy.
 # Default below = standalone PREVIEW (built-in sample data, nothing saved, no backend needed).
 # Set the site's Base directory to "frontend" when deploying the full repository; leave it empty for the frontend-only package.
 #

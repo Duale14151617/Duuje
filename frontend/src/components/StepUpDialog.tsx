@@ -61,7 +61,9 @@ export function StepUpDialog() {
         <p className="muted">{t("stepup.hint")}</p>
         <Field label={t("login.otp")}>
           <input value={code} onChange={(e) => setCode(e.target.value)} inputMode="numeric" autoComplete="one-time-code"
-                 maxLength={8} autoFocus required />
+                 maxLength={8}
+                 // eslint-disable-next-line jsx-a11y/no-autofocus -- the dialog asks for exactly one code
+                 autoFocus required />
         </Field>
         {error ? <ErrorNotice error={error} /> : null}
         <div className="row" style={{ gap: ".5rem", marginTop: ".75rem" }}>

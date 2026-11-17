@@ -1,4 +1,4 @@
-# Change report — Version 1.3.1 (Puntland Army ranks and organizational structure addendum)
+# Change report — Version 1.3.1 (Puntland Police ranks and organizational structure addendum)
 
 Built on the uploaded `armyhq-v1_3_0.zip`. Only the addendum was implemented; no module was rebuilt or redesigned.
 Two small fixes outside the addendum were unavoidable and are listed explicitly under "Fixes outside the addendum".
@@ -6,7 +6,7 @@ Two small fixes outside the addendum were unavoidable and are listed explicitly 
 ## What was added
 1. **Official Army ranks.** The 16 ranks, in the supplied order and spelling, are stored in the `ranks` table (managed
    through the existing Ranks page/API with its approval workflow and audit). The provisional US-style list is retired.
-2. **Regional commands.** Bari, Nugaal and Mudug already existed. Each region's Army branch command is now typed
+2. **Regional commands.** Bari, Nugaal and Mudug already existed. Each region's Police branch command is now typed
    **Taliska Guud**.
 3. **Hierarchy and reference strengths.** Unit types Taliska Guud, Qayb (6,000–7,000), Gaas (3,500; two per Qayb),
    Guuto (900–1,001), Urur (320–330), Horin (99), Koox (33), Unug (9) are database rows. Figures are reference only: no
@@ -28,7 +28,7 @@ Two small fixes outside the addendum were unavoidable and are listed explicitly 
 | `ranks.0002_alter_rank_category` | schema | adds `unspecified` choice |
 | `ranks.0003_official_puntland_army_ranks` | data | adds 16 ranks; provisional ranks held by people are **kept inactive**, unused ones deleted. Not reversible. |
 | `organization.0002_specialistdesignation_and_more` | schema | 3 tables, 6 columns on units; reversible |
-| `organization.0003_puntland_army_structure` | data | template content; tags existing Army regional commands; reversible (no-op) |
+| `organization.0003_puntland_army_structure` | data | template content; tags existing Police regional commands; reversible (no-op) |
 
 Verified on PostgreSQL: a 1.3.0 database with 24 provisional ranks and 8 personnel was upgraded; result: 16 official
 ranks, 5 provisional ranks kept inactive because 8 people hold them, 19 unused ones removed, **0 personnel changed**.
@@ -68,12 +68,12 @@ because the addendum forbids changing unrelated areas; the causes are known and 
 1. Rank names are used exactly as supplied for both languages; "(General)" and "(Marshall)" stay inside the names.
 2. The 16 ranks are seeded **approved** (supplied as official) and have no enlisted/warrant/officer split.
 3. Rank codes `PA-01`..`PA-16` are internal identifiers.
-4. Taliska Guud = the existing Army branch command of each region (not a new unit above it).
+4. Taliska Guud = the existing Police branch command of each region (not a new unit above it).
 5. "Each Gaas has a designated Urur Sahan/Sanco" = one Urur Sahan **and** one Urur Sanco (one unit may be both).
 6. "Designated Horin" / "Urur" means anywhere below the Guuto / Gaas, not only direct children.
 7. Strength counts personnel still in service (not retired/discharged) in the unit and all units below it.
 8. People holding the retired provisional ranks must be re-ranked by an authorised user; no mapping was supplied.
-9. Unit types and designations are not limited to the Army branch.
+9. Unit types and designations are not limited to the Police branch.
 
 ## Files
 ### Created

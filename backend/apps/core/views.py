@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.cache import cache
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
@@ -51,3 +52,16 @@ class ReadyView(_Public):
         checks = {"database": _db_ok(), "cache": _cache_ok(), "migrations": _migrations_ok()}
         ok = all(checks.values())
         return JsonResponse({"status": "ok" if ok else "degraded", "checks": checks}, status=200 if ok else 503)
+
+
+# What the login page and header call this deployment. Public, read-only, no secrets.
+PROFILES = {
+    "army": {"name_en": "Puntland Defence Forces HQ", "name_so": "Taliska Ciidamada Difaaca Puntland", "short_name": "ARMY HQ"},
+    "police": {"name_en": "Puntland Police Force HQ", "name_so": "Taliska Guud ee Booliska Puntland", "short_name": "POLICE HQ"},
+}
+
+
+class ProfileView(_Public):
+    def get(self, request):
+        profile = getattr(settings, "ARMYHQ_PROFILE", "army")
+        return JsonResponse({"profile": profile, **PROFILES.get(profile, PROFILES["army"])})

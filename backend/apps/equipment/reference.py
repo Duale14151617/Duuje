@@ -1,4 +1,4 @@
-"""Reference data the catalogue starts with. It states what the equipment IS, never that the Army owns any.
+"""Reference data the catalogue starts with. It states what the equipment IS, never that the Police owns any.
 
 Everything seeded is 'unverified' until a second person holding equipment.verify has checked it; no specifications and no photographs
 are invented (HQ adds them with their source). Somali names are left blank until supplied: the screens fall back to English.
@@ -43,4 +43,4 @@ def seed_catalogue(VehicleCategory, MountedWeaponCategory, EquipmentItem):
         if cat is not None:
             EquipmentItem.objects.get_or_create(code=code, defaults={
                 "name": name, "kind": "vehicle_model", "vehicle_category": cat, "manufacturer": maker, "description": desc,
-                "source_ref": "Supplied by Army headquarters as a reference model; facts not yet checked", "created_by_username": "system"})
+                "source_ref": "Supplied by Police headquarters as a reference model; facts not yet checked", "created_by_username": "system"})

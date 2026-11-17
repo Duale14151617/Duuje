@@ -418,7 +418,7 @@ class StructureChangeViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, m
         obj = self.get_object()
         expected = require_version(request.data)
         self._require_status(obj, StructureChange.Status.SUBMITTED)
-        if obj.proposed_by_id == request.user.pk:  # separation of duties is not configurable
+        if obj.proposed_by_id == request.user.pk and not scope.self_approval_allowed(request.user, "structure_change", request, "structure_change", obj.pk):  # only the super administrator may
             record("access.denied", request=request, outcome="denied", entity_type="structure_change", entity_id=obj.pk,
                    metadata={"reason": "self_approval"})
             raise PermissionDenied("You cannot approve your own proposal.", code="self_approval_forbidden")
@@ -455,7 +455,7 @@ def _change_request_out(obj):
 
 
 class ChangeRequestViewSet(viewsets.GenericViewSet):
-    """Hierarchy-affecting actions: HQ administrators propose (with the Army order), the super administrator decides.
+    """Hierarchy-affecting actions: HQ administrators propose (with the Police order), the super administrator decides.
     Nothing is live before approval. Permissions are enforced here on the server; the user interface only mirrors them."""
 
     permission_classes = [ScopedPermission]
@@ -552,7 +552,7 @@ class ChangeRequestViewSet(viewsets.GenericViewSet):
 
     @action(detail=False, methods=["post"], url_path="bulk-transfer")
     def bulk_transfer(self, request):
-        """One Army order moving many people. All rows are checked first; if any is wrong nothing is created and every
+        """One Police order moving many people. All rows are checked first; if any is wrong nothing is created and every
         problem row is reported. `items` is a list of {service_number | personnel, org_unit?}; `org_unit` is the default
         destination. The requests are decided together (see `batch`)."""
         d = request.data

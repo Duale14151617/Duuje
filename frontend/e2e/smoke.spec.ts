@@ -8,7 +8,7 @@ const password = process.env.E2E_PASSWORD;
 
 for (const lang of ["en", "so"] as const) {
   test(`login page (${lang}): usable, labelled, no serious accessibility violations`, async ({ page }) => {
-    await page.addInitScript((l) => localStorage.setItem("armyhq.lang", l), lang);
+    await page.addInitScript((l) => localStorage.setItem("policehq.lang", l), lang);
     await page.goto("/");
     await expect(page.locator("html")).toHaveAttribute("lang", /./);
     await expect(page.getByLabel(/./).first()).toBeVisible();
@@ -30,7 +30,7 @@ test("primary controls are comfortably tappable", async ({ page }) => {
 test("language can be switched and is remembered", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /soomaali|english/i }).click();
-  const lang = await page.evaluate(() => localStorage.getItem("armyhq.lang"));
+  const lang = await page.evaluate(() => localStorage.getItem("policehq.lang"));
   expect(["en", "so"]).toContain(lang);
 });
 

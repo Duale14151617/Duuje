@@ -20,7 +20,7 @@ interface Summary { start: string; end: string; days: number; serving: number; p
 const today = () => new Date().toISOString().slice(0, 10);
 const ATT = ["present", "absent", "on_leave"];
 
-/** Daily attendance roll, period summaries and the unit situation report, for authorized commanders (Taliye Guuto / Taliye Urur). */
+/** Daily attendance roll, period summaries and the unit situation report, for authorized commanders (Taliye Koox). */
 export function Attendance() {
   const { t } = useI18n();
   const { can } = useAuth();

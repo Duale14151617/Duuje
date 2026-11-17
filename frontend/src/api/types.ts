@@ -368,6 +368,8 @@ export interface UnitProfile {
   unassigned_department: OrgBucket & { by_status: Record<string, number> };
   medical: OrgFunction; finance: OrgFunction;
   children: (OrgUnitBrief & OrgBucket & { direct: number })[];
+  facilities: (CustodySite & { unit_id: string; operated_by: string })[];
+  activity: UnitActivity;
   stats: OrgBucket & { direct: number; by_status: Record<string, number> };
   by_rank: OrgRankRow[];
   can: { name: boolean; manage: boolean; appoint: boolean; restricted: boolean };
@@ -379,7 +381,18 @@ export interface DepartmentProfile {
   staff: OrgPerson[] | null; assigned: OrgPerson[] | null; staff_total: number; assigned_total: number; roster_hidden: boolean;
   can: { name: boolean; manage: boolean; appoint: boolean };
 }
-export interface ChartNode extends OrgUnitBrief, OrgBucket { children: ChartNode[] }
+export interface CustodySite { id: string; code: string; kind: string; name_en: string; name_so: string; capacity: number | null; in_custody: number }
+export interface ChartNode extends OrgUnitBrief, OrgBucket { children: ChartNode[]; facilities?: CustodySite[] }
+export interface ChartPrison { id: string; code: string; name_en: string; name_so: string; operated_by: string }
+export interface UnitActivity {
+  window_days: number;
+  occurrence: { today: number; last_30_days: number; by_category: { category: string; count: number }[];
+    recent: { id: string; ob_number: string; category: string; summary: string; location: string; occurred_at: string; unit_code: string }[] } | null;
+  custody: { in_custody: number; booked_30_days: number; released_30_days: number; transferred_30_days: number;
+    held: { id: string; register_no: string; detainee_name: string; reason: string; booked_at: string; cell: string; facility: string }[] } | null;
+  attendance: { date: string; present: number; absent: number; on_leave: number; reported: number } | null;
+  vehicles: { total: number; by_status: { status: string; count: number }[] } | null;
+}
 export interface OrgAnalytics {
   totals: OrgBucket & { by_status: Record<string, number> };
   by_formation: Record<string, (OrgUnitBrief & OrgBucket & { parent_id: string | null })[]>;

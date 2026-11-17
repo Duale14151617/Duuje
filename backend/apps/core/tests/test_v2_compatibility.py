@@ -64,7 +64,7 @@ V14_MIGRATIONS = {
 NEW_PERMISSIONS = {"analytics.view", "integrations.view", "integrations.manage", "org.structure_propose", "org.structure_approve", "food.view", "food.manage", "changes.propose", "changes.approve", "tasks.view", "tasks.manage"}
 ROLES_GAINING_ANALYTICS = {"hq_reporting", "regional_chief", "branch_admin"}
 NEW_ROLES = {"structure_approver", "super_admin", "command_authority", "member", "unit_commander", "weapons_custodian", "regional_commander", "transport_officer", "vehicle_disposal_approver",
-             "payroll_officer", "payroll_approver", "survivor_officer", "payment_officer", "payment_reconciler"}  # command: command authority; member: own record + direct subordinates
+             "payroll_officer", "payroll_approver", "survivor_officer", "payment_officer", "payment_reconciler", "custody_officer", "tax_collector", "tax_cashier"}  # command: command authority; member: own record + direct subordinates
 # branch_admin holds the sensitive personnel-file records (disciplinary history, service documents).
 BRANCH_ADMIN_RECORDS = {"disciplinary.view", "disciplinary.manage", "documents.view", "documents.manage"}
 # hq_admin receives every non-sensitive permission automatically, so it gains the integration and structure-proposal ones.
@@ -137,7 +137,10 @@ class RouteCompatibilityTests(BaseApiTest):
                                  ("organization/formation-roles", "formation-role"), ("organization/analytics", "org-analytics"),
                                  ("ammo-control", "ammo-control"),
                                  # modules added after 2.0: protective equipment, equipment/vehicle models, inventory catalogue
-                                 ("ppe", "ppe"), ("equipment", "equipment"), ("inventories", "inventory")})  # attendance, weapons, ammunition and payroll modules
+                                 ("ppe", "ppe"), ("equipment", "equipment"), ("inventories", "inventory"),
+                                 # Police modules: detention register, custody facilities, occurrence book, vehicle log and tracking, taxes
+                                 ("detention", "detention"), ("detention-oversight", "detention-oversight"), ("custody-facilities", "custody-facility"), ("occurrence-book", "occurrence-book"),
+                                 ("vehicle-tracking", "vehicle-tracking"), ("vehicle-log", "vehicle-log"), ("tax", "tax")})  # attendance, weapons, ammunition and payroll modules
 
     def test_version_1_prefix_is_unchanged(self):
         self.assertEqual(self.client_for(self.make_user("hqr", "hq_reporting")).get("/api/v1/auth/me/").status_code, 200)

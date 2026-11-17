@@ -20,7 +20,7 @@ const Ctx = createContext<I18n | null>(null);
 
 function initialLang(): Lang {
   try {
-    const saved = localStorage.getItem("armyhq.lang");
+    const saved = localStorage.getItem("policehq.lang");
     if (saved === "en" || saved === "so") return saved;
   } catch { /* storage unavailable */ }
   return navigator.language?.toLowerCase().startsWith("so") ? "so" : "en";
@@ -31,7 +31,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const setLang = useCallback((l: Lang) => {
     setLangState(l);
     document.documentElement.lang = l;
-    try { localStorage.setItem("armyhq.lang", l); } catch { /* ignore */ }
+    try { localStorage.setItem("policehq.lang", l); } catch { /* ignore */ }
   }, []);
   const value = useMemo<I18n>(() => {
     const dict = dicts[lang];

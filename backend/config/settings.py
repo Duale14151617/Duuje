@@ -1,4 +1,4 @@
-"""ARMY HQ settings. Every secret comes from environment variables."""
+"""POLICE HQ settings. Every secret comes from environment variables."""
 import base64
 import hashlib
 import os
@@ -48,6 +48,9 @@ CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 # Public address of the app, used for links in emails (password reset). Falls back to the Render hostname.
 SITE_URL = os.environ.get("ARMYHQ_SITE_URL", f"https://{render_hostname}" if render_hostname else "").rstrip("/")
 TRUST_PROXY_HEADERS = env_bool("TRUST_PROXY_HEADERS", False)
+# Which organization this deployment serves: "army" (default) or "police". Police skips the Police regional commands and uses
+# apply_police_structure instead (see apps/organization/police_structure.py). Same code, separate database.
+ARMYHQ_PROFILE = os.environ.get("ARMYHQ_PROFILE", "army").strip().lower()
 DEBUG_CLIENT_IP = env_bool("DEBUG_CLIENT_IP", False)  # temporary: log proxy headers to find the real client address
 if TRUST_PROXY_HEADERS:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -71,6 +74,9 @@ INSTALLED_APPS = [
     "apps.ppe",
     "apps.equipment",
     "apps.vehicles",
+    "apps.detention",
+    "apps.occurrence",
+    "apps.tax",
     "apps.payroll",
     "apps.audit",
     "apps.dashboard",
@@ -206,12 +212,13 @@ REST_FRAMEWORK = {
         "forgot": "5/min",   # emailing a password-reset code
         "verify": "10/min",  # emailing / confirming an email-verification code
         "bulk": os.environ.get("THROTTLE_BULK", "30/hour"),  # imports and exports
+        "tracker": os.environ.get("THROTTLE_TRACKER", "600/min"),  # GPS tracker feed, per address (a Traccar server sends for many vehicles)
         "integration": os.environ.get("THROTTLE_INTEGRATION", "60/min"),  # per integration client (2.0)
     },
 }
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "ARMY HQ API",
+    "TITLE": "POLICE HQ API",
     "DESCRIPTION": "Administrative platform API (draft, synthetic data only).",
     "VERSION": "2.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
@@ -219,6 +226,12 @@ SPECTACULAR_SETTINGS = {
 ENABLE_API_DOCS = env_bool("ENABLE_API_DOCS", DEBUG)
 
 # Personnel exports stay off until the institution approves them (see docs/LIMITATIONS.md).
+# Detention register: a person held this many hours or longer is flagged for review (an alert only; set to the rule your command applies).
+# Vehicle and traffic taxes: currency used for cash handovers when none is given.
+TAX_CURRENCY = os.environ.get("TAX_CURRENCY", "USD").strip().upper()[:3] or "USD"
+DETENTION_REVIEW_HOURS = int(os.environ.get("DETENTION_REVIEW_HOURS", "48"))  # review alert interval, set by the administration; not a legal limit
+# 1 = refuse a booking at a station that has no verified, operational jail center (default: record the arrest and flag it on the dashboard)
+DETENTION_REQUIRE_OPERATIONAL_FACILITY = os.environ.get("DETENTION_REQUIRE_OPERATIONAL_FACILITY", "0") == "1"
 PERSONNEL_EXPORT_ENABLED = env_bool("PERSONNEL_EXPORT_ENABLED", False)
 
 # Emergency override of the different-person payroll rules, super admin only, written reason required, always audited (see apps/payroll/breakglass.py).

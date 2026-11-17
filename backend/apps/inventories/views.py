@@ -201,7 +201,7 @@ class InventoryViewSet(viewsets.GenericViewSet):
         self._open_only(c, InventoryCount.Status.SUBMITTED)
         if not scope.can(request.user, "weapons.manage", c.org_unit):
             raise PermissionDenied()
-        if c.submitted_by_id == request.user.pk:
+        if c.submitted_by_id == request.user.pk and not scope.self_approval_allowed(request.user, "inventory_count", request, "inventory_count", c.pk):
             raise PermissionDenied("A different person must sign off the count.")
         unexplained = [ln.expected_identifier or ln.observed_identifier for ln in c.lines.exclude(result=R.VERIFIED) if len(ln.note.strip()) < 3]
         if unexplained:

@@ -29,7 +29,7 @@ SAMPLE_USERS = {
     "auditor": ("Auditor", "auditor", "HQ", None),
     "bari.chief": ("Bari Chief", "regional_chief", "BARI", None),
     "nugaal.chief": ("Nugaal Chief", "regional_chief", "NUGAAL", None),
-    "bari.armyadmin": ("Bari Army Admin", "branch_admin", "BARI", "ARMY"),
+    "bari.armyadmin": ("Bari Police Admin", "branch_admin", "BARI", "ARMY"),
     "bari.unitadmin": ("Bari Unit Admin", "unit_admin", "BARI-ARMY-SAMPLE-A", None),
     "bari.reporter": ("Bari Reporting Officer", "reporting_officer", "BARI-ARMY", None),
     "logistics": ("Logistics Custodian", "logistics_custodian", "BARI", None),
@@ -56,7 +56,7 @@ OTHER_REGIONS = ("Nugaal", "Mudug")
 for _name in OTHER_REGIONS:
     _r, _k = _name.upper(), _name.lower()
     SAMPLE_USERS.setdefault(f"{_k}.chief", (f"{_name} Chief", "regional_chief", _r, None))
-    SAMPLE_USERS.setdefault(f"{_k}.armyadmin", (f"{_name} Army Admin", "branch_admin", _r, "ARMY"))
+    SAMPLE_USERS.setdefault(f"{_k}.armyadmin", (f"{_name} Police Admin", "branch_admin", _r, "ARMY"))
     SAMPLE_USERS.setdefault(f"{_k}.unitadmin", (f"{_name} Unit Admin", "unit_admin", f"{_r}-ARMY-SAMPLE-A", None))
     SAMPLE_USERS.setdefault(f"{_k}.reporter", (f"{_name} Reporting Officer", "reporting_officer", f"{_r}-ARMY", None))
     SAMPLE_USERS.setdefault(f"{_k}.logistics", (f"{_name} Logistics Custodian", "logistics_custodian", _r, None))
@@ -64,13 +64,13 @@ for _name in OTHER_REGIONS:
     SAMPLE_USERS.setdefault(f"{_k}.trainer", (f"{_name} Training Administrator", "training_admin", _r, None))
 
 
-# Health Department of each Army regional command: a head who manages the department's people, and a reporting officer.
-for _name in ("Bari", "Nugaal", "Mudug", "Sanaag"):  # the four Army regional commands
+# Health Department of each Police regional command: a head who manages the department's people, and a reporting officer.
+for _name in ("Bari", "Nugaal", "Mudug", "Sanaag"):  # the four Police regional commands
     _r = _name.upper()
     SAMPLE_USERS.setdefault(f"{_name.lower()}.health", (f"{_name} Health Department Head", "unit_admin", f"{_r}-ARMY-HEALTH", None))
     SAMPLE_USERS.setdefault(f"{_name.lower()}.healthofficer", (f"{_name} Health Reporting Officer", "reporting_officer", f"{_r}-ARMY-HEALTH", None))
 
-# Regional finance pays that region's SALARIES (headquarters prepares and approves the monthly run). Four accounts per Army regional command, one
+# Regional finance pays that region's SALARIES (headquarters prepares and approves the monthly run). Four accounts per Police regional command, one
 # per step so nobody approves their own work: prepare, authorize, send (outside the system) and reconcile. Roles are assigned at the command.
 # A read-only auditor sits at the first battalion (Urur) of each command.
 for _name in ("Bari", "Nugaal", "Mudug", "Sanaag"):
@@ -87,11 +87,11 @@ SAMPLE_USERS.setdefault("payroll.officer2", ("Payroll Officer 2", "payroll_offic
 SAMPLE_USERS.setdefault("structure.approver", ("Structure Approver", "structure_approver", "HQ", None))
 SAMPLE_USERS.setdefault("survivor.officer", ("Survivor-Benefit Officer", "survivor_officer", "HQ", None))
 SAMPLE_USERS.setdefault("survivor.verifier", ("Survivor-Benefit Verifier", "survivor_officer", "HQ", None))
-# Taliye Qaybeed: one per Army regional command (assigned at the command, view and review of what its Guuto and Urur post).
+# Taliye Qaybeed: one per Police regional command (assigned at the command, view and review of what its Guuto and Urur post).
 for _name in ("Bari", "Nugaal", "Mudug", "Sanaag"):
     SAMPLE_USERS.setdefault(f"{_name.lower()}.regcommander", (f"{_name} Regional Commander (Taliye Qaybeed)", "regional_commander", f"{_name.upper()}-ARMY", None))
 
-# One weapons custodian per Army regional command: register, issue and take back weapons in that region only.
+# One weapons custodian per Police regional command: register, issue and take back weapons in that region only.
 for _name in ("Bari", "Nugaal", "Mudug", "Sanaag"):
     SAMPLE_USERS.setdefault(f"{_name.lower()}.weapons", (f"{_name} Weapons Custodian", "weapons_custodian", f"{_name.upper()}-ARMY", None))
 
@@ -99,6 +99,9 @@ for _name in ("Bari", "Nugaal", "Mudug", "Sanaag"):
 # Vehicle register: the transport officer keeps it, a different person approves disposals.
 SAMPLE_USERS.setdefault("transport.officer", ("Transport Officer", "transport_officer", "BARI", None))
 SAMPLE_USERS.setdefault("vehicle.approver", ("Vehicle Disposal Approver", "vehicle_disposal_approver", "HQ", None))
+SAMPLE_USERS.setdefault("custody.officer", ("Custody Officer", "custody_officer", "BARI", None))
+SAMPLE_USERS.setdefault("tax.collector", ("Tax Collector", "tax_collector", "BARI", None))
+SAMPLE_USERS.setdefault("tax.cashier", ("Tax Cash Officer", "tax_cashier", "HQ", None))
 
 
 # Sample accounts that stay enabled. Every other sample account is created DISABLED and is disabled again on each run, because they
@@ -129,7 +132,7 @@ class Command(BaseCommand):
         army_cmd = OU.objects.filter(code="BARI-ARMY").first()
         if not army_cmd:
             raise CommandError("Run `manage.py seed_reference_data` first.")
-        # The supplied Army structure (Taliska Guud, directorates, Qaybta commands). Synthetic deployments only: a real
+        # The supplied Police structure (Taliska Guud, directorates, Qaybta commands). Synthetic deployments only: a real
         # deployment applies it deliberately with `manage.py apply_army_structure` (dry run first).
         call_command("apply_army_structure", "--apply", stdout=self.stdout)
         OU.objects.filter(code="BARI-ARMY-SAMPLE-A").first() or OU.objects.create(

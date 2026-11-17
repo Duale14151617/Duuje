@@ -1,4 +1,5 @@
 import { EquipmentPanel, FleetPanel, PpePanel } from "../components/EquipmentPanels";
+import { brand } from "../lib/brand";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { AuditEvent, Dashboard as Data, DayActivity, NotificationItem, Page, Unit } from "../api/types";
@@ -362,7 +363,7 @@ export function Dashboard() {
     <div className="dash">
       <div className="dash-top">
         <div className="hero">
-          <img src="/defence-force.jpg" alt="Puntland Defence Force emblem" width={64} height={64} />
+          <img src={brand.primary.img} alt={brand.primary.alt} width={64} height={64} />
           <div>
             <p className="muted">{t(greetingKey(now))}{first ? `, ${first}` : ""}</p>
             <h1>{t("dash.title")}</h1>

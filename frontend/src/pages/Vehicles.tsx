@@ -127,7 +127,7 @@ export function Vehicles() {
           { id: "reference_model", label: t("veh.refModel"), value: refModel, onChange: (v) => setParam("reference_model", v), options: (models.data?.results ?? []).map((m) => ({ value: m.code, label: m.name })) },
           { id: "ownership", label: t("veh.ownership"), value: ownership, onChange: (v) => setParam("ownership", v), options: [{ value: "state", label: t("veh.ownership.state") }, { value: "private", label: t("veh.ownership.private") }] },
           { id: "status", label: t("veh.status"), value: status, onChange: reset(setStatus), options: st.list.map((x) => ({ value: x.code, label: name(x) })) },
-          { id: "group", label: t("fleet.group"), value: group, onChange: (v) => setParam("group", v), options: ["utility", "personnel_transport", "general_transport", "protected_transport", "combat_vehicle", "other"].map((g) => ({ value: g, label: t(`fleet.group.${g}` as Key) })) },
+          { id: "group", label: t("fleet.group"), value: group, onChange: (v) => setParam("group", v), options: ["police_vehicles", "utility", "personnel_transport", "general_transport", "protected_transport", "combat_vehicle", "other"].map((g) => ({ value: g, label: t(`fleet.group.${g}` as Key) })) },
           { id: "condition", label: t("veh.condition"), value: condition, onChange: (v) => setParam("condition", v), options: CONDITIONS.map((c) => ({ value: c, label: t(`cond.${c}` as Key) })) },
         ]}
         advancedExtra={<>

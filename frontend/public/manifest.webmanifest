@@ -1,7 +1,7 @@
 {
   "name": "Puntland Defence Forces HQ",
-  "short_name": "ARMY HQ",
-  "description": "Administrative platform for Puntland's Army.",
+  "short_name": "POLICE HQ",
+  "description": "Administrative platform for Puntland's Police.",
   "id": "/",
   "start_url": "/",
   "scope": "/",

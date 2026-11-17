@@ -1,4 +1,4 @@
-# ARMY HQ v2.1.2 — Render deployment
+# POLICE HQ v2.1.2 — Render deployment
 
 This package adds a Render Blueprint and a single-origin Docker deployment. It keeps the existing React UI and Django API, serving both from the same Render web service so session authentication and CSRF remain same-origin. PostgreSQL is a separate Render database.
 
@@ -11,10 +11,10 @@ This package adds a Render Blueprint and a single-origin Docker deployment. It k
 
 ## Deploy from an Android phone
 
-1. Extract this ZIP and upload the entire `armyhq-v2.1.2` folder contents to a **private GitHub repository**. Keep `Dockerfile` and `render.yaml` in the repository root, beside `frontend/` and `backend/`.
+1. Extract this ZIP and upload the entire `policehq-v2.1.2` folder contents to a **private GitHub repository**. Keep `Dockerfile` and `render.yaml` in the repository root, beside `frontend/` and `backend/`.
 2. Open https://dashboard.render.com/ and choose **New + → Blueprint**.
-3. Connect the repository containing `render.yaml`, then choose **Apply**. Render should create `armyhq-demo` and `armyhq-demo-db` from the blueprint. Review the plan and any charges shown before confirming.
-4. Open the `armyhq-demo` web service → **Environment**. Set `FIELD_ENCRYPTION_KEY` to a valid Fernet key and set `ARMYHQ_SAMPLE_PASSWORD` to a unique password (12+ characters). Keep both secret. Save changes and redeploy if requested.
+3. Connect the repository containing `render.yaml`, then choose **Apply**. Render should create `policehq` and `policehq-db` from the blueprint. Review the plan and any charges shown before confirming.
+4. Open the `policehq` web service → **Environment**. Set `FIELD_ENCRYPTION_KEY` to a valid Fernet key and set `ARMYHQ_SAMPLE_PASSWORD` to a unique password (12+ characters). Keep both secret. Save changes and redeploy if requested.
 5. Generate a Fernet key using a trusted local Python environment with `cryptography` installed:
 
    ```python
@@ -42,11 +42,11 @@ The `seed_sample_data` command creates synthetic usernames documented in `docs/S
 
 - `SECURE_SSL_REDIRECT=0` is set because Render terminates HTTPS at its proxy. The app trusts forwarded HTTPS only with `TRUST_PROXY_HEADERS=1`; review this before production use.
 - This is a deployment starter, not proof of a successful live deploy. The image must build and the database migrations must complete on Render. Test sign-in, MFA enrolment, CSRF-protected writes, logout, SPA refreshes, and logs before sharing.
-- This package is not approved or configured for real-world Army operations. For production, use a paid, institutionally approved deployment with backups, retention, monitoring, incident response, and a reviewed threat model.
+- This package is not approved or configured for real-world Police operations. For production, use a paid, institutionally approved deployment with backups, retention, monitoring, incident response, and a reviewed threat model.
 
 ## Test personnel for presentations (add and remove in one go)
 
-Render's free plan has no shell, so this is controlled by one environment variable on the `armyhq-demo` service:
+Render's free plan has no shell, so this is controlled by one environment variable on the `policehq` service:
 
 - **Add 150 test people:** Environment -> add `ARMYHQ_TEST_PERSONNEL` = `150` -> Save. Render redeploys and the start command tops up to 150 people (service numbers `TST-0001` to `TST-0150`, unique Somali names, varied ranks, spread over Bari, Nugaal and Mudug), each with a filled identity profile (blood type, gender, date of birth, enlistment date, home district, emergency contact, a weapon ID for about 3 in 4, and a neutral placeholder portrait). People already created earlier get their profile filled on the next deploy without being recreated.
 - **Remove them all:** set `ARMYHQ_TEST_PERSONNEL` to `0` (or delete the variable) -> Save. On the redeploy every `TST-` person and their history is deleted. Real records are never touched.
