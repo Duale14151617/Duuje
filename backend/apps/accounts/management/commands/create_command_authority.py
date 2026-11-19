@@ -3,10 +3,11 @@ Puntland Defense Forces). Access is by role, not by rank. Read-only, HQ-wide, al
 
   python manage.py create_command_authority --username president --full-name "Name"
 
-The password is prompted (or POLICEHQ_ADMIN_PASSWORD); the first login forces a password change and MFA enrolment.
+The password is prompted (or ARMYHQ_ADMIN_PASSWORD); the first login forces a password change and MFA enrolment.
 Run once per person: do not share one account between the two appointments.
 """
 import getpass
+import os
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -14,7 +15,6 @@ from django.db import transaction
 from apps.accounts.models import Role, RoleAssignment, User
 from apps.accounts.serializers import check_password_strength
 from apps.audit.services import record
-from apps.core import env as hqenv
 from apps.organization.models import OrganizationalUnit
 
 
@@ -34,7 +34,7 @@ class Command(BaseCommand):
         username = opts["username"].lower()
         if User.objects.filter(username=username).exists():
             raise CommandError("That username already exists.")
-        password = hqenv.get("ADMIN_PASSWORD") or getpass.getpass("Password: ")
+        password = os.environ.get("ARMYHQ_ADMIN_PASSWORD") or getpass.getpass("Password: ")
         try:
             check_password_strength(password)
         except Exception as exc:

@@ -1,4 +1,4 @@
-"""Food stores, bulk entry: opening stock from a spreadsheet, and one Police order issued to many units at once.
+"""Food stores, bulk entry: opening stock from a spreadsheet, and one Army order issued to many units at once.
 
 Both go through the same rules and the same append-only ledger as the single-entry screens, and both are all-or-nothing: if any
 row has a problem, nothing is saved and every problem is reported by row number.
@@ -8,7 +8,7 @@ has no stock movements at all, so a file cannot be imported twice and cannot ove
 "opening" ledger entry (the ledger allows only one per store) with the total, and one batch per row beneath it carrying its own
 expiry date, supplier and batch reference, so expiry warnings and earliest-expiry-first issuing work from day one.
 
-Bulk transfer: one source store, one Police order, many destination units. Each destination becomes an ordinary allocation that is
+Bulk transfer: one source store, one Army order, many destination units. Each destination becomes an ordinary allocation that is
 "on the way" until that unit's signed delivery note is recorded, exactly as for a single allocation.
 """
 import csv

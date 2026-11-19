@@ -1,4 +1,4 @@
-"""Reference content for the Puntland Police organizational template (Addendum to 1.3, version 1.3.1).
+"""Reference content for the Puntland Army organizational template (Addendum to 1.3, version 1.3.1).
 
 Used by the data migration (upgrades) and by `seed_reference_data` (fresh installs). Everything here is created only
 when missing, so administrator edits are never overwritten, and the figures are *reference establishment figures*,
@@ -48,7 +48,7 @@ def ensure_reference(UnitType, SpecialistDesignation, DesignationRule):
 
 
 def tag_regional_army_commands(OrganizationalUnit, ServiceBranch, types):
-    """Each region's Police branch command *is* that region's Taliska Guud. Only untyped units are touched."""
+    """Each region's Army branch command *is* that region's Taliska Guud. Only untyped units are touched."""
     army = ServiceBranch.objects.filter(code="ARMY").first()
     if army is None:
         return 0

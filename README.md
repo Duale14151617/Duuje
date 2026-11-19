@@ -1,9 +1,10 @@
-# POLICE HQ: administrative platform for Puntland's Police
+# ARMY HQ: administrative platform for Puntland's Army
 
 > **Status: a fully functional system deployed on Render.**
 > The system has been run on Render as a live web service backed by PostgreSQL, and **every part of it works**: sign-in with MFA,
 > users and scoped roles, organization and structure, personnel, ranks, reports and approvals, attendance, vehicles, weapons,
 > logistics, training, payroll and survivor benefits, analytics, audit log, dashboard, and the English/Somali interface on desktop and phone.
+> By design it holds **no real data** yet: it runs on synthetic data while we wait for the Army's approval.
 
 **Stack:** Django 5 + Django REST Framework, PostgreSQL, React + TypeScript (Vite), shipped as one Docker image and deployed on Render.
 There is no XAMPP/WAMP/PHP in this project.
@@ -17,9 +18,6 @@ There is no XAMPP/WAMP/PHP in this project.
 | Personnel | Records, effective-dated history (rank, unit, status), transfers, duplicate detection, CSV import preview and commit, profile tabs (personal information, service record, assignments, attendance, training, administrative history). |
 | Ranks | Official 16-rank Army catalogue in English and Somali with draft and approval. |
 | Reports and approvals | Configurable report and request types, draft to approved workflow, separation of duties, revisions, notifications, scoped summaries. |
-| Leave and roster | Leave requests (ask, approve, reject, cancel) and a weekly duty roster per unit; nobody on approved leave can be rostered. |
-| Promotion eligibility | Time in rank against a minimum for each rank (rules set by the super administrator). Eligible people can be proposed: each becomes a rank-change request with its Police order in the normal approval queue. |
-| Fitness for duty | Encrypted, append-only fitness entries. Commanders see status, review date and duty restriction; medical details are for the medical officer only. |
 | Attendance, vehicles, weapons | Daily attendance by unit, vehicle registry with maintenance and assignment history, weapon register, ammunition ledger and soldier holdings. |
 | Logistics and training | Stock ledger, tracked assets, restricted equipment, reconciliation, course catalogue and training records. |
 | Payroll and survivors | Payroll runs, salary profiles, payments, arrears, pay decisions and survivor benefits, each step needing a different person. |
@@ -29,7 +27,7 @@ There is no XAMPP/WAMP/PHP in this project.
 
 ## Deployment status
 - **Deployed and run on Render** using `render.yaml` (one Docker web service plus a Postgres database). The container migrates, seeds reference data and
-  the Police structure, and starts gunicorn on its own; sample accounts and sample people are created only when you ask for them (see *Deploy on Render*).
+  the Army structure, and starts gunicorn on its own; sample accounts and sample people are created only when you ask for them (see *Deploy on Render*).
 - **Everything above was exercised on that deployment** and works as described, including the weapon inventory and the consolidated sidebar. The tests have been run.
 - **Sidebar:** the Logistics and equipment section has six entries; Ammunition, Weapons (register, inventory, holdings) and Military vehicles (with the equipment catalogue) show their pages as tabs.
 - **No real data yet, by design:** no real data is hosted. Real personnel, payroll and equipment records will be loaded only after the Army approves.
@@ -43,7 +41,7 @@ cp .env.example backend/.env          # fill DJANGO_SECRET_KEY and FIELD_ENCRYPT
 cd backend && pip install -r requirements-dev.txt
 python manage.py migrate && python manage.py createcachetable
 python manage.py seed_reference_data   # permissions, roles, branches, regions, ranks
-python manage.py apply_army_structure --apply   # Police structure: HQ, directorates, regional commands, Guuto, Urur, battalion sections
+python manage.py apply_army_structure --apply   # Army structure: HQ, directorates, regional commands, Guuto, Urur, battalion sections
 python manage.py create_hq_admin --username admin --full-name "Admin" --role super_admin
 python manage.py runserver
 cd ../frontend && npm ci && npm run dev   # http://localhost:5173
@@ -53,26 +51,22 @@ cd frontend && npm test && npm run typecheck && npm run lint
 
 ## Deploy on Render
 `render.yaml` is a Blueprint: one Docker web service plus a Postgres database. The container runs, in order: `migrate`,
-`createcachetable`, `seed_reference_data`, `apply_army_structure --apply`, `seed_sample_data` (only when `POLICEHQ_SAMPLE_MODE=1`), `seed_test_personnel --from-env`, then gunicorn.
-Set in the Render dashboard: `FIELD_ENCRYPTION_KEY` (keep it safe: losing it makes encrypted records unreadable), `POLICEHQ_SAMPLE_PASSWORD`,
+`createcachetable`, `seed_reference_data`, `apply_army_structure --apply`, `seed_sample_data` (only when `ARMYHQ_SAMPLE_MODE=1`), `seed_test_personnel --from-env`, then gunicorn.
+Set in the Render dashboard: `FIELD_ENCRYPTION_KEY` (keep it safe: losing it makes encrypted records unreadable), `ARMYHQ_SAMPLE_PASSWORD`,
 and the switches below. See `RENDER_DEPLOY_GUIDE.md` and `docs/DEPLOY_ROLLBACK.md`.
 
 | Variable | Effect |
 |---|---|
-| `POLICEHQ_SAMPLE_MODE=1` (older `ARMYHQ_SAMPLE_MODE` and `ARMYHQ_DEMO_MODE` still work) | Creates the synthetic sample accounts and sample data (usernames in `docs/SETUP.md`, shared password from `POLICEHQ_SAMPLE_PASSWORD`; privileged sample roles enrol an authenticator app at first login). |
-| `POLICEHQ_TEST_PERSONNEL=150` | Keeps 150 synthetic Army people. Unset/0 deletes them all. |
+| `ARMYHQ_SAMPLE_MODE=1` (older `ARMYHQ_DEMO_MODE` still works) | Creates the synthetic sample accounts and sample data (usernames in `docs/SETUP.md`, shared password from `ARMYHQ_SAMPLE_PASSWORD`; privileged sample roles enrol an authenticator app at first login). |
+| `ARMYHQ_TEST_PERSONNEL=150` | Keeps 150 synthetic Army people. Unset/0 deletes them all. |
 | `PERSONNEL_EXPORT_ENABLED`, `REPORT_EXPORT_ENABLED`, `INTEGRATIONS_ENABLED` | Stay 0 until the institution approves them. |
 
 ## Frontend on Netlify (no backend)
 `cd frontend && npm run build:preview` builds a standalone preview with built-in sample data (no backend); `API_ORIGIN=https://your-backend npm run build:netlify`
 builds against a real backend. Deploy `frontend/dist`, or connect the repo with Base directory `frontend`. See `docs/NETLIFY.md`.
 
-## Puntland Police build
-This build is branded Puntland Police everywhere users can see it.
-
-**Environment variables are named `POLICEHQ_*`.** The older `ARMYHQ_*` names (and the even older `ARMYHQ_DEMO_*`) still work, so an existing deployment needs no change; when both are set the `POLICEHQ_*` one wins, and a blank value counts as not set. Rename them in the Render dashboard whenever convenient.
-
-Deliberately not renamed, because renaming would change live data or behaviour: database and role names, the `ARMY` branch and unit codes, the `*_army_structure` commands and modules (they describe the Army profile), Render resource names, session cookie names (renaming signs everyone out once), logger names and the `armyhq.E…` system-check ids.
+## Army-only build
+This build is Army-only.
 Useful commands: `create_command_authority`, `report_duplicate_identities`, `seed_test_personnel`, `remove_legacy_structure`, `access_report`.
 
 ## Documentation
@@ -80,7 +74,7 @@ Useful commands: `create_command_authority`, `report_duplicate_identities`, `see
 `docs/SECURITY.md`, `docs/LIMITATIONS.md`, `docs/ROLE_CATALOGUE.md` (what each role can do), `docs/INTEGRATIONS.md`, `CHANGELOG.md`.
 
 ## Release history
-Administrative web platform for Puntland's Police. Stack: Django + DRF, PostgreSQL, React + TypeScript. Recent interface work (universal search,
+Administrative web platform for Puntland's Army. Stack: Django + DRF, PostgreSQL, React + TypeScript. Recent interface work (universal search,
 shared data tables, personnel profile tabs, the redesigned dashboard) is listed in `CHANGELOG.md`.
 
 ## Included in 1.0
@@ -91,7 +85,7 @@ shared data tables, personnel profile tabs, the redesigned dashboard) is listed 
 - Configurable organization: HQ → region → branch command → unit. Seeded: Bari, Nugaal, Mudug;
   Army.
 - Rank catalogue (service-specific, English/Somali, draft/approved), managed in the database. The Army list is the
-  16 official Puntland Police ranks (Dable ... Sarreye Guud), stored as supplied with no invented translations.
+  16 official Puntland Army ranks (Dable ... Sarreye Guud), stored as supplied with no invented translations.
 - Organizational template for the Army: Taliska Guud (regional command), Qayb, Gaas, Guuto, Urur, Horin, Koox, Unug,
   with reference strengths (information only), approved strength exceptions, specialist designations (Sahan, Sanco) and
   expected-relationship checks, on the **Structure** page.

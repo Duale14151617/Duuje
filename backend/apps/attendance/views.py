@@ -13,7 +13,6 @@ from apps.audit.services import record as audit
 from apps.audit.services import record_read
 from apps.core.errors import field_error
 from apps.core.params import json_body, uuid_param
-from apps.leave import services as leave_services
 from apps.organization.models import OrganizationalUnit
 from apps.personnel.models import Personnel, PersonnelDocument
 from apps.personnel.services import NOT_SERVING
@@ -89,7 +88,7 @@ def _check_entry(user, unit, e, reasons):
 
 
 class AttendanceViewSet(viewsets.ViewSet):
-    """Daily attendance and absence reporting for authorized commanders (Taliye Koox by default), plus the
+    """Daily attendance and absence reporting for authorized commanders (Taliye Guuto / Taliye Urur by default), plus the
     unit situation report built from saved records. Attendance never changes personnel status."""
 
     permission_classes = [ScopedPermission]
@@ -123,15 +122,9 @@ class AttendanceViewSet(viewsets.ViewSet):
         today = {r.personnel_id: r for r in AttendanceRecord.objects.filter(
             personnel__in=[p.pk for p in people], report_date=day, superseded_at__isnull=True).select_related("reason")}
         record_read(request, "attendance.read_roll", entity_type="attendance", org_unit=unit, count=len(people))
-        leave = leave_services.approved_leave_for([p.pk for p in people if p.pk not in today], day, day)
-
-        def _leave(p):  # approved leave covering this day, shown until the day is recorded
-            r = leave_services.leave_on(leave.get(p.pk), day) if p.pk not in today else None
-            return None if r is None else {"type": r.leave_type.code, "name_en": r.leave_type.name_en, "name_so": r.leave_type.name_so,
-                                           "from": r.start_date.isoformat(), "to": r.end_date.isoformat()}
         return Response({"date": day.isoformat(), "org_unit": str(unit.pk), "results": [
             {**_person_brief(p), "unit": {"code": p.org_unit.code, "name_en": p.org_unit.name_en, "name_so": p.org_unit.name_so},
-             "attendance": _rec_out(today[p.pk]) if p.pk in today else None, "leave": _leave(p)} for p in people]})
+             "attendance": _rec_out(today[p.pk]) if p.pk in today else None} for p in people]})
 
     @action(detail=False, methods=["get"])
     def records(self, request):
@@ -273,8 +266,6 @@ def situation_figures_attendance(unit, start, end):
     att = {s: n for s, n in AttendanceRecord.objects.filter(
         org_unit__path__startswith=unit.path, report_date__range=(start, end), superseded_at__isnull=True)
         .values_list("status").annotate(n=Count("id"))}
-    serving_people = Personnel.objects.filter(org_unit__path__startswith=unit.path).exclude(status__in=NOT_SERVING)
-    from_leave = leave_services.unrecorded_leave_days(serving_people, start, end, AttendanceRecord)  # approved leave not yet recorded
-    recorded = sum(att.values()) + from_leave
+    recorded = sum(att.values())
     return {"days": days, "serving": serving, "present": att.get("present", 0), "absent": att.get("absent", 0),
-            "on_leave": att.get("on_leave", 0) + from_leave, "recorded": recorded, "not_recorded": max(0, serving * days - recorded)}
+            "on_leave": att.get("on_leave", 0), "recorded": recorded, "not_recorded": max(0, serving * days - recorded)}

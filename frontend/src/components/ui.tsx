@@ -4,7 +4,7 @@ import { useI18n } from "../i18n";
 import { pageRange, pageWindow } from "../lib/tableUtils";
 import { Icon, type IconName } from "./Icon";
 
-export function Notice({ kind = "info", children }: { kind?: "error" | "warn" | "info"; children: ReactNode }) {
+export function Notice({ kind = "info", children }: { kind?: "error" | "info"; children: ReactNode }) {
   return <div className={`notice ${kind}`} role={kind === "error" ? "alert" : "status"}>{children}</div>;
 }
 
@@ -119,7 +119,6 @@ export function Tabs<T extends string>({ tabs, value, onChange, label, controls 
     refs.current.get(next)?.focus();
   };
   return (
-    // eslint-disable-next-line jsx-a11y/interactive-supports-focus -- the tab buttons inside take focus (roving tabindex)
     <div className="tabs" role="tablist" aria-label={label} onKeyDown={move}>
       {tabs.map((x) => (
         <button key={x.id} type="button" role="tab" id={`${idPrefix}-${x.id}`} className="tab"

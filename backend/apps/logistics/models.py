@@ -280,7 +280,7 @@ class FoodBatch(models.Model):
 
 
 class FoodAllocation(models.Model):
-    """Food sent from one store to another unit on an Police order. The stock leaves the sending store when it is issued and
+    """Food sent from one store to another unit on an Army order. The stock leaves the sending store when it is issued and
     reaches the receiving unit only when an HQ administrator records the signed delivery note (so nothing is credited that has
     not arrived). An undelivered allocation can be cancelled, which returns the stock to the sending store."""
 

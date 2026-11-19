@@ -115,7 +115,6 @@ class Notification(models.Model):
     recipient = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
     kind = models.CharField(max_length=24)
     submission = models.ForeignKey(Submission, null=True, on_delete=models.SET_NULL, related_name="+")
-    leave_request = models.ForeignKey("leave.LeaveRequest", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
     read_at = models.DateTimeField(null=True, blank=True)
 

@@ -26,7 +26,7 @@ function useProblemText() {
 interface Line { key: number; unit: string; quantity: string; note: string }
 const EMPTY_HEAD = { order_ref: "", issuing_officer: "", order_date: "", issue_note_prefix: "" };
 
-/** One Police order, one source store, many destination units: every line is issued or none is. */
+/** One Army order, one source store, many destination units: every line is issued or none is. */
 export function BulkTransfer() {
   const { t } = useI18n();
   const problemText = useProblemText();

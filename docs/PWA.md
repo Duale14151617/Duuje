@@ -1,6 +1,6 @@
 # Installable app (PWA)
 
-POLICE HQ can be installed on a phone or computer from the browser (Chrome, Edge, Brave: **Install app**; Safari on iPhone: **Share > Add to Home Screen**).
+ARMY HQ can be installed on a phone or computer from the browser (Chrome, Edge, Brave: **Install app**; Safari on iPhone: **Share > Add to Home Screen**).
 An **Install app** button is also shown on the sign-in page and in the top bar.
 
 ## Files

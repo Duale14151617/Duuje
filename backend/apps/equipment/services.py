@@ -5,7 +5,6 @@ import re
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from apps.accounts import scope
 from apps.audit.services import record
 from apps.core import crypto
 from apps.core.concurrency import VersionConflict
@@ -150,7 +149,7 @@ def verify_item(request, item, d, version):
     result = d.get("result")
     if result not in ("verified", "needs_review"):
         raise field_error("result", "invalid_result", "Choose verified or needs review.")
-    if i.created_by_username and i.created_by_username == _name(request) and result == "verified" and not scope.self_approval_allowed(request.user, "equipment_entry", request, "equipment_entry", i.pk):
+    if i.created_by_username and i.created_by_username == _name(request) and result == "verified":
         raise field_error("result", "own_entry", "A different person must verify an entry you entered.")
     note = _text(d, "note", 300, required=(result == "needs_review"))
     before = i.verification

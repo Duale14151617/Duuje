@@ -67,7 +67,7 @@ Hardening only (no new product modules). Read `docs/SECURITY.md` for findings, f
 - Password reset codes are 40-bit, 60-minute, single-use and rate-limited; their security depends on how the code is handed over.
 - Sessions: 30-minute idle and 12-hour absolute limits are defaults chosen by the author; the institution should confirm them.
 
-## Version 1.3.1 notes (Puntland Police ranks and organizational structure addendum)
+## Version 1.3.1 notes (Puntland Army ranks and organizational structure addendum)
 - **Rank names are used as supplied for both languages.** No translation was invented: `name_so` equals `name_en`
   until the institution supplies verified wording. "Sarreye Guuto (General)" and "Sarreye Guud (Marshall)" are stored
   exactly as written, bracketed equivalents included. Rank codes `PA-01`..`PA-16` are internal identifiers (editable),
@@ -81,8 +81,8 @@ Hardening only (no new product modules). Read `docs/SECURITY.md` for findings, f
 - **Reference strengths are information, not constraints.** Nothing blocks a unit above or below them, and no
   personnel are ever created to fill vacancies. Actual strength counts personnel still in service (not retired or
   discharged) in the unit and everything below it, and is shown only where the viewer has personnel.view for that unit.
-- **"Taliska Guud" is modelled as the regional Police command** (the existing branch-command unit of the Army in each
-  region). Existing Police regional commands are tagged automatically.
+- **"Taliska Guud" is modelled as the regional Army command** (the existing branch-command unit of the Army in each
+  region). Existing Army regional commands are tagged automatically.
 - **Template is checked, never enforced.** Two Gaas per Qayb, parent/child order and the designated Horin Sahan /
   Urur Sahan and Sanco are reported on the Structure page as findings. Only two structural rules are hard errors:
   a type must fit its level (Taliska Guud on a branch command, all others on units) and a child type must be deeper than

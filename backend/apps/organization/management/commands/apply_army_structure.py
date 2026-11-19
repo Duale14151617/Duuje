@@ -39,6 +39,6 @@ class Command(BaseCommand):
         for action, detail in lines:
             self.stdout.write(f"{'APPLIED' if apply and action != 'blocked' else 'WOULD' if not apply else 'NOTE'} {action}: {detail}")
         if not lines:
-            self.stdout.write("Police structure already matches. Nothing to do.")
+            self.stdout.write("Army structure already matches. Nothing to do.")
         elif not apply:
             self.stdout.write(self.style.WARNING("Dry run only. Re-run with --apply to write these changes."))

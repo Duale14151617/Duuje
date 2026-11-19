@@ -1,7 +1,7 @@
 """Equipment Reference Catalogue: what a kind of equipment IS (name, classification, manufacturer, description, photographs,
 specifications) and whether HQ has verified that description. It is reference data only.
 
-* It never says the Police owns anything. Owned vehicles stay in the vehicle register (apps.vehicles) and owned weapons in the weapon
+* It never says the Army owns anything. Owned vehicles stay in the vehicle register (apps.vehicles) and owned weapons in the weapon
   register (apps.weapons); a vehicle only *points at* a catalogue entry (Vehicle.reference_model).
 * Vehicle models are classified by the existing VehicleCategory (nothing is duplicated); mounted weapons by MountedWeaponCategory.
 * Entries are switched off, never deleted. Changing the described facts of a verified entry puts it back to "unverified".

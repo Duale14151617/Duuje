@@ -50,7 +50,7 @@ def submitters_of(sub):
 
 def self_review(user, sub):
     """True when `user` is (or ever was) the submitter and the type forbids reviewing your own work."""
-    return sub.report_type.separation_of_duties and user.pk in submitters_of(sub) and not scope.has_full_access(user)  # only the super administrator may review their own
+    return sub.report_type.separation_of_duties and user.pk in submitters_of(sub)
 
 
 def capabilities(user, sub):
@@ -79,9 +79,9 @@ def validate_completeness(sub):
         raise field_error("body", "incomplete_submission")
 
 
-def reviewers_for(unit, exclude_ids=(), code="reports.review"):
+def reviewers_for(unit, exclude_ids=()):
     seen, users = set(), []
-    qs = (RoleAssignment.objects.effective().filter(role__permissions__code=code)
+    qs = (RoleAssignment.objects.effective().filter(role__permissions__code="reports.review")
           .select_related("user", "org_unit", "branch").distinct())
     for a in qs:
         if a.user_id in seen or a.user_id in exclude_ids or not scope.covers(a, unit):

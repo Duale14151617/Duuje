@@ -14,12 +14,10 @@ export interface PdfContent {
  * Builds a PDF in the browser from data the person can already see. `build` may be async so callers can fetch every
  * page of a filtered list first. Nothing is uploaded anywhere.
  */
-export function ExportPdfButton({ build, filename, className = "secondary", disabled, onError, label }: {
+export function ExportPdfButton({ build, filename, className = "secondary", disabled, onError }: {
   build: () => PdfContent | Promise<PdfContent>; filename: string; className?: string; disabled?: boolean;
   /** When given, errors are reported here instead of being shown beside the button. */
   onError?: (err: unknown) => void;
-  /** Button text; defaults to "Export PDF". */
-  label?: string;
 }) {
   const { t, lang } = useI18n();
   const [busy, setBusy] = useState(false);
@@ -42,7 +40,7 @@ export function ExportPdfButton({ build, filename, className = "secondary", disa
   return (
     <>
       <button type="button" className={className} disabled={busy || disabled} lang={lang} onClick={() => void run()}>
-        {busy ? t("pdf.preparing") : (label ?? t("common.exportPdf"))}
+        {busy ? t("pdf.preparing") : t("common.exportPdf")}
       </button>
       {error && !onError ? <ErrorNotice error={error} /> : null}
     </>

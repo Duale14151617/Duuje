@@ -14,7 +14,6 @@ from django.db.models import Count, F, Q
 
 from apps.accounts import scope
 from apps.core.errors import field_error
-from apps.leave import services as leave_services
 from apps.logistics import ammunition
 from apps.logistics.models import Asset, AssetEvent, Reconciliation, ReconciliationLine, StockLine
 from apps.weapons.models import WeaponCustody
@@ -94,8 +93,7 @@ def compute_figures(user, unit, start, end):
     rows = AttendanceRecord.objects.filter(org_unit__path__startswith=unit.path, report_date__range=(start, end),
                                            superseded_at__isnull=True)
     att = {s: n for s, n in rows.values_list("status").annotate(n=Count("id"))}
-    from_leave = leave_services.unrecorded_leave_days(people.exclude(status__in=NOT_SERVING), start, end, AttendanceRecord)
-    recorded = sum(att.values()) + from_leave  # approved leave not yet recorded counts as on leave, not as "not recorded"
+    recorded = sum(att.values())
 
     lines = StockLine.objects.filter(org_unit__path__startswith=unit.path, category__kind="stock",
                                      category__code__startswith=AMMO_PREFIX)
@@ -106,7 +104,7 @@ def compute_figures(user, unit, start, end):
         "personnel_suspended": by_status.get("suspended", 0), "personnel_jailed": by_status.get("jailed", 0),
         "personnel_died": by_status.get("died", 0),
         "attendance_present": att.get("present", 0), "attendance_absent": att.get("absent", 0),
-        "attendance_on_leave": att.get("on_leave", 0) + from_leave,
+        "attendance_on_leave": att.get("on_leave", 0),
         "attendance_not_recorded": max(0, serving * days - recorded),
         **ammo,
         **weapon_figures(unit, start, end),

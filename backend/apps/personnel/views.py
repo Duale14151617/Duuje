@@ -231,9 +231,9 @@ class PersonnelViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewset
     @staticmethod
     def _needs_approval(request, what):
         """Headquarters administrators can propose but not approve: their transfers, rank and status changes go through the
-        change-request queue (Police order + super administrator decision) instead of being applied directly."""
+        change-request queue (Army order + super administrator decision) instead of being applied directly."""
         if scope.can(request.user, "changes.propose") and not scope.can(request.user, "changes.approve"):
-            raise PermissionDenied(f"{what} need the authorizing Police order and super administrator approval: raise a change request instead.")
+            raise PermissionDenied(f"{what} need the authorizing Army order and super administrator approval: raise a change request instead.")
 
     def _workflow(self, request, serializer_cls, field, audit_action):
         person = self.get_object()

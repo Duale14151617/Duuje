@@ -11,26 +11,11 @@ import { ForgotPassword } from "./pages/ForgotPassword";
 import { Account } from "./pages/Account";
 import { RecoverMfa } from "./pages/RecoverMfa";
 import { Attendance } from "./pages/Attendance";
-import { Leave } from "./pages/Leave";
-import { Promotion } from "./pages/Promotion";
-import { Fitness } from "./pages/Fitness";
 import { Ammunition } from "./pages/Ammunition";
 import { Weapons } from "./pages/Weapons";
 import { Inventories } from "./pages/Inventories";
 import { Ppe } from "./pages/Ppe";
 import { VehicleDetail, Vehicles } from "./pages/Vehicles";
-import { VehicleLog } from "./pages/VehicleLog";
-import { VehicleTracking } from "./pages/VehicleTracking";
-import { CustodyFacilities } from "./pages/CustodyFacilities";
-import { DetentionOversight } from "./pages/DetentionOversight";
-import { CustodyIncidents } from "./pages/CustodyIncidents";
-import { Detention } from "./pages/Detention";
-import { OccurrenceBook } from "./pages/OccurrenceBook";
-import { PersonnelReport } from "./pages/PersonnelReport";
-import { ShiftHandover } from "./pages/ShiftHandover";
-import { TaxOversight } from "./pages/TaxOversight";
-import { OfflineDesk } from "./offline/OfflineDesk";
-import { Tax } from "./pages/Tax";
 import { Equipment, EquipmentDetail } from "./pages/Equipment";
 import { Holdings } from "./pages/Holdings";
 import { AmmoAccountability } from "./pages/AmmoAccountability";
@@ -72,7 +57,6 @@ export default function App() {
     if (location.pathname === "/reset") return <ResetPassword />;
     if (location.pathname === "/forgot") return <ForgotPassword />;
     if (location.pathname === "/recover") return <RecoverMfa />;
-    if (location.pathname === "/offline-desk") return <OfflineDesk />;
     return <Login />;
   }
   if (me.restrictions.includes("password_change")) return <ForcedPassword />;
@@ -100,25 +84,10 @@ export default function App() {
         <Route path="personnel/new" element={<PersonnelForm />} />
         <Route path="personnel/import" element={<PersonnelImport />} />
         <Route path="attendance" element={<Attendance />} />
-        <Route path="leave" element={<Leave />} />
-        <Route path="promotion" element={<Promotion />} />
-        <Route path="fitness" element={<Fitness />} />
         <Route path="weapons" element={<Weapons />} />
         <Route path="inventories" element={<Inventories />} />
         <Route path="vehicles" element={<Vehicles />} />
         <Route path="vehicles/:id" element={<VehicleDetail />} />
-        <Route path="vehicle-log" element={<VehicleLog />} />
-        <Route path="vehicle-tracking" element={<VehicleTracking />} />
-        <Route path="detention" element={<Detention />} />
-        <Route path="occurrence-book" element={<OccurrenceBook />} />
-        <Route path="shift-handover" element={<ShiftHandover />} />
-        <Route path="custody-facilities" element={<CustodyFacilities />} />
-        <Route path="custody-oversight" element={<DetentionOversight />} />
-        <Route path="custody-incidents" element={<CustodyIncidents />} />
-        <Route path="offline-desk" element={<OfflineDesk />} />
-        <Route path="tax" element={<Tax />} />
-        <Route path="tax-oversight" element={<TaxOversight />} />
-        <Route path="personnel-report" element={<PersonnelReport />} />
         <Route path="equipment" element={<Equipment />} />
         <Route path="equipment/:id" element={<EquipmentDetail />} />
         <Route path="holdings" element={<Holdings />} />

@@ -18,19 +18,13 @@ from django.utils import timezone
 
 from apps.accounts import scope
 
-from . import station_activity
 from .models import Department, OrganizationalUnit, UnitDepartment
 
 STANDARD_DEPARTMENTS = ("COMMAND_ADMIN", "HR", "MEDICAL", "FINANCE", "LOGISTICS", "COMMUNICATIONS", "TRAINING")
-GHQ_UNIT_CODE = "ARMY-HQ"  # the Police Headquarters (Taliska Guud) is the General Headquarters of the organization
+GHQ_UNIT_CODE = "ARMY-HQ"  # the Army Headquarters (Taliska Guud) is the General Headquarters of the organization
 NAMED_CAP = 300  # names listed on one profile; the directory (paged) holds the complete list
 ROLE_ORDER = ("commander", "deputy", "administrative")
 CHART_ROLES = ("ghq", "regional", "brigade", "battalion")
-# The chart also goes down to districts and police stations (the jail center hangs on its station). CHART_ROLES stays as it was for
-# the analytics, which only count formations.
-HIERARCHY_ROLES = CHART_ROLES + ("district", "station")
-DISTRICT_DEPARTMENTS = ("COMMAND_ADMIN", "HR", "LOGISTICS", "OPERATIONS", "INVESTIGATION")
-STATION_DEPARTMENTS = ("COMMAND_ADMIN", "HR", "LOGISTICS", "OPERATIONS", "INVESTIGATION", "CUSTODY", "COMMUNITY")
 
 
 # --------------------------------------------------------------------------------------------------- who may see what
@@ -255,8 +249,6 @@ def unit_profile(user, unit):
         "medical": function_block("MEDICAL"),
         "finance": function_block("FINANCE"),
         "children": children,
-        "facilities": station_activity.facilities_of(unit),
-        "activity": station_activity.unit_activity(user, unit),
         "stats": stats,
         "by_rank": by_rank,
         "can": {"name": names_ok, "manage": scope.can(user, "org.manage", unit=unit),
@@ -304,31 +296,6 @@ def department_profile(user, unit, department):
 
 
 # ----------------------------------------------------------------------------------------------------- organization chart
-def _jails_by_unit(user, stations):
-    """{station pk: [jail center with the number held now]} for the stations of the chart (those the caller may see)."""
-    if not stations:
-        return {}
-    from apps.detention.models import CustodyFacility, DetentionRecord
-
-    facs = list(CustodyFacility.objects.filter(org_unit__in=[u.pk for u in stations], active=True).order_by("name_en"))
-    held = dict(DetentionRecord.objects.filter(facility__in=facs, status=DetentionRecord.Status.IN_CUSTODY)
-                .values_list("facility_id").annotate(n=Count("id")))
-    out = defaultdict(list)
-    for f in facs:
-        out[f.org_unit_id].append({"id": str(f.pk), "code": f.code, "kind": f.kind, "name_en": f.name_en, "name_so": f.name_so,
-                                   "capacity": f.capacity, "in_custody": held.get(f.pk, 0)})
-    return out
-
-
-def _prisons(user):
-    """The prisons the Police hand people over to. They belong to the prison authority, not to a unit, so they are listed beside
-    the chart rather than inside it."""
-    from apps.detention.models import CustodyFacility
-
-    return [{"id": str(f.pk), "code": f.code, "name_en": f.name_en, "name_so": f.name_so, "operated_by": f.operated_by}
-            for f in CustodyFacility.objects.filter(kind="prison", active=True).order_by("name_en")]
-
-
 def chart(user, include_inactive=False):
     """Expandable chart: General Headquarters > regional commands > brigades > battalions, each with its strength. Units below a
     battalion (and sections) are counted inside their formation, so the chart stays readable and every person is counted once."""
@@ -338,12 +305,10 @@ def chart(user, include_inactive=False):
     units = list(units_qs.order_by("path"))
     counter = _by_unit_status(_personnel(user, "count"))
     nodes, roots = {}, []
-    chart_units = [u for u in units if u.unit_type_id and u.unit_type.formation_role in HIERARCHY_ROLES]
-    jails = _jails_by_unit(user, [u for u in chart_units if u.unit_type.formation_role == "station"])
+    chart_units = [u for u in units if u.unit_type_id and u.unit_type.formation_role in CHART_ROLES]
     for u in chart_units:
         b = _rollup(counter, u.path)
-        nodes[u.pk] = {**_brief_unit(u), "total": b["total"], "active": b["active"], "inactive": b["inactive"], "children": [],
-                       "facilities": jails.get(u.pk, [])}
+        nodes[u.pk] = {**_brief_unit(u), "total": b["total"], "active": b["active"], "inactive": b["inactive"], "children": []}
     by_path = {u.path: u for u in chart_units}
     for u in chart_units:  # path order: parents first; a unit whose nearest formation ancestor is out of scope becomes a root
         parent = None
@@ -363,14 +328,14 @@ def chart(user, include_inactive=False):
             for k in ("total", "active", "inactive"):
                 ghq[k] += n[k]
         roots = [ghq]
-    order = {r: i for i, r in enumerate(HIERARCHY_ROLES)}
+    order = {r: i for i, r in enumerate(CHART_ROLES)}
 
     def sort(ns):
         ns.sort(key=lambda n: (order.get(n["formation_role"], 9), n["code"]))
         for n in ns:
             sort(n["children"])
     sort(roots)
-    return {"count": len(nodes), "roots": roots, "prisons": _prisons(user), "counts_complete": counting_q(user) is not None}
+    return {"count": len(nodes), "roots": roots, "counts_complete": counting_q(user) is not None}
 
 
 # ------------------------------------------------------------------------------------------------------------ analytics
@@ -444,36 +409,22 @@ def analytics(user, root=None):
             "counts_complete": counting_q(user) is not None}
 
 
-def _standard_codes(unit):
-    """Which departments a unit of this kind is ready with: stations and districts get the policing set, the rest the standard seven."""
-    role = unit.unit_type.formation_role if unit.unit_type_id else ""
-    if role == "station":
-        return STATION_DEPARTMENTS
-    if role == "district":
-        return DISTRICT_DEPARTMENTS
-    return STANDARD_DEPARTMENTS
-
-
 def qualifies_for_standard_departments(unit):
-    """Headquarters, regions and every unit whose type is a regional command, brigade, battalion, district or police station."""
+    """Headquarters, regions and every unit whose type is a regional command, brigade or battalion (or General Headquarters)."""
     role = unit.unit_type.formation_role if unit.unit_type_id else ""
-    return unit.active and (role in HIERARCHY_ROLES or unit.level in ("headquarters", "region"))
+    return unit.active and (role in CHART_ROLES or unit.level in ("headquarters", "region"))
 
 
 def establish_standard_departments(unit=None):
-    """Establish the standard departments in every qualifying unit (or just in `unit`): the seven standard ones for headquarters,
-    regions and commands, the policing set for districts and stations. Additive and idempotent: it only creates what is missing,
-    so a department an administrator has retired stays retired. No people and no appointments are created. Returns the number of
-    departments established."""
+    """Establish the seven standard departments in every qualifying unit (or just in `unit`). Additive and idempotent: it
+    only creates what is missing, so a department an administrator has retired stays retired. No people and no appointments
+    are created. Returns the number of departments established."""
     units = OrganizationalUnit.objects.filter(active=True).filter(
-        Q(unit_type__formation_role__in=HIERARCHY_ROLES) | Q(level__in=("headquarters", "region"))).select_related("unit_type")
+        Q(unit_type__formation_role__in=CHART_ROLES) | Q(level__in=("headquarters", "region")))
     if unit is not None:
         units = units.filter(pk=unit.pk)
-    units = list(units)
-    wanted = {c for u in units for c in _standard_codes(u)}
-    depts = {d.code: d for d in Department.objects.filter(code__in=wanted, active=True)}
+    depts = list(Department.objects.filter(code__in=STANDARD_DEPARTMENTS, active=True))
     have = set(UnitDepartment.objects.filter(unit__in=units).values_list("unit_id", "department_id"))
-    new = [UnitDepartment(unit_id=u.pk, department=depts[c]) for u in units for c in _standard_codes(u)
-           if c in depts and (u.pk, depts[c].pk) not in have]
+    new = [UnitDepartment(unit_id=u, department=d) for u in units.values_list("pk", flat=True) for d in depts if (u, d.pk) not in have]
     UnitDepartment.objects.bulk_create(new)
     return len(new)

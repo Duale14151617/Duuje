@@ -158,7 +158,6 @@ export function GlobalSearch() {
       <p className="sr-only" role="status" aria-live="polite">{status}</p>
 
       {popOpen && (
-        // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- only stops the input losing focus on click
         <div className="gs-pop" onMouseDown={(e) => { if ((e.target as HTMLElement).closest("button") === null) e.preventDefault(); }}>
           {searching && phase === "done" && present.length > 1 && (
             <div className="gs-tabs" role="group" aria-label={t("gs.filterBy")}>

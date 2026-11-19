@@ -242,7 +242,7 @@ class NotificationViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     serializer_class = NotificationSerializer
 
     def get_queryset(self):
-        qs = Notification.objects.filter(recipient=self.request.user).select_related("submission__org_unit", "leave_request__personnel", "leave_request__leave_type")
+        qs = Notification.objects.filter(recipient=self.request.user).select_related("submission__org_unit")
         if self.request.query_params.get("unread") == "1":
             qs = qs.filter(read_at__isnull=True)
         return qs

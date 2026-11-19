@@ -19,7 +19,7 @@ from apps.core.errors import field_error
 from .models import DisciplinaryRecord, Personnel, PersonnelDocument
 
 # ---------------------------------------------------------------- disciplinary history
-# Draft category list: confirm the wording with the Police personnel authorities.
+# Draft category list: confirm the wording with the Army personnel authorities.
 DISCIPLINARY_CATEGORIES = ["verbal_warning", "written_warning", "reprimand", "fine", "suspension", "demotion",
                            "dismissal", "other"]
 
