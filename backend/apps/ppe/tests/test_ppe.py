@@ -1,4 +1,5 @@
 """PPE ledger, asset lifecycle, procurement cost and the dashboard figures. Synthetic data only."""
+from decimal import Decimal
 from django.db import IntegrityError, transaction
 
 from apps.audit.models import AuditEvent
@@ -39,7 +40,7 @@ class PpeLedgerTests(PpeBase):
         t = StockTransaction.objects.get(stock_line=self.line, kind="receive")
         self.assertEqual((str(t.unit_cost), t.currency), ("42.50", "USD"))
         s = self.cust.get(P + "summary/").json()
-        self.assertEqual(s["procurement"]["by_currency"][0]["total"], "4250.00")
+        self.assertEqual(Decimal(s["procurement"]["by_currency"][0]["total"]), Decimal("4250.00"))
 
     def test_issue_return_keep_store_and_person_in_step(self):
         self.assertEqual(self.move("issue", 5, reference="V1", size="L").status_code, 201)

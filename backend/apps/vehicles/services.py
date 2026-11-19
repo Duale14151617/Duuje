@@ -9,6 +9,7 @@ from django.db.models import Count, Exists, OuterRef, Q, Subquery, Sum
 from django.db.models.functions import TruncMonth
 from django.utils import timezone
 
+from apps.accounts import scope
 from apps.audit.services import record
 from apps.core import crypto
 from apps.core.concurrency import VersionConflict
@@ -477,7 +478,7 @@ def decide_disposal(request, vehicle, d, version, approve):
     v = _lock(vehicle.pk, version)
     if not v.disposal_requested_at:
         raise field_error("status", "no_disposal_request", "There is no disposal request to decide.")
-    if v.disposal_requested_by == request.user.username:
+    if v.disposal_requested_by == request.user.username and not scope.self_approval_allowed(request.user, "vehicle_disposal", request, "vehicle", v.pk):
         raise field_error("status", "self_approval", "A different authorised user must decide a disposal request.")
     before = snapshot(v)
     if approve:

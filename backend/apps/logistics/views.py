@@ -78,7 +78,7 @@ class CategoryViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.C
             record("category.approve", request=request, outcome="denied", entity_type="inventory_category",
                    entity_id=cat.pk, metadata={"needed": needed})
             raise PermissionDenied("Institutional review permission is required.", code="permission_denied")
-        if cat.created_by_id == request.user.pk:
+        if cat.created_by_id == request.user.pk and not scope.self_approval_allowed(request.user, "inventory_category", request, "inventory_category", cat.pk):
             record("category.approve", request=request, outcome="denied", entity_type="inventory_category",
                    entity_id=cat.pk, metadata={"reason": "self_approval"})
             raise PermissionDenied("You cannot approve a category you created.", code="self_approval_not_allowed")

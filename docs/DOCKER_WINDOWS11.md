@@ -1,6 +1,6 @@
-# ARMY HQ — Windows 11 + Docker Desktop (local run)
+# POLICE HQ — Windows 11 + Docker Desktop (local run)
 
-This setup runs the React frontend, Django API, and PostgreSQL database together on your own PC. It is for synthetic sample data only, not real personnel or operational records.
+This setup runs the React frontend, Django API, and PostgreSQL database together on your own PC.
 
 ## 1. Install Docker Desktop
 1. Download Docker Desktop for Windows: https://www.docker.com/products/docker-desktop/
@@ -13,10 +13,10 @@ This setup runs the React frontend, Django API, and PostgreSQL database together
    ```
 
 ## 2. Extract this ZIP
-Extract the entire ZIP into a folder, for example `C:\ARMYHQ`. Open that folder in File Explorer. You should see `Dockerfile`, `docker-compose.yml`, `docker-compose.local.yml`, `frontend`, and `backend` in the `armyhq-v2.1.2` folder.
+Extract the entire ZIP into a folder, for example `C:\ARMYHQ`. Open that folder in File Explorer. You should see `Dockerfile`, `docker-compose.yml`, `docker-compose.local.yml`, `frontend`, and `backend` in the `policehq-v2.1.2` folder.
 
 ## 3. Open PowerShell in the project root
-In File Explorer, open the `armyhq-v2.1.2` folder. Click the address bar, type `powershell`, and press Enter. Confirm `dir` shows `Dockerfile` and `docker-compose.local.yml`.
+In File Explorer, open the `policehq-v2.1.2` folder. Click the address bar, type `powershell`, and press Enter. Confirm `dir` shows `Dockerfile` and `docker-compose.local.yml`.
 
 ## 4. Start the complete app
 Use a sample-only password (at least 12 characters). You can set one in this PowerShell window:
@@ -28,7 +28,7 @@ docker compose -f docker-compose.yml -f docker-compose.local.yml up --build -d
 
 The first build downloads packages and may take several minutes. The app container runs database migrations, creates the cache table, seeds reference data, and creates synthetic sample accounts. Wait for it to finish.
 
-## 5. Open ARMY HQ
+## 5. Open POLICE HQ
 Open this address in your browser:
 
 http://localhost:8000

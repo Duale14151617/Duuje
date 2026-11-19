@@ -4,7 +4,7 @@ import { api, fetchAll } from "../api/client";
 import type { Page, ReportType, SubmissionDetail, SubmissionRow, Unit } from "../api/types";
 import { useFetch } from "../api/useFetch";
 import { useAuth } from "../auth/AuthContext";
-import { ArmyStrength } from "../components/ArmyStrength";
+import { PoliceStrength } from "../components/PoliceStrength";
 import { ExportPdfButton } from "../components/ExportPdfButton";
 import { DataTable, type Column } from "../components/DataTable";
 import { Chip, ErrorNotice, Field, formatDate, Loading, Notice, PageHeader } from "../components/ui";
@@ -54,7 +54,7 @@ export function ReportList() {
         {canExport && <ExportPdfButton filename="reports.pdf" build={buildPdf} onError={setExportError} />}
         {can("reports.submit") && <Link className="btn" to="/reports/new">{t("rep.new")}</Link>}
       </>} />
-      {can("reports.combined") && <ArmyStrength />}
+      {can("reports.combined") && <PoliceStrength />}
       <div className="row mb-1">
         {tabs.filter(([, , show]) => show).map(([v, label]) => (
           <button key={v} className={view === v ? "" : "secondary"} aria-pressed={view === v} onClick={() => { setView(v); setPage(1); }}>{t(label)}</button>

@@ -38,7 +38,9 @@ export function Notifications() {
             <div>
               {n.submission
                 ? <Link to={`/reports/${n.submission.id}`} onClick={() => void markRead(n.id)}>{n.submission.title}</Link>
-                : <span className="muted">{t("note.noAccess")}</span>}
+                : n.kind.startsWith("leave_") && n.leave
+                  ? <Link to="/leave" onClick={() => void markRead(n.id)}>{n.leave.title}</Link>
+                  : <span className="muted">{t("note.noAccess")}</span>}
             </div>
             <div className="muted">{formatDate(n.created_at, lang)}</div>
           </li>

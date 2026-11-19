@@ -35,6 +35,7 @@ beforeEach(() => {
       path.endsWith("/auth/csrf/") ? { csrf_token: "t" } :
       path.endsWith("/vehicles/categories/") ? { results: [cat] } :
       path.endsWith("/vehicles/statuses/") ? { results: statuses } :
+      path.endsWith("/vehicles/analytics/") ? { total: 0, decommissioned: 0, by_group: [], by_category: [], by_condition: {}, by_status: {}, expenditure: { visible: false, by_currency: [] } } :
       path.endsWith("/vehicles/summary/") ? { unit, total: 2, direct: tally, subordinate: { ...tally, total: 0 }, combined: tally, decommissioned: 0, by_child_unit: [{ unit, total: 2, direct: 2 }] } :
       path.endsWith("/vehicles/") ? { count: 1, next: null, previous: null, results: [row] } :
       path.endsWith("/history/") || path.endsWith("/maintenance/") || path.endsWith("/documents/") ? { results: [], cost_visible: true } :

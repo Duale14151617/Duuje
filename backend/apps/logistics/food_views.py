@@ -75,7 +75,7 @@ class SupplierViewSet(viewsets.GenericViewSet):
 
 
 class FoodReceiptViewSet(viewsets.GenericViewSet):
-    """Deliveries from suppliers (one batch each). Entered directly by HQ administrators with the delivery note and Army order."""
+    """Deliveries from suppliers (one batch each). Entered directly by HQ administrators with the delivery note and Police order."""
 
     permission_classes = [ScopedPermission]
     throttle_scope = None  # set per action for imports

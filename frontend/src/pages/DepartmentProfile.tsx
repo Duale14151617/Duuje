@@ -25,8 +25,8 @@ function People({ rows }: { rows: OrgPerson[] }) {
 }
 
 /** Head or deputy of this department: shows the holder, lets an authorized user end the appointment, or appoint someone when vacant. */
-function OfficeRow({ role, office, unitId, deptId, canAppoint, onDone }: {
-  role: "department_head" | "department_deputy"; office: OrgOffice | null; unitId: string; deptId: string; canAppoint: boolean; onDone: () => void;
+function OfficeRow({ officeRole, office, unitId, deptId, canAppoint, onDone }: {
+  officeRole: "department_head" | "department_deputy"; office: OrgOffice | null; unitId: string; deptId: string; canAppoint: boolean; onDone: () => void;
 }) {
   const { t } = useI18n();
   const types = useFetch<{ results: AppointmentTypeOut[] }>(canAppoint ? "/personnel/appointment-types/" : null);
@@ -39,8 +39,8 @@ function OfficeRow({ role, office, unitId, deptId, canAppoint, onDone }: {
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   const found = useFetch<Page<Person>>(open && q.trim().length >= 2 ? "/personnel/" : null, { q: q.trim(), org_unit: unitId });
-  const type = (types.data?.results ?? []).find((x) => x.role === role);
-  const label = t(role === "department_head" ? "org2.head" : "org2.deputy");
+  const type = (types.data?.results ?? []).find((x) => x.role === officeRole);
+  const label = t(officeRole === "department_head" ? "org2.head" : "org2.deputy");
 
   async function run(fn: () => Promise<unknown>) {
     setError(null); setBusy(true);
@@ -120,8 +120,8 @@ export function DepartmentProfile() {
       {(d.department.description_en || d.department.description_so) && <p className="muted">{name({ name_en: d.department.description_en, name_so: d.department.description_so })}</p>}
       <div className="card"><h2>{t("org2.leadership")}</h2>
         <table><tbody>
-          <OfficeRow role="department_head" office={d.head} unitId={id} deptId={deptId} canAppoint={d.can.appoint && d.established} onDone={res.reload} />
-          <OfficeRow role="department_deputy" office={d.deputy} unitId={id} deptId={deptId} canAppoint={d.can.appoint && d.established} onDone={res.reload} />
+          <OfficeRow officeRole="department_head" office={d.head} unitId={id} deptId={deptId} canAppoint={d.can.appoint && d.established} onDone={res.reload} />
+          <OfficeRow officeRole="department_deputy" office={d.deputy} unitId={id} deptId={deptId} canAppoint={d.can.appoint && d.established} onDone={res.reload} />
         </tbody></table>
         {d.can.appoint && !d.established && <p className="muted">{t("org2.notEstablished")}</p>}
       </div>

@@ -1,4 +1,5 @@
 import { EquipmentPanel, FleetPanel, PpePanel } from "../components/EquipmentPanels";
+import { brand } from "../lib/brand";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { AuditEvent, Dashboard as Data, DayActivity, NotificationItem, Page, Unit } from "../api/types";
@@ -11,6 +12,7 @@ import { formatLongDate, greetingKey, timeAgo } from "../lib/time";
 import { useI18n } from "../i18n";
 import { ExportPdfButton } from "../components/ExportPdfButton";
 import { ActivityChart, ChartPanel, RangeSwitch, RegionChart } from "../components/DashboardCharts";
+import { MyWork } from "../components/MyWork";
 import { ExceptionsPanel, ReviewQueuePanel, SecurityPanel, TasksPanel, TrainingPanel } from "../components/DashboardPanels";
 
 type Row = [label: string, value: number, tone?: string];
@@ -362,7 +364,7 @@ export function Dashboard() {
     <div className="dash">
       <div className="dash-top">
         <div className="hero">
-          <img src="/defence-force.jpg" alt="Puntland Defence Force emblem" width={64} height={64} />
+          <img src={brand.primary.img} alt={brand.primary.alt} width={64} height={64} />
           <div>
             <p className="muted">{t(greetingKey(now))}{first ? `, ${first}` : ""}</p>
             <h1>{t("dash.title")}</h1>
@@ -376,6 +378,7 @@ export function Dashboard() {
           })} />
         )}
       </div>
+      <MyWork />
       <ErrorNotice error={error} />
       {loading && !n ? <Skeleton label={t("common.loading")} /> : body}
     </div>

@@ -165,6 +165,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent-text); 
 /* status badges (.chip) are defined in the design-system section at the end of this file */
 .notice { border-radius: 6px; padding: .6rem .85rem; margin-bottom: 1rem; border-left: 4px solid; }
 .notice.error { background: var(--brick-bg); color: var(--brick); border-color: var(--brick); }
+.notice.warn { background: var(--amber-bg); color: var(--amber); border-color: var(--amber); }
 .notice.info { background: var(--info-bg); color: var(--info); border-color: var(--info); }
 .indent { border-left: 2px solid var(--line); margin-left: calc(var(--d, 0) * .9rem); }
 .mono { font-family: ui-monospace, "Cascadia Mono", Menlo, monospace; word-break: break-all; }
@@ -278,7 +279,7 @@ a.kpi:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .topbar .brand-text, .nav-brand { white-space: normal; line-height: 1.15; font-size: .95rem; min-width: 0; }
 @media (min-width: 48rem) { .topbar .brand-text { font-size: 1.1rem; } }
 
-/* ================= Login page: cinematic Puntland Defence Forces HQ design =================
+/* ================= Login page: cinematic Puntland Police HQ design =================
    Deliberately dark in both themes (the page is a fixed brand composition). Background photos live in
    /public/login/ and are plain files: replace bg-left.jpg / bg-right.jpg to change the imagery. */
 .lp { --lp-gold: #E3B84F; --lp-gold-2: #D9A93A; --lp-ink: #06122A; --lp-blue: #9DB3D6;
@@ -309,8 +310,15 @@ a.kpi:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .lp-bg { position: absolute; top: 0; bottom: 0; background-repeat: no-repeat; background-size: cover; pointer-events: none; }
 .lp-bg-left { left: 0; width: 35%; background-image: url(/login/bg-left.jpg); background-position: left center;
   -webkit-mask-image: linear-gradient(90deg, #000 84%, transparent 100%); mask-image: linear-gradient(90deg, #000 84%, transparent 100%); }
-.lp-bg-right { right: 0; width: 34%; background-image: url(/login/bg-right.jpg); background-position: right center;
-  -webkit-mask-image: linear-gradient(270deg, #000 88%, transparent 100%); mask-image: linear-gradient(270deg, #000 88%, transparent 100%); }
+html[data-profile="police"] .lp-bg-left { background-image: url(/login/police-hq.jpg); background-position: center 55%; }
+.lp-bg-right { right: 0; width: 34%; background-image: url(/login/bg-right.jpg); background-size: contain; background-position: center center;
+  -webkit-mask-image: radial-gradient(ellipse 70% 66% at 50% 50%, #000 52%, transparent 100%); mask-image: radial-gradient(ellipse 70% 66% at 50% 50%, #000 52%, transparent 100%);
+  filter: drop-shadow(0 0 28px rgba(227,184,79,.18)) saturate(1.05); }
+/* premium finish: soft gold vignette + fine inner glow behind both panels so the map and photo sit in the scene, not on it */
+.lp-main::before { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background: radial-gradient(ellipse at 82% 50%, rgba(227,184,79,.10), transparent 46%),
+              radial-gradient(ellipse at 50% 120%, rgba(6,18,42,.9), transparent 55%),
+              radial-gradient(ellipse at 50% 50%, transparent 58%, rgba(3,9,22,.55) 100%); }
 
 .lp-center { position: relative; z-index: 1; width: 100%; max-width: 68rem; display: flex; flex-direction: column; align-items: center; text-align: center; }
 .lp-crest { width: 136px; height: 136px; border-radius: 50%; object-fit: cover; margin-top: 0;
@@ -368,14 +376,14 @@ a.kpi:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 @media (min-width: 1101px) { .lp-title { white-space: nowrap; } }
 @media (max-width: 1100px) {
   .lp-bg-left { width: 46%; opacity: .55; }
-  .lp-bg-right { width: 40%; opacity: .5; }
+  .lp-bg-right { width: 40%; opacity: .6; }
   .lp-orn { display: none; }
 }
 @media (max-width: 820px) {
   .lp-bg-left { left: 0; right: 0; width: auto; bottom: auto; height: 21rem; opacity: .9; background-position: center 35%;
     -webkit-mask-image: linear-gradient(180deg, #000 45%, transparent 100%); mask-image: linear-gradient(180deg, #000 45%, transparent 100%); }
-  .lp-bg-right { left: 0; right: 0; width: auto; top: auto; height: 20rem; opacity: .55; background-position: center 40%;
-    -webkit-mask-image: linear-gradient(0deg, #000 35%, transparent 100%); mask-image: linear-gradient(0deg, #000 35%, transparent 100%); }
+  .lp-bg-right { left: 0; right: 0; width: auto; top: auto; height: 22rem; opacity: .7; background-size: contain; background-position: center center;
+    -webkit-mask-image: radial-gradient(ellipse 60% 62% at 50% 50%, #000 50%, transparent 100%); mask-image: radial-gradient(ellipse 60% 62% at 50% 50%, #000 50%, transparent 100%); }
   .lp-crest { width: 132px; height: 132px; }
   .lp-card { padding: 1.3rem 1.4rem 1rem; }
 }
@@ -947,3 +955,5 @@ main:has(> .dash) { max-width: 80rem; }
 dialog.stepup { max-width: min(26rem, calc(100vw - 2rem)); padding: 1.25rem; border: 1px solid var(--line); border-radius: .75rem;
   background: var(--paper); color: var(--ink); }
 dialog.stepup::backdrop { background: rgba(13, 21, 34, .6); }
+.org-chart ul.org-jails { border-left: 1px dashed var(--line); margin: .15rem 0 .15rem 1.6rem; }
+.org-chart ul.org-jails .org-node { opacity: .9; }

@@ -1,4 +1,4 @@
-"""ARMY HQ settings. Every secret comes from environment variables."""
+"""POLICE HQ settings. Every secret comes from environment variables."""
 import base64
 import hashlib
 import os
@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
+
+from apps.core import env as hqenv  # POLICEHQ_* variables; the older POLICEHQ_* names keep working
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -46,8 +48,11 @@ if render_hostname and render_hostname not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(render_hostname)
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 # Public address of the app, used for links in emails (password reset). Falls back to the Render hostname.
-SITE_URL = os.environ.get("ARMYHQ_SITE_URL", f"https://{render_hostname}" if render_hostname else "").rstrip("/")
+SITE_URL = hqenv.get("SITE_URL", f"https://{render_hostname}" if render_hostname else "").rstrip("/")
 TRUST_PROXY_HEADERS = env_bool("TRUST_PROXY_HEADERS", False)
+# Which organization this deployment serves: "army" (default) or "police". Police skips the Police regional commands and uses
+# apply_police_structure instead (see apps/organization/police_structure.py). Same code, separate database.
+POLICEHQ_PROFILE = hqenv.get("PROFILE", "army").strip().lower()
 DEBUG_CLIENT_IP = env_bool("DEBUG_CLIENT_IP", False)  # temporary: log proxy headers to find the real client address
 if TRUST_PROXY_HEADERS:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -67,10 +72,16 @@ INSTALLED_APPS = [
     "apps.logistics",
     "apps.training",
     "apps.attendance",
+    "apps.leave",
+    "apps.promotion",
+    "apps.medical",
     "apps.weapons",
     "apps.ppe",
     "apps.equipment",
     "apps.vehicles",
+    "apps.detention",
+    "apps.occurrence",
+    "apps.tax",
     "apps.payroll",
     "apps.audit",
     "apps.dashboard",
@@ -206,38 +217,49 @@ REST_FRAMEWORK = {
         "forgot": "5/min",   # emailing a password-reset code
         "verify": "10/min",  # emailing / confirming an email-verification code
         "bulk": os.environ.get("THROTTLE_BULK", "30/hour"),  # imports and exports
+        "tracker": os.environ.get("THROTTLE_TRACKER", "600/min"),  # GPS tracker feed, per address (a Traccar server sends for many vehicles)
         "integration": os.environ.get("THROTTLE_INTEGRATION", "60/min"),  # per integration client (2.0)
     },
 }
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "ARMY HQ API",
-    "DESCRIPTION": "Administrative platform API (draft, synthetic data only).",
+    "TITLE": "POLICE HQ API",
+    "DESCRIPTION": "Administrative platform API.",
     "VERSION": "2.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
 }
 ENABLE_API_DOCS = env_bool("ENABLE_API_DOCS", DEBUG)
 
 # Personnel exports stay off until the institution approves them (see docs/LIMITATIONS.md).
+# Detention register: a person held this many hours or longer is flagged for review (an alert only; set to the rule your command applies).
+# Vehicle and traffic taxes: currency used for cash handovers when none is given.
+TAX_CURRENCY = os.environ.get("TAX_CURRENCY", "USD").strip().upper()[:3] or "USD"
+DETENTION_REVIEW_HOURS = int(os.environ.get("DETENTION_REVIEW_HOURS", "48"))  # review alert interval, set by the administration; not a legal limit
+# 1 = refuse a booking at a station that has no verified, operational jail center (default: record the arrest and flag it on the dashboard)
+# Court-date reminder window (days) and the age below which a person counts as a juvenile for the cell warnings. Both are decided by the
+# institution: the juvenile age is EMPTY (rule off) until you set it.
+DETENTION_COURT_REMINDER_DAYS = int(os.environ.get("DETENTION_COURT_REMINDER_DAYS", "2"))
+DETENTION_JUVENILE_UNDER_AGE = os.environ.get("DETENTION_JUVENILE_UNDER_AGE", "")
+DETENTION_REQUIRE_OPERATIONAL_FACILITY = os.environ.get("DETENTION_REQUIRE_OPERATIONAL_FACILITY", "0") == "1"
 PERSONNEL_EXPORT_ENABLED = env_bool("PERSONNEL_EXPORT_ENABLED", False)
 
 # Emergency override of the different-person payroll rules, super admin only, written reason required, always audited (see apps/payroll/breakglass.py).
 # Off by default outside development: it is an override of separation of duties, so a deployment must opt in on purpose.
-BREAK_GLASS_ENABLED = env_bool("ARMYHQ_BREAK_GLASS", DEBUG)
+BREAK_GLASS_ENABLED = hqenv.get_bool("BREAK_GLASS", DEBUG)
 
 # Fresh-MFA ("step-up") rule: credential resets, role assignment, personnel export and break-glass need an authenticator code entered
 # within this many seconds (apps/accounts/stepup.py). On by default outside development.
-STEP_UP_MFA_REQUIRED = env_bool("ARMYHQ_STEP_UP_MFA", not DEBUG)
-STEP_UP_MFA_SECONDS = int(os.environ.get("ARMYHQ_STEP_UP_SECONDS", "600"))
+STEP_UP_MFA_REQUIRED = hqenv.get_bool("STEP_UP_MFA", not DEBUG)
+STEP_UP_MFA_SECONDS = int(hqenv.get("STEP_UP_SECONDS", "600"))
 
 # Security alert emails (apps/accounts/alerts.py): break-glass use, credential resets, privileged sign-ins from a new address, lockouts.
 # Sent to these addresses and to every verified super administrator email.
-SECURITY_ALERT_EMAILS = [a.strip() for a in os.environ.get("ARMYHQ_ALERT_EMAILS", "").split(",") if a.strip()]
-SECURITY_ALERTS_ASYNC = env_bool("ARMYHQ_ALERTS_ASYNC", not DEBUG)
+SECURITY_ALERT_EMAILS = [a.strip() for a in hqenv.get("ALERT_EMAILS", "").split(",") if a.strip()]
+SECURITY_ALERTS_ASYNC = hqenv.get_bool("ALERTS_ASYNC", not DEBUG)
 
 # Reset/recovery/notice emails are handed to a background worker so the reply never waits on the mail provider (and a slow reply cannot
 # reveal that an account exists). Inline in development and tests.
-EMAIL_SEND_ASYNC = env_bool("ARMYHQ_EMAIL_ASYNC", not DEBUG)
+EMAIL_SEND_ASYNC = hqenv.get_bool("EMAIL_ASYNC", not DEBUG)
 
 # Summary exports stay off until approved, like personnel exports.
 REPORT_EXPORT_ENABLED = env_bool("REPORT_EXPORT_ENABLED", False)

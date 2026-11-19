@@ -26,8 +26,8 @@ function TrendLine({ points }: { points: { date: string; serving: number }[] }) 
   );
 }
 
-/** Army strength for the reports page. Aggregates only. The figures are loaded only when the card is opened, because the server audits every view. */
-export function ArmyStrength() {
+/** Police strength for the reports page. Aggregates only. The figures are loaded only when the card is opened, because the server audits every view. */
+export function PoliceStrength() {
   const { t, lang, name, tr } = useI18n();
   const [open, setOpen] = useState(false);
   const r = useFetch<CombinedReport>(open ? "/reports/combined/" : null);

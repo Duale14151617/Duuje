@@ -66,4 +66,4 @@ by a user holding `system.full_access` (super administrator), and only with a wr
 `X-Override-Reason`; the screen asks for it after a rule refuses the action). Every use is written to the audit log as
 `breakglass.override` with the check that was skipped and the reason. Nothing else is overridden: state, amounts and permissions still apply.
 
-Switch it off with `ARMYHQ_BREAK_GLASS=0` (default: on). Review the `breakglass.override` events after any emergency use.
+Switch it off with `POLICEHQ_BREAK_GLASS=0` (default: on). Review the `breakglass.override` events after any emergency use.

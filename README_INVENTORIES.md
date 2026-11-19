@@ -1,4 +1,4 @@
-# Weapon inventory: add-on for ARMY HQ
+# Weapon inventory: add-on for POLICE HQ
 
 Status: **installed and working on Render.** The Django tests and the screen have been run as part of the deployed system (see the main `README.md`).
 
@@ -6,7 +6,7 @@ Status: **installed and working on Render.** The Django tests and the screen hav
 Western armies make units physically count their sensitive items (weapons, night-vision devices, radios) on a schedule and every time a commander changes: the person responsible checks every serial number against the property record, signs, and any difference is investigated. This is how lost or swapped weapons are caught. This add-on does the same for the **weapon register**.
 
 ## How a count works
-1. **Start:** a weapons custodian (or anyone with `weapons.manage` for the unit) starts a count for a unit: scheduled, change of command, or spot check. ARMY HQ lists every weapon the register says the unit holds, with the expected holder (a named soldier, or the unit's store). One count per unit at a time.
+1. **Start:** a weapons custodian (or anyone with `weapons.manage` for the unit) starts a count for a unit: scheduled, change of command, or spot check. POLICE HQ lists every weapon the register says the unit holds, with the expected holder (a named soldier, or the unit's store). One count per unit at a time.
 2. **Check:** for each weapon the counter taps **Verified** (serial read off the item matches), **Missing**, or **Different serial** (and types the serial actually read). An item found that is **not on the list** can be added.
 3. **Submit:** only when every weapon has been checked. After this the checks cannot be changed.
 4. **Sign off:** a **different person** with `weapons.manage` signs. The sign-off is refused until every shortage or mismatch has an explanation. The signed count is a permanent record (who counted, who signed, when).
