@@ -28,6 +28,7 @@ class AuditEventViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
     permission_classes = [ScopedPermission]
     permission_map = {"list": ("audit.view", "global"), "retrieve": ("audit.view", "global"), "export": ("audit.view", "global")}
     EXPORT_MAX = 10000
+    throttle_scope = None  # set per action for the export
 
     def get_queryset(self):
         qs = AuditEvent.objects.all()
