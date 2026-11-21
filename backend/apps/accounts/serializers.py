@@ -20,7 +20,8 @@ def check_password_strength(password, user=None):
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=64)
     password = serializers.CharField(max_length=256, trim_whitespace=False)
-    otp = serializers.CharField(max_length=8, required=False, allow_blank=True)
+    otp = serializers.CharField(max_length=16, required=False, allow_blank=True)  # authenticator code or backup code
+    passkey = serializers.DictField(required=False)  # {challenge_id, credential}: a passkey assertion instead of a code
 
 
 class PasswordChangeSerializer(serializers.Serializer):
@@ -33,7 +34,7 @@ class PasswordResetRedeemSerializer(serializers.Serializer):
     code = serializers.CharField(max_length=32)
     new_password = serializers.CharField(max_length=256, trim_whitespace=False)
     # Needed only for a code that was emailed (self-service) to an account that uses an authenticator app.
-    otp = serializers.CharField(max_length=8, required=False, allow_blank=True)
+    otp = serializers.CharField(max_length=16, required=False, allow_blank=True)
 
 
 class PasswordForgotSerializer(serializers.Serializer):
@@ -63,6 +64,11 @@ class MfaRecoveryRedeemSerializer(serializers.Serializer):
 
 class MfaConfirmSerializer(serializers.Serializer):
     code = serializers.CharField(max_length=8)
+
+
+class StepUpSerializer(serializers.Serializer):
+    code = serializers.CharField(max_length=16, required=False, allow_blank=True)  # authenticator code or backup code
+    passkey = serializers.DictField(required=False)
 
 
 class RoleSerializer(serializers.ModelSerializer):

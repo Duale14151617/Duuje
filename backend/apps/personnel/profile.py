@@ -144,6 +144,18 @@ def save_photo(person: Personnel, jpeg: bytes) -> None:
         profile.save()
 
 
+AVATAR_SIZE = (96, 120)  # small 4:5 thumbnail for the header and lists
+
+
+def make_thumbnail(jpeg: bytes) -> bytes:
+    """Shrink a stored portrait to a small avatar so the header never downloads the full photo."""
+    img = Image.open(BytesIO(jpeg)).convert("RGB")
+    img = ImageOps.fit(img, AVATAR_SIZE, method=Image.Resampling.LANCZOS, centering=(0.5, 0.3))
+    buf = BytesIO()
+    img.save(buf, "JPEG", quality=80, optimize=True)
+    return buf.getvalue()
+
+
 def read_photo(person: Personnel):
     profile = PersonnelProfile.objects.filter(pk=person.pk).only("photo_enc").first()
     if profile is None or not profile.photo_enc:

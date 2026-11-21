@@ -64,7 +64,7 @@ V14_MIGRATIONS = {
 NEW_PERMISSIONS = {"analytics.view", "integrations.view", "integrations.manage", "org.structure_propose", "org.structure_approve", "food.view", "food.manage", "changes.propose", "changes.approve", "tasks.view", "tasks.manage"}
 ROLES_GAINING_ANALYTICS = {"hq_reporting", "regional_chief", "branch_admin"}
 NEW_ROLES = {"structure_approver", "super_admin", "command_authority", "member", "unit_commander", "weapons_custodian", "regional_commander", "transport_officer", "vehicle_disposal_approver",
-             "payroll_officer", "payroll_approver", "survivor_officer", "payment_officer", "payment_reconciler"}  # command: command authority; member: own record + direct subordinates
+             "payroll_officer", "payroll_approver", "survivor_officer", "payment_officer", "payment_reconciler", "medical_officer", "custody_officer", "tax_collector", "tax_cashier", "custody_commander", "tax_head", "ministry_viewer"}  # command: command authority; member: own record + direct subordinates
 # branch_admin holds the sensitive personnel-file records (disciplinary history, service documents).
 BRANCH_ADMIN_RECORDS = {"disciplinary.view", "disciplinary.manage", "documents.view", "documents.manage"}
 # hq_admin receives every non-sensitive permission automatically, so it gains the integration and structure-proposal ones.
@@ -91,6 +91,8 @@ class RoleCompatibilityTests(BaseApiTest):
             allowed |= BRANCH_ADMIN_RECORDS if role == "branch_admin" else set()
             allowed |= DEATH_GAINS.get(role, set())
             allowed |= {"weapons.view"} if role == "regional_chief" else set()  # regional chief views its region's weapon register
+            allowed |= {"credentials.view", "credentials.issue"} if role in ("regional_chief", "branch_admin") else set()  # ID cards and letters
+            allowed |= {"schedules.manage"} if role == "regional_chief" else set()  # scheduled email reports for its region
             allowed |= {"vehicles.view"} if role in ("regional_chief", "branch_admin") else set()  # vehicle register: oversight roles read it
             allowed |= {"vehicles.configure"} if role == "hq_admin" else set()  # HQ admin maintains the vehicle categories
             allowed |= {"payroll.view"} if role == "auditor" else set()  # the auditor reads payroll (regional finance), never acts on it
@@ -137,7 +139,11 @@ class RouteCompatibilityTests(BaseApiTest):
                                  ("organization/formation-roles", "formation-role"), ("organization/analytics", "org-analytics"),
                                  ("ammo-control", "ammo-control"),
                                  # modules added after 2.0: protective equipment, equipment/vehicle models, inventory catalogue
-                                 ("ppe", "ppe"), ("equipment", "equipment"), ("inventories", "inventory")})  # attendance, weapons, ammunition and payroll modules
+                                 ("ppe", "ppe"), ("equipment", "equipment"), ("inventories", "inventory"),
+                                 # Army modules: vehicle log and tracking, taxes (custody and the occurrence book are switched off: CUSTODY_ENABLED)
+                                 ("vehicle-tracking", "vehicle-tracking"), ("vehicle-log", "vehicle-log"), ("tax", "tax"),
+                                 # leave and roster, promotion eligibility, fitness for duty
+                                 ("leave", "leave"), ("roster", "roster"), ("promotion", "promotion"), ("fitness", "fitness")})  # attendance, weapons, ammunition and payroll modules
 
     def test_version_1_prefix_is_unchanged(self):
         self.assertEqual(self.client_for(self.make_user("hqr", "hq_reporting")).get("/api/v1/auth/me/").status_code, 200)
@@ -160,6 +166,7 @@ class RouteCompatibilityTests(BaseApiTest):
 
 
 V2_ADDED_MIGRATIONS = {  # migrations added to existing apps after v1.4 (2.0 structure changes)
+    "workflows": ["0003_notification_leave_request"],  # leave notifications
     "accounts": ["0003_mfa_recovery_code", "0004_email_verification", "0005_temp_password_expiry"],
     "organization": ["0004_structure_change", "0005_unit_restricted", "0006_station_level",
                      "0007_change_request", "0008_change_request_kinds", "0009_change_request_batch", "0010_change_request_rank_status",

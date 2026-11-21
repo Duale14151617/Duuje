@@ -12,6 +12,7 @@ interface Rec { id: string; status: string; reason: string | null; note: string;
 interface RollRow {
   id: string; full_name: string; service_number: string | null; status: string;
   rank: { code: string; name_en: string; name_so: string }; attendance: Rec | null;
+  leave: { type: string; name_en: string; name_so: string; from: string; to: string } | null;  // approved leave covering the day, until it is recorded
 }
 interface Draft { status: string; reason: string; note: string }
 const EMPTY_DRAFT: Draft = { status: "", reason: "", note: "" };
@@ -62,7 +63,9 @@ function Roll({ unit, canRecord }: { unit: string; canRecord: boolean }) {
   const rows = roll.data?.results ?? [];
   const reasonName = (c: string | null) => { const r = reasons.data?.results.find((x) => x.code === c); return r ? name(r) : ""; };
   const set = (id: string, patch: Partial<Draft>) => setDraft((d) => ({ ...d, [id]: { ...EMPTY_DRAFT, ...d[id], ...patch } }));
-  const entries = rows.filter((r) => !r.attendance && draft[r.id]?.status).map((r) => ({ personnel: r.id, ...draft[r.id] }));
+  // a soldier on approved leave starts as "on leave"; the commander can change it (for example when called back early)
+  const effective = (r: RollRow): Draft => draft[r.id] ?? (r.leave ? { status: "on_leave", reason: "", note: "" } : EMPTY_DRAFT);
+  const entries = rows.filter((r) => !r.attendance && effective(r).status).map((r) => ({ personnel: r.id, ...effective(r) }));
 
   async function save() {
     setBusy(true); setError(null); setRowErrors([]); setSaved(null);
@@ -94,7 +97,7 @@ function Roll({ unit, canRecord }: { unit: string; canRecord: boolean }) {
       )}
       {canRecord && rows.some((r) => !r.attendance) && (
         <div className="row"><button type="button" className="secondary" onClick={() => setDraft((d) => Object.fromEntries([
-          ...Object.entries(d), ...rows.filter((r) => !r.attendance && !d[r.id]?.status).map((r) => [r.id, { status: "present", reason: "", note: "" }])]))}>{t("att.markAllPresent")}</button></div>
+          ...Object.entries(d), ...rows.filter((r) => !r.attendance && !r.leave && !d[r.id]?.status).map((r) => [r.id, { status: "present", reason: "", note: "" }])]))}>{t("att.markAllPresent")}</button></div>
       )}
       <ul className="list">
         {rows.map((r) => (
@@ -102,6 +105,7 @@ function Roll({ unit, canRecord }: { unit: string; canRecord: boolean }) {
             <div className="row">
               <b>{r.rank.code} {r.full_name}</b>
               <Chip tone={r.status === "active" ? "approved" : ["jailed", "suspended"].includes(r.status) ? "bad" : "draft"}>{t(`pstatus.${r.status}` as Key)}</Chip>
+              {!r.attendance && r.leave && <Chip tone="info">{t("att.onApprovedLeave", { type: name(r.leave) })}</Chip>}
             </div>
             {r.attendance ? (
               <>
@@ -126,7 +130,7 @@ function Roll({ unit, canRecord }: { unit: string; canRecord: boolean }) {
                 )}
               </>
             ) : canRecord ? (
-              <StatusFields value={draft[r.id] ?? { status: "", reason: "", note: "" }} onChange={(p) => set(r.id, p)} reasons={reasons.data?.results ?? []} />
+              <StatusFields value={effective(r)} onChange={(p) => set(r.id, { ...effective(r), ...p })} reasons={reasons.data?.results ?? []} />
             ) : <span className="muted">{t("att.notRecorded")}</span>}
           </li>
         ))}

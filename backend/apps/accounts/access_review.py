@@ -10,12 +10,13 @@ from django.utils import timezone
 from apps.organization.models import OrganizationalUnit
 
 from . import scope
-from .models import Role, RoleAssignment, User
+from .models import MfaBackupCode, PasskeyCredential, Role, RoleAssignment, User
 
 CAP = 100
 NEVER_USED_DAYS = 14
 DORMANT_DAYS = 90
 ENDING_DAYS = 30
+LOW_BACKUP_CODES = 2  # at or below this many unused codes the owner should make a new set
 
 
 def _finding(names):
@@ -33,7 +34,13 @@ def review():
     glob = [a for a in eff if a.org_unit.level == OrganizationalUnit.Level.HQ and a.branch_id is None]
     admins = {a.user_id for a in eff.filter(role__permissions__code="users.manage",
                                              org_unit__level=OrganizationalUnit.Level.HQ, branch__isnull=True)}
+    # accounts with the authenticator on, and how many unused backup codes each still holds
+    mfa_users = list(active.filter(mfa_enabled=True).order_by("username"))
+    left = {}
+    for uid in MfaBackupCode.objects.filter(user__in=mfa_users, used_at__isnull=True).values_list("user_id", flat=True):
+        left[uid] = left.get(uid, 0) + 1
     findings = {
+        "backup_codes_low": _finding(f"{u.username}: {left.get(u.pk, 0)}" for u in mfa_users if left.get(u.pk, 0) <= LOW_BACKUP_CODES),
         "no_role": _finding(u.username for u in active.exclude(pk__in=with_role).order_by("username")),
         "privileged_no_mfa": _finding(f"{a.user.username}: {a.role.code}" for a in eff.filter(role_id__in=sensitive_ids)
                                       if not a.user.mfa_enabled),
@@ -53,4 +60,6 @@ def review():
         "few_admins": _finding([str(len(admins))] if len(admins) < 2 else []),
     }
     return {"generated_at": now.isoformat(), "users": User.objects.count(), "active_users": active.count(),
+            "security": {"mfa_users": len(mfa_users),
+                         "passkey_users": PasskeyCredential.objects.filter(user__in=mfa_users).values("user_id").distinct().count()},
             "findings": findings, "needs_attention": sum(1 for k, v in findings.items() if v["count"] and k != "global_access")}

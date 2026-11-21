@@ -8,6 +8,7 @@ import { timeAgo } from "../lib/time";
 import { Icon, type IconName } from "./Icon";
 import { Chip } from "./ui";
 import { statusTone } from "./status";
+import { formatNumber } from "../lib/format";
 
 function Head({ icon, title, id, to, link, tone = "" }: { icon: IconName; title: string; id: string; to?: string; link?: string; tone?: string }) {
   return (
@@ -23,7 +24,7 @@ export function ReviewQueuePanel({ count }: { count: number }) {
   return (
     <section className="panel" aria-labelledby="dash-review">
       <Head icon="file" tone={count > 0 ? "warn" : "ok"} id="dash-review" title={t("dash.reviewQueue")} to="/reports" link={t("dash.viewAll")} />
-      <p className="panel-figure"><b className={count > 0 ? "warn" : "zero"}>{count.toLocaleString()}</b></p>
+      <p className="panel-figure"><b className={count > 0 ? "warn" : "zero"}>{formatNumber(count)}</b></p>
       {count === 0 ? <p className="muted" role="status">{t("dash.reviewNone")}</p> : rows.length === 0 ? <div className="skeleton-line" role="status" aria-label={t("common.loading")} /> : (
         <ul className="mini-list">
           {rows.map((s) => (
@@ -47,7 +48,7 @@ export function TasksPanel() {
   return (
     <section className="panel" aria-labelledby="dash-tasks">
       <Head icon="check" tone={overdue > 0 ? "bad" : open.length > 0 ? "warn" : "ok"} id="dash-tasks" title={t("dash.tasksOutstanding")} to="/tasks" link={t("dash.viewAll")} />
-      <p className="panel-figure"><b className={open.length > 0 ? "" : "zero"}>{open.length.toLocaleString()}</b>
+      <p className="panel-figure"><b className={open.length > 0 ? "" : "zero"}>{formatNumber(open.length)}</b>
         {overdue > 0 && <Chip tone="bad">{t("dash.tasksOverdue", { n: overdue })}</Chip>}</p>
       {list.loading && !list.data ? <div className="skeleton-line" role="status" aria-label={t("common.loading")} /> : next.length === 0 ? <p className="muted" role="status">{t("dash.tasksNone")}</p> : (
         <ul className="mini-list">
@@ -71,10 +72,10 @@ export function TrainingPanel({ training }: { training: NonNullable<Data["traini
       <Head icon="cap" id="dash-training" title={t("dash.trainingProgress")} to="/training" link={t("dash.viewAll")} />
       {all === 0 ? <p className="muted" role="status">{t("dash.trainingNone")}</p> : (
         <>
-          <p className="panel-figure"><b>{training.in_progress.toLocaleString()}</b><span className="muted">{t("dash.inProgress")}</span></p>
+          <p className="panel-figure"><b>{formatNumber(training.in_progress)}</b><span className="muted">{t("dash.inProgress")}</span></p>
           <div className="meter" role="img" aria-label={t("dash.trainingShare", { n: share })}><span style={{ width: `${share}%` }} /></div>
-          <div className="prow"><span>{t("dash.inProgress")}</span><b>{training.in_progress.toLocaleString()}</b></div>
-          <div className="prow"><span>{t("dash.enrolled")}</span><b>{training.enrolled.toLocaleString()}</b></div>
+          <div className="prow"><span>{t("dash.inProgress")}</span><b>{formatNumber(training.in_progress)}</b></div>
+          <div className="prow"><span>{t("dash.enrolled")}</span><b>{formatNumber(training.enrolled)}</b></div>
           <p className="muted">{t("dash.trainingShare", { n: share })}</p>
         </>
       )}
@@ -103,17 +104,17 @@ export function SecurityPanel({ accounts, audit }: { accounts?: Data["accounts"]
   if (accounts) {
     const gap = accounts.privileged_without_mfa;
     if (gap > 0) worst = true;
-    tiles.push(<Tile key="mfa" tone={gap > 0 ? "bad" : "ok"} icon="lock" label={t("dash.mfaCompliance")} value={gap > 0 ? gap.toLocaleString() : t("dash.healthy")}
+    tiles.push(<Tile key="mfa" tone={gap > 0 ? "bad" : "ok"} icon="lock" label={t("dash.mfaCompliance")} value={gap > 0 ? formatNumber(gap) : t("dash.healthy")}
       note={gap > 0 ? t("dash.mfaGap", { n: gap }) : t("dash.mfaOk")} to="/users" go={t("dash.openUsers")} />);
-    tiles.push(<Tile key="acc" tone="ok" icon="users" label={t("dash.accountStatus")} value={accounts.active.toLocaleString()}
-      note={t("dash.accountsSplit", { active: accounts.active.toLocaleString(), disabled: accounts.disabled.toLocaleString() })} to="/users" go={t("dash.openUsers")} />);
+    tiles.push(<Tile key="acc" tone="ok" icon="users" label={t("dash.accountStatus")} value={formatNumber(accounts.active)}
+      note={t("dash.accountsSplit", { active: formatNumber(accounts.active), disabled: formatNumber(accounts.disabled) })} to="/users" go={t("dash.openUsers")} />);
   }
   if (audit) {
     if (audit.failed_logins_24h > 0) worst = true;
     const filterTo = (outcome: string, action?: string) => `/audit?outcome=${outcome}${action ? `&action=${encodeURIComponent(action)}` : ""}`;
-    tiles.push(<Tile key="den" tone={audit.denied_24h > 0 ? "warn" : "ok"} icon="alert" label={t("dash.deniedRequests")} value={audit.denied_24h.toLocaleString()}
+    tiles.push(<Tile key="den" tone={audit.denied_24h > 0 ? "warn" : "ok"} icon="alert" label={t("dash.deniedRequests")} value={formatNumber(audit.denied_24h)}
       note={audit.denied_24h > 0 ? t("dash.needsAttention") : t("dash.healthy")} to={filterTo("denied")} go={t("dash.openAuditLog")} />);
-    tiles.push(<Tile key="fail" tone={audit.failed_logins_24h > 0 ? "bad" : "ok"} icon="activity" label={t("dash.failedSignins")} value={audit.failed_logins_24h.toLocaleString()}
+    tiles.push(<Tile key="fail" tone={audit.failed_logins_24h > 0 ? "bad" : "ok"} icon="activity" label={t("dash.failedSignins")} value={formatNumber(audit.failed_logins_24h)}
       note={audit.failed_logins_24h > 0 ? t("dash.needsAttention") : t("dash.healthy")} to={filterTo("failure", "auth.login")} go={t("dash.openAuditLog")} />);
   }
   return (

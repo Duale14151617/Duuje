@@ -137,10 +137,11 @@ class SubmissionWriteSerializer(serializers.Serializer):
 
 class NotificationSerializer(serializers.ModelSerializer):
     submission = serializers.SerializerMethodField()
+    leave = serializers.SerializerMethodField()
 
     class Meta:
         model = Notification
-        fields = ["id", "kind", "created_at", "read_at", "submission"]
+        fields = ["id", "kind", "created_at", "read_at", "submission", "leave"]
 
     def get_submission(self, obj):
         """Only reveal what the recipient may still see today; scope may have changed since it was sent."""
@@ -149,3 +150,15 @@ class NotificationSerializer(serializers.ModelSerializer):
         if s is None or not scope.can(user, "reports.view", unit=s.org_unit):
             return None
         return {"id": str(s.pk), "title": s.title, "status": s.status}
+
+    def get_leave(self, obj):
+        """A leave request is shown to its requester, to the person it is for, and to those who can still approve or view it."""
+        r = obj.leave_request
+        if r is None:
+            return None
+        user = self.context["request"].user
+        own = user.pk in {r.requested_by_id, r.personnel.account_id}
+        if not (own or scope.can(user, "leave.approve", unit=r.org_unit) or scope.can(user, "leave.view", unit=r.org_unit)):
+            return None
+        return {"id": str(r.pk), "title": f"{r.personnel.full_name}: {r.leave_type.name_en}, {r.start_date.isoformat()} to {r.end_date.isoformat()}",
+                "status": r.status}

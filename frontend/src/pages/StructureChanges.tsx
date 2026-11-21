@@ -146,6 +146,9 @@ function Card({ c, onChanged }: { c: StructureChange; onChanged: () => void }) {
             <button className="secondary" onClick={() => void post("reject", { note: reason })}>{t("sc.reject")}</button>
           </>
         )}
+        {(c.status === "rejected" || c.status === "draft") && (can("org.structure_approve") || can("org.structure_propose")) && (
+          <button className="secondary" onClick={() => { if (window.confirm(t("sc.confirmRemove"))) void post("remove"); }}>{t("sc.remove")}</button>
+        )}
       </div>
     </li>
   );

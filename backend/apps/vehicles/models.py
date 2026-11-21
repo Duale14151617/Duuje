@@ -309,3 +309,147 @@ class VehicleArmament(models.Model):
 
     def delete(self, *args, **kwargs):
         raise AppendOnlyError("Vehicle register rows cannot be deleted.")
+
+
+class VehicleTrip(models.Model):
+    """Trip log: one row per journey (who drove, where, why, odometer out and in). Voided, never deleted. One open trip per vehicle."""
+
+    class State(models.TextChoices):
+        OPEN = "open"
+        COMPLETED = "completed"
+        VOID = "void"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.PROTECT, related_name="trips")
+    driver = models.ForeignKey("personnel.Personnel", null=True, blank=True, on_delete=models.PROTECT, related_name="vehicle_trips")
+    purpose = models.CharField(max_length=200)
+    origin = models.CharField(max_length=150, blank=True)
+    destination = models.CharField(max_length=150, blank=True)
+    authority_ref = models.CharField(max_length=150, blank=True)  # movement order / trip authorisation number
+    started_at = models.DateTimeField()
+    ended_at = models.DateTimeField(null=True, blank=True)
+    start_odometer = models.PositiveIntegerField()
+    end_odometer = models.PositiveIntegerField(null=True, blank=True)
+    state = models.CharField(max_length=10, choices=State.choices, default=State.OPEN)
+    notes = models.CharField(max_length=500, blank=True)
+    created_by_username = models.CharField(max_length=150, blank=True)
+    ended_by_username = models.CharField(max_length=150, blank=True)
+    voided_at = models.DateTimeField(null=True, blank=True)
+    voided_by_username = models.CharField(max_length=150, blank=True)
+    voided_reason = models.CharField(max_length=300, blank=True)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "vehicle_trips"
+        ordering = ["-started_at"]
+        indexes = [models.Index(fields=["vehicle", "-started_at"], name="vehtrip_vehicle_idx")]
+        constraints = [
+            models.UniqueConstraint(fields=["vehicle"], condition=Q(state="open"), name="vehtrip_one_open_per_vehicle"),
+            models.CheckConstraint(condition=Q(end_odometer__isnull=True) | Q(end_odometer__gte=models.F("start_odometer")), name="vehtrip_odometer_order"),
+        ]
+
+    def delete(self, *args, **kwargs):
+        raise AppendOnlyError("Vehicle register rows cannot be deleted.")
+
+
+class FuelEntry(models.Model):
+    """Fuel log: one row per refuelling. Cost is visible only with vehicles.cost. Voided, never deleted."""
+
+    class FuelType(models.TextChoices):
+        DIESEL = "diesel"
+        PETROL = "petrol"
+        OTHER = "other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.PROTECT, related_name="fuel_entries")
+    driver = models.ForeignKey("personnel.Personnel", null=True, blank=True, on_delete=models.PROTECT, related_name="vehicle_fuel_entries")
+    filled_on = models.DateField()
+    fuel_type = models.CharField(max_length=8, choices=FuelType.choices, default=FuelType.DIESEL)
+    litres = models.DecimalField(max_digits=8, decimal_places=2)
+    odometer = models.PositiveIntegerField()
+    full_tank = models.BooleanField(default=True)
+    cost = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    currency = models.CharField(max_length=3, blank=True)
+    station = models.CharField(max_length=150, blank=True)
+    receipt_ref = models.CharField(max_length=150, blank=True)
+    created_by_username = models.CharField(max_length=150, blank=True)
+    voided_at = models.DateTimeField(null=True, blank=True)
+    voided_by_username = models.CharField(max_length=150, blank=True)
+    voided_reason = models.CharField(max_length=300, blank=True)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "vehicle_fuel"
+        ordering = ["-filled_on", "-created_at"]
+        indexes = [models.Index(fields=["vehicle", "-filled_on"], name="vehfuel_vehicle_idx")]
+        constraints = [models.CheckConstraint(condition=Q(litres__gt=0), name="vehfuel_litres_positive"),
+                       models.CheckConstraint(condition=Q(cost__isnull=True) | Q(cost__gte=0), name="vehfuel_cost_nonneg")]
+
+    def delete(self, *args, **kwargs):
+        raise AppendOnlyError("Vehicle register rows cannot be deleted.")
+
+
+class VehiclePosition(models.Model):
+    """Reported position of a vehicle: typed in by an officer, or sent from a phone's location (no tracker hardware, no outside service).
+    Voided with a reason, never deleted. The newest non-void row is the vehicle's last known position."""
+
+    class Source(models.TextChoices):
+        MANUAL = "manual", "Typed in"
+        PHONE = "phone", "Phone location"
+        TRACKER = "tracker", "Vehicle tracker"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.PROTECT, related_name="positions")
+    trip = models.ForeignKey(VehicleTrip, null=True, blank=True, on_delete=models.PROTECT, related_name="positions")
+    latitude = models.DecimalField(max_digits=9, decimal_places=6)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6)
+    accuracy_m = models.PositiveIntegerField(null=True, blank=True)
+    place = models.CharField(max_length=150, blank=True)  # a place name for typed-in reports ("Garowe, east checkpoint")
+    source = models.CharField(max_length=8, choices=Source.choices, default=Source.MANUAL)
+    recorded_at = models.DateTimeField()  # when the vehicle was there
+    note = models.CharField(max_length=200, blank=True)
+    created_by_username = models.CharField(max_length=150, blank=True)
+    voided_at = models.DateTimeField(null=True, blank=True)
+    voided_by_username = models.CharField(max_length=150, blank=True)
+    voided_reason = models.CharField(max_length=300, blank=True)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "vehicle_positions"
+        ordering = ["-recorded_at"]
+        indexes = [models.Index(fields=["vehicle", "-recorded_at"], name="vehpos_vehicle_idx")]
+        constraints = [models.CheckConstraint(condition=Q(latitude__gte=-90) & Q(latitude__lte=90) & Q(longitude__gte=-180) & Q(longitude__lte=180),
+                                              name="vehpos_valid_coordinates")]
+
+    def delete(self, *args, **kwargs):
+        raise AppendOnlyError("Vehicle register rows cannot be deleted.")
+
+
+class VehicleTracker(models.Model):
+    """A GPS tracker fitted to a vehicle that sends positions on its own (for example through a Traccar server forwarding to the
+    tracker feed). Only a hash of its key is kept; the key is shown once when the tracker is linked. Switched off, never deleted."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.PROTECT, related_name="trackers")
+    device_ref = models.CharField(max_length=60)  # the device id the tracker or Traccar sends (IMEI or Traccar identifier)
+    key_prefix = models.CharField(max_length=8, unique=True, editable=False)
+    key_hash = models.CharField(max_length=64, editable=False)  # SHA-256 of the full key (256-bit random secret)
+    active = models.BooleanField(default=True)
+    last_seen_at = models.DateTimeField(null=True, blank=True)
+    created_by_username = models.CharField(max_length=150, blank=True)
+    switched_off_at = models.DateTimeField(null=True, blank=True)
+    switched_off_by_username = models.CharField(max_length=150, blank=True)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "vehicle_trackers"
+        ordering = ["-created_at"]
+        constraints = [models.UniqueConstraint(fields=["device_ref"], condition=Q(active=True), name="vehtracker_one_active_per_device")]
+
+    def delete(self, *args, **kwargs):
+        raise AppendOnlyError("Vehicle register rows cannot be deleted.")

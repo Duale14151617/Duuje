@@ -33,6 +33,8 @@ class User(AbstractBaseUser):
     must_change_password = models.BooleanField(default=False)
     # When a temporary password (must_change_password) stops working. Null = no deadline. Cleared once the user sets their own.
     temp_password_expires_at = models.DateTimeField(null=True, blank=True)
+    # The user asked for an email when new notifications arrive (also needs a verified address and NOTIFICATION_EMAILS_ENABLED).
+    notify_email = models.BooleanField(default=False)
     mfa_enabled = models.BooleanField(default=False)
     mfa_secret_enc = models.TextField(blank=True)  # Fernet-encrypted TOTP secret
     # Bumped on disable / role change / password change; sessions carry the value
@@ -55,6 +57,21 @@ class User(AbstractBaseUser):
 
     def __str__(self):
         return self.username
+
+
+class UserAvatar(models.Model):
+    """Profile picture an administrator set for a login account (kept apart from User so the hot sign-in row stays small).
+
+    Encrypted at rest like the personnel photo. Takes priority over the photo on the linked personnel record; accounts with no
+    personnel record (administrators) can only get a picture this way."""
+
+    user = models.OneToOneField(User, primary_key=True, on_delete=models.CASCADE, related_name="avatar")
+    image_enc = models.BinaryField()
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by_username = models.CharField(max_length=150, blank=True)
+
+    class Meta:
+        db_table = "user_avatars"
 
 
 class Permission(models.Model):
@@ -174,3 +191,52 @@ class EmailVerificationCode(models.Model):
     class Meta:
         db_table = "email_verification_codes"
         ordering = ["-created_at"]
+
+
+class MfaBackupCode(models.Model):
+    """One of a set of single-use codes a user prints or saves, to get in when the authenticator app and passkeys are out of reach.
+    Only a hash is stored. Generating a new set deletes the unused old ones."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="backup_codes")
+    code_hash = models.CharField(max_length=64, unique=True)
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "mfa_backup_codes"
+        ordering = ["created_at"]
+
+
+class PasskeyCredential(models.Model):
+    """A WebAuthn passkey (security key, phone, laptop) registered as an additional second factor. The public key is not secret;
+    the private key never leaves the person's device."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="passkeys")
+    credential_id = models.CharField(max_length=512, unique=True)  # base64url
+    public_key = models.TextField()  # base64url of the COSE key
+    sign_count = models.BigIntegerField(default=0)
+    name = models.CharField(max_length=60)
+    transports = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "user_passkeys"
+        ordering = ["created_at"]
+
+
+class PasskeyChallenge(models.Model):
+    """A one-time, short-lived WebAuthn challenge. Stored on the server (not trusted from the browser) and burned on first use."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
+    purpose = models.CharField(max_length=16)  # register | login | stepup
+    challenge = models.CharField(max_length=128)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "passkey_challenges"

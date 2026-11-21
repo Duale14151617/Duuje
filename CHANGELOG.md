@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Features brought over from the Puntland Police system
+The Army structure, department hierarchy and visual theme are unchanged. Police-only parts (stations/districts, police fleet, police profile and emblems, `POLICEHQ_*` renaming, police sample data) were deliberately **not** brought over. See `docs/CHANGE_REPORT_police_features.md`.
+
+- **Custody and the Occurrence Book are SWITCHED OFF for now** (`CUSTODY_ENABLED`, default off): no menu entries, pages, API routes (404), dashboard/org-chart/unit-page blocks, "due soon" court dates or automatic jail records. Nothing is deleted: code, tables, migrations and permissions stay, and `CUSTODY_ENABLED=1` turns it all back on (its tests are skipped while off).
+- **Custody (detention register)**, facilities (jail centers and prisons, with verification by a second person), cells and capacity, court dates and remand, incidents, shift handover, oversight dashboard and report, printable custody documents, offline desk (menu link off by default: `SHOW_OFFLINE_DESK` in `frontend/src/offline/config.ts`). In the Army the custody unit is the **Urur** and the level above it the **Guuto**; every new Urur gets a jail-center record that starts *not verified*.
+- **Occurrence Book**, **vehicle and traffic taxes** (receipts, cash handover, reports), **vehicle logbook** (trips and fuel) and **vehicle tracking** (phone location, GPS tracker feed).
+- **Leave and duty roster** (with leave notifications and attendance integration), **promotion eligibility and proposals**, **fitness for duty and medical records**, **personnel report**.
+- **ID cards and official letters** with a public QR check page, and **scheduled email reports**. New dependency: `segno`.
+- **Sign-in security:** backup codes, passkeys (WebAuthn), "where you are signed in", idle-timeout warning, last sign-in note, profile photos.
+- **System:** health check and status footer, notification emails (off by default), audit-log search and CSV export, "due soon" page, dashboard trends, "My work" strip, sign-in sheet and first-login checklist, removal of rejected structure changes, super-administrator-only self-approval (audited).
+- New permissions and roles (custody officer, tax collector, tax cash officer, medical officer, custody lead, tax head, ministry viewer). Re-run `seed_reference_data` (the Docker start does).
+- **Not run:** no Django or Node toolchain was available, so migrations, backend tests, `tsc`, lint and frontend tests have not been executed. Somali text for the new screens is a working translation and needs review.
+
 - **Mail without a domain (Render free tier):** new backends `apps.core.appsscript_backend` (Google Apps Script web app sending as a Gmail account; `APPS_SCRIPT_URL`, `APPS_SCRIPT_TOKEN`; see `docs/APPS_SCRIPT_MAILER.md`) and `apps.core.gmail_backend` (Gmail API over HTTPS). Order of choice: Apps Script, Gmail API, Brevo, SMTP, console. Email subjects now say "ARMY HQ"; password-reset emails carry a link (`ARMYHQ_SITE_URL`) as well as the one-time code, and the reset page prefills and then clears it from the address bar.
 - **Client address behind proxies:** `DEBUG_CLIENT_IP=1` temporarily logs the proxy headers so `NUM_PROXIES` can be set correctly (3 on Render behind Cloudflare). Leave it off normally.
 - **Vehicle categories can be removed** (switched off, never deleted) from the manager; the server refuses while vehicles still use one. **Fix:** filtering vehicles by a model code no longer also returns vehicles that have no model.

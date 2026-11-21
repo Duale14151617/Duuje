@@ -15,6 +15,7 @@ TITLES = {
     "leaver_active": "Login still active for someone retired, discharged or deceased",
     "few_admins": "Fewer than two user administrators (a single locked-out admin would stop account management)",
     "privileged_no_mfa": "Privileged or administrator role without MFA",
+    "backup_codes_low": f"Authenticator on but {ar.LOW_BACKUP_CODES} or fewer backup codes left (ask them to make a new set)",
     "temp_expired": "Temporary password expired unused (reset it or disable the account)",
     "never_signed_in": f"Never signed in after {ar.NEVER_USED_DAYS} days",
     "dormant": f"No sign-in for {ar.DORMANT_DAYS} days",

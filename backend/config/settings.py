@@ -77,6 +77,14 @@ INSTALLED_APPS = [
     "apps.analytics",
     "apps.integrations",
     "apps.inventories",
+    "apps.leave",
+    "apps.promotion",
+    "apps.medical",
+    "apps.detention",
+    "apps.occurrence",
+    "apps.tax",
+    "apps.issuance",
+    "apps.schedules",
 ]
 
 MIDDLEWARE = [
@@ -207,6 +215,8 @@ REST_FRAMEWORK = {
         "verify": "10/min",  # emailing / confirming an email-verification code
         "bulk": os.environ.get("THROTTLE_BULK", "30/hour"),  # imports and exports
         "integration": os.environ.get("THROTTLE_INTEGRATION", "60/min"),  # per integration client (2.0)
+        "docverify": os.environ.get("THROTTLE_DOCVERIFY", "30/min"),  # public QR check of an ID card or letter, and the cron trigger, per address
+        "tracker": os.environ.get("THROTTLE_TRACKER", "600/min"),  # GPS tracker feed, per address (a Traccar server sends for many vehicles)
     },
 }
 
@@ -217,6 +227,53 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
 }
 ENABLE_API_DOCS = env_bool("ENABLE_API_DOCS", DEBUG)
+
+# Custody (detention register, facilities, incidents, handover, oversight, offline desk) and the Occurrence Book are SWITCHED OFF for now
+# (not enough information yet). Nothing is deleted: the code, tables and permissions stay, and setting CUSTODY_ENABLED=1 turns it all back on.
+CUSTODY_ENABLED = env_bool("CUSTODY_ENABLED", False)
+
+# ---- Custody (detention register), Occurrence Book, vehicle and traffic taxes --------------------------------------------------------
+# In this Army deployment the unit that holds people is the Urur (battalion) guardroom; the level above it is the Guuto (apps/detention/hierarchy.py).
+# Vehicle and traffic taxes: currency used for cash handovers when none is given.
+TAX_CURRENCY = os.environ.get("TAX_CURRENCY", "USD").strip().upper()[:3] or "USD"
+DETENTION_REVIEW_HOURS = int(os.environ.get("DETENTION_REVIEW_HOURS", "48"))  # review alert interval, set by the administration; not a legal limit
+# Court-date reminder window (days) and the age below which a person counts as a juvenile for the cell warnings. Both are decided by the
+# institution: the juvenile age is EMPTY (rule off) until you set it.
+DETENTION_COURT_REMINDER_DAYS = int(os.environ.get("DETENTION_COURT_REMINDER_DAYS", "2"))
+DETENTION_JUVENILE_UNDER_AGE = os.environ.get("DETENTION_JUVENILE_UNDER_AGE", "")
+# 1 = refuse a booking at a unit that has no verified, operational jail center (default: record the arrest and flag it on the dashboard)
+DETENTION_REQUIRE_OPERATIONAL_FACILITY = os.environ.get("DETENTION_REQUIRE_OPERATIONAL_FACILITY", "0") == "1"
+DETENTION_HANDOVER_ACK_HOURS = int(os.environ.get("DETENTION_HANDOVER_ACK_HOURS", "12"))  # a shift-handover note unacknowledged this long shows as overdue
+
+# ---- Sign-in security and system health ------------------------------------------------------------------------------------------------
+SAMPLE_DATA_ON = env_bool("ARMYHQ_SAMPLE_MODE", False)  # shown by the health check: sample data must be off in production
+BACKUP_HEARTBEAT_TOKEN = os.environ.get("BACKUP_HEARTBEAT_TOKEN", "")  # the nightly backup job reports in with this
+SESSION_IDLE_WARNING_SECONDS = int(os.environ.get("SESSION_IDLE_WARNING_SECONDS", "120"))  # the screen warns this long before idle sign-out
+# Passkeys (WebAuthn). Leave both empty to use the address the browser is on (right for Render). Set them if the app is reachable
+# under several hostnames: the RP id is the registrable domain, the origins are full https:// addresses.
+WEBAUTHN_RP_ID = os.environ.get("WEBAUTHN_RP_ID", "")
+WEBAUTHN_ORIGINS = [o.strip() for o in os.environ.get("WEBAUTHN_ORIGINS", "").split(",") if o.strip()]
+WEBAUTHN_RP_NAME = os.environ.get("WEBAUTHN_RP_NAME", "Puntland Defence Forces HQ")
+# Email alerts for new in-app notifications (off by default; needs working outgoing email). Each user must also opt in on the Account page
+# and have a verified address. The mail never names anyone or anything: it only says there is something to read. At most one mail per
+# user per NOTIFICATION_EMAIL_MIN_MINUTES, which also protects a Gmail sender's daily limit.
+NOTIFICATION_EMAILS_ENABLED = env_bool("NOTIFICATION_EMAILS_ENABLED", False)
+NOTIFICATION_EMAIL_MIN_MINUTES = int(os.environ.get("NOTIFICATION_EMAIL_MIN_MINUTES", "30"))
+# Facts for the status footer, shown to signed-in users only (never on the public endpoints).
+APP_VERSION = os.environ.get("APP_VERSION", "2.1.2")
+APP_BUILD = os.environ.get("RENDER_GIT_COMMIT", "")[:7]  # Render sets this to the deployed commit
+SUPPORT_CONTACT = os.environ.get("SUPPORT_CONTACT", "").strip()[:200]  # e.g. "support@example.org" or "+252 ..."
+
+# ---- ID cards, official letters and scheduled reports ---------------------------------------------------------------------------------
+# An ID card is valid for this many years from the day it is issued. The reference printed on documents starts with this prefix.
+ID_CARD_VALID_YEARS = int(os.environ.get("ID_CARD_VALID_YEARS", "2"))
+ISSUANCE_REF_PREFIX = os.environ.get("ISSUANCE_REF_PREFIX", "PDF")
+# Scheduled email reports (counts only, to users with a verified email who may open the same report). Set 0 to switch the whole feature off.
+SCHEDULED_REPORTS_ENABLED = env_bool("SCHEDULED_REPORTS_ENABLED", True)
+# Times in a schedule ("every Monday at 07:00") are read in this zone.
+SCHEDULES_TIMEZONE = os.environ.get("SCHEDULES_TIMEZONE", "Africa/Mogadishu")
+# Optional: lets an outside scheduler call POST /api/v1/schedules/run-due/ with header X-Cron-Token (24+ characters). Unset = that URL answers 404.
+SCHEDULES_CRON_TOKEN = os.environ.get("SCHEDULES_CRON_TOKEN", "")
 
 # Personnel exports stay off until the institution approves them (see docs/LIMITATIONS.md).
 PERSONNEL_EXPORT_ENABLED = env_bool("PERSONNEL_EXPORT_ENABLED", False)

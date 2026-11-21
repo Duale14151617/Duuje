@@ -14,6 +14,7 @@ from apps.core.errors import field_error
 from apps.core.exceptions import VersionConflict
 
 from .models import ApprovalAction, Notification, Submission, SubmissionRevision
+from .notify_email import email_new
 
 S = Submission.Status
 EDITABLE = {S.DRAFT, S.RETURNED, S.AMENDED}
@@ -50,7 +51,7 @@ def submitters_of(sub):
 
 def self_review(user, sub):
     """True when `user` is (or ever was) the submitter and the type forbids reviewing your own work."""
-    return sub.report_type.separation_of_duties and user.pk in submitters_of(sub)
+    return sub.report_type.separation_of_duties and user.pk in submitters_of(sub) and not scope.has_full_access(user)  # only the super administrator may review their own
 
 
 def capabilities(user, sub):
@@ -79,9 +80,9 @@ def validate_completeness(sub):
         raise field_error("body", "incomplete_submission")
 
 
-def reviewers_for(unit, exclude_ids=()):
+def reviewers_for(unit, exclude_ids=(), code="reports.review"):
     seen, users = set(), []
-    qs = (RoleAssignment.objects.effective().filter(role__permissions__code="reports.review")
+    qs = (RoleAssignment.objects.effective().filter(role__permissions__code=code)
           .select_related("user", "org_unit", "branch").distinct())
     for a in qs:
         if a.user_id in seen or a.user_id in exclude_ids or not scope.covers(a, unit):
@@ -92,7 +93,9 @@ def reviewers_for(unit, exclude_ids=()):
 
 
 def notify(kind, sub, recipients):
+    recipients = list(recipients)
     Notification.objects.bulk_create([Notification(recipient=u, kind=kind, submission=sub) for u in recipients])
+    email_new(recipients)
 
 
 def perform_transition(request, sub, action, expected_version, comment=""):

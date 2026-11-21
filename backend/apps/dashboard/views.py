@@ -114,8 +114,30 @@ class DashboardView(APIView):
         if "personnel.view" in codes:
             pq = scope.unit_scope_q(user, "personnel.view", "org_unit__")
             people = Personnel.objects.filter(pq) if pq is not None else Personnel.objects.none()
+            now = timezone.now()
             data["personnel"] = {"total": people.count(), "active": people.filter(status="active").count(),
-                                 "by_region": personnel_by_region(people)}
+                                 "by_region": personnel_by_region(people),
+                                 # Records added in the last 30 days against the 30 days before: the trend arrow on the strength tile.
+                                 # Counted inside the caller's own scope, so a commander never sees figures beyond their units.
+                                 "new_30d": people.filter(created_at__gte=now - timedelta(days=30)).count(),
+                                 "new_prev_30d": people.filter(created_at__gte=now - timedelta(days=60),
+                                                               created_at__lt=now - timedelta(days=30)).count()}
+        if "leave.approve" in codes:
+            try:
+                with transaction.atomic():
+                    from apps.leave.models import LeaveRequest
+                    lq = scope.unit_scope_q(user, "leave.approve", "org_unit__")
+                    if lq is not None:
+                        now = timezone.now()
+                        reqs = LeaveRequest.objects.filter(lq)
+                        data["leave"] = {
+                            # requests this person may decide (never their own); and the week's volume against the week before
+                            "pending_approval": reqs.filter(status="pending").exclude(requested_by_id=user.pk).exclude(personnel__account_id=user.pk).count(),
+                            "requests_7d": reqs.filter(created_at__gte=now - timedelta(days=7)).count(),
+                            "requests_prev_7d": reqs.filter(created_at__gte=now - timedelta(days=14),
+                                                            created_at__lt=now - timedelta(days=7)).count()}
+            except Exception:
+                logging.getLogger(__name__).exception("dashboard: leave block failed")
         if "reports.view" in codes:
             block = {"my_open": Submission.objects.filter(
                 submitter=user, status__in=["draft", "returned", "amended"]).count(),
@@ -179,3 +201,11 @@ class DashboardActivityView(APIView):
         if days not in self.ALLOWED_DAYS:
             days = 7
         return Response({"daily": activity_series(days)})
+
+
+class DueSoonView(APIView):
+    """Dated items that are close or overdue, limited to what the caller may see (empty groups for people with no such access)."""
+
+    def get(self, request):
+        from .due import due_soon
+        return Response(due_soon(request.user))

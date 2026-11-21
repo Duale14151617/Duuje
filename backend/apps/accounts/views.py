@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 
 import hashlib
 import hmac
@@ -13,6 +13,7 @@ from django.core.cache import cache
 from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Count, F, Q
+from django.http import HttpResponse
 from django.middleware.csrf import get_token
 from django.utils import timezone
 from rest_framework import mixins, status, viewsets
@@ -28,17 +29,20 @@ from apps.audit.models import AuditEvent
 from apps.audit.services import client_ip, record
 from apps.core.errors import field_error
 from apps.core import crypto
+from apps.core.negotiation import IgnoreNegotiation
 from apps.core.mailer import send_background
 
-from . import access_review as review_mod, alerts, bulk, scope
-from .models import EmailVerificationCode, MfaRecoveryCode, PasswordResetToken, Role, RoleAssignment, User
+from . import access_review as review_mod, alerts, backup_codes, bulk, passkeys, scope
+from .models import (EmailVerificationCode, MfaRecoveryCode, PasskeyCredential, PasswordResetToken, Role, RoleAssignment, User,
+                     UserAvatar)
 from .permissions import ScopedPermission
-from .security import consume_totp, restrictions
+from .security import clear_second_factors, consume_second_factor, consume_totp, restrictions
+from . import avatar as avatar_svc
 from .stepup import mark_fresh, require_fresh_mfa
 from .serializers import (AssignmentCreateSerializer, AssignmentSerializer, EmailVerifyConfirmSerializer, EmailVerifyRequestSerializer,
                           LoginSerializer, PasswordForgotSerializer,
                           MfaConfirmSerializer, MfaRecoveryRedeemSerializer, MfaRecoveryRequestSerializer, PasswordChangeSerializer, PasswordResetRedeemSerializer,
-                          PasswordResetSerializer,
+                          PasswordResetSerializer, StepUpSerializer,
                           RoleSerializer, UserCreateSerializer, UserSerializer, UserUpdateSerializer,
                           check_password_strength)
 from .services import alert_privileged_grant, generate_temp_password, other_admins_exist, sensitive_role, revoke_user_sessions, suggest_usernames, temp_password_deadline
@@ -48,7 +52,14 @@ LOCK_MINUTES = 15
 
 
 def me_payload(user):
-    from apps.personnel.models import Personnel  # local import: personnel depends on accounts
+    from apps.personnel.models import Personnel, PersonnelProfile  # local import: personnel depends on accounts
+    person_id = next(iter(Personnel.objects.filter(account_id=user.pk).values_list("pk", flat=True)[:1]), None)
+    # When the picture was last set (seconds): lets the browser cache the avatar and refetch only after a change. Null = no picture.
+    # An administrator-set account picture wins over the photo on the linked personnel record.
+    photo_at = UserAvatar.objects.filter(pk=user.pk).values_list("updated_at", flat=True).first()
+    if photo_at is None and person_id:
+        photo_at = PersonnelProfile.objects.filter(pk=person_id, photo_updated_at__isnull=False).values_list(
+            "photo_updated_at", flat=True).first()
     return {
         "id": str(user.pk),
         "username": user.username,
@@ -56,18 +67,48 @@ def me_payload(user):
         "email": user.email,
         "email_verified": user.email_verified_at is not None,
         "preferred_language": user.preferred_language,
+        "notify_email": user.notify_email,
         "mfa_enabled": user.mfa_enabled,
+        "backup_codes_remaining": backup_codes.remaining(user) if user.mfa_enabled else 0,
+        "passkey_count": PasskeyCredential.objects.filter(user=user).count() if user.mfa_enabled else 0,
         "requires_mfa": scope.requires_mfa(user),
         "restrictions": restrictions(user),
         "permissions": sorted(scope.permission_codes(user)),
         "features": {"personnel_export": settings.PERSONNEL_EXPORT_ENABLED,
                      "report_export": settings.REPORT_EXPORT_ENABLED,
                      "integrations": settings.INTEGRATIONS_ENABLED,
-                     "email_verification": settings.EMAIL_VERIFICATION_ENABLED},
+                     "email_verification": settings.EMAIL_VERIFICATION_ENABLED,
+                     "notification_email": settings.NOTIFICATION_EMAILS_ENABLED,
+                     "custody": settings.CUSTODY_ENABLED},
         "assignments": AssignmentSerializer(scope.assignments(user), many=True).data,
         # The personnel record this login belongs to (null when none is linked); drives the "My record" shortcut.
-        "personnel_id": next((str(pk) for pk in Personnel.objects.filter(account_id=user.pk).values_list("pk", flat=True)[:1]), None),
+        "personnel_id": str(person_id) if person_id else None,
+        "photo_v": int(photo_at.timestamp()) if photo_at else None,
     }
+
+
+def session_info(request):
+    """How long this sign-in can sit idle and how long it can last in all, so the screen can warn before it ends."""
+    elapsed = int(time.time()) - int(request.session.get("login_at", 0) or 0)
+    return {"idle_seconds": settings.SESSION_COOKIE_AGE, "warn_seconds": settings.SESSION_IDLE_WARNING_SECONDS,
+            "absolute_remaining": max(0, settings.SESSION_ABSOLUTE_SECONDS - elapsed)}
+
+
+def sign_in_info(request, user):
+    """The sign-in before this session's, and how many failed attempts hit the account in between. Shown to the user only, on the
+    dashboard, so they can spot misuse. None on a first-ever sign-in. Read from the audit log; nothing new is stored.
+
+    This session's own sign-in is told apart by the login time kept in the session (a few seconds of slack for the audit write)."""
+    started = request.session.get("login_at") if hasattr(request, "session") else None
+    now = datetime.fromtimestamp(started, tz=dt_timezone.utc) if started else (user.last_login or timezone.now())
+    prev = (AuditEvent.objects.filter(actor_id=user.pk, action="auth.login", outcome="success",
+                                      occurred_at__lt=now - timedelta(seconds=5))
+            .order_by("-occurred_at").values("occurred_at", "ip_address").first())
+    if prev is None:
+        return None
+    failed = AuditEvent.objects.filter(actor_id=user.pk, action="auth.login", outcome__in=["failure", "denied"],
+                                       occurred_at__gt=prev["occurred_at"], occurred_at__lt=now).count()
+    return {"previous_at": prev["occurred_at"], "previous_ip": prev["ip_address"], "failed_since": failed}
 
 
 def enforce_csrf(request):
@@ -117,13 +158,25 @@ class LoginView(APIView):
             return error("temporary_password_expired",
                          "Your temporary password has expired. Ask an administrator for a new one.", status.HTTP_401_UNAUTHORIZED)
 
+        method = "password"
         if authed.mfa_enabled:
-            if not otp:
-                return Response({"code": "otp_required", "detail": "Enter the code from your authenticator app.",
-                                 "email_recovery": settings.MFA_EMAIL_RECOVERY_ENABLED}, status=401)
-            if not consume_totp(authed, otp):
-                self._register_failure(request, authed, "bad_otp")
-                return error("invalid_otp", "That code is not valid.", 401)
+            passkey = ser.validated_data.get("passkey")
+            if passkey:
+                if not passkeys.verify(request, authed, passkey, "login"):
+                    self._register_failure(request, authed, "bad_passkey")
+                    return error("invalid_passkey", "That passkey was not accepted. Try again or use a code.", 401)
+                method = "passkey"
+            elif not otp:
+                body = {"code": "otp_required", "detail": "Enter the code from your authenticator app, a backup code, or use a passkey.",
+                        "email_recovery": settings.MFA_EMAIL_RECOVERY_ENABLED}
+                if passkeys.has_passkeys(authed):
+                    body["passkey"] = passkeys.request_options(request, authed, "login")
+                return Response(body, status=401)
+            else:
+                method = consume_second_factor(authed, otp)
+                if method is None:
+                    self._register_failure(request, authed, "bad_otp")
+                    return error("invalid_otp", "That code is not valid.", 401)
 
         ip = client_ip(request)
         watched = scope.requires_mfa(authed)  # privileged accounts: tell the owner when one signs in from an address never seen before
@@ -134,14 +187,23 @@ class LoginView(APIView):
             login(request, authed)
             request.session["auth_epoch"] = authed.auth_epoch
             request.session["login_at"] = int(time.time())
+            request.session["ua"] = (request.META.get("HTTP_USER_AGENT") or "")[:300]  # shown in "where you are signed in"
+            request.session["ip"] = ip or ""
             if authed.mfa_enabled:
                 mark_fresh(request)  # the code just verified counts as a fresh authenticator check
-            record("auth.login", request=request, actor=authed, entity_type="user", entity_id=authed.pk)
+            record("auth.login", request=request, actor=authed, entity_type="user", entity_id=authed.pk,
+                   metadata={"method": method} if method != "password" else None)
         if not known_address:
             alerts.notify("privileged sign-in from a new address",
                           f"{authed.username} signed in from {ip or 'an unknown address'}, which this account has not used before.",
                           request=request, actor=authed)
-        return Response(me_payload(authed))
+        if method == "backup_code":
+            left = backup_codes.remaining(authed)
+            record("auth.backup_code_used", request=request, actor=authed, entity_type="user", entity_id=authed.pk, metadata={"remaining": left})
+            if scope.requires_mfa(authed):
+                alerts.notify("backup code used", f"{authed.username} signed in with a backup code ({left} left). "
+                              "That normally means the authenticator app is out of reach.", request=request, actor=authed)
+        return Response({**me_payload(authed), "sign_in": sign_in_info(request, authed), "session": session_info(request)})
 
     @staticmethod
     def _register_failure(request, user, reason):
@@ -175,15 +237,51 @@ class MeView(APIView):
     allow_restricted = True
 
     def get(self, request):
-        return Response(me_payload(request.user))
+        return Response({**me_payload(request.user), "sign_in": sign_in_info(request, request.user), "session": session_info(request)})
 
     def patch(self, request):
-        lang = request.data.get("preferred_language")
-        if lang not in ("en", "so"):
-            raise field_error("preferred_language", "invalid_choice", "Choose en or so.")
-        User.objects.filter(pk=request.user.pk).update(preferred_language=lang)
-        request.user.preferred_language = lang
+        """{preferred_language} and/or {notify_email}. Turning email alerts on needs the feature enabled and a verified address."""
+        if "notify_email" in request.data:
+            want = request.data["notify_email"]
+            if not isinstance(want, bool):
+                raise field_error("notify_email", "invalid_choice", "Choose true or false.")
+            if want and not settings.NOTIFICATION_EMAILS_ENABLED:
+                raise field_error("notify_email", "not_available", "Email alerts are not switched on for this system.")
+            if want and not (request.user.email and request.user.email_verified_at):
+                raise field_error("notify_email", "email_not_verified", "Confirm your email address first (Account page).")
+            User.objects.filter(pk=request.user.pk).update(notify_email=want)
+            request.user.notify_email = want
+            record("user.notify_email", request=request, entity_type="user", entity_id=request.user.pk, metadata={"enabled": want})
+        if "preferred_language" in request.data or "notify_email" not in request.data:
+            lang = request.data.get("preferred_language")
+            if lang not in ("en", "so"):
+                raise field_error("preferred_language", "invalid_choice", "Choose en or so.")
+            User.objects.filter(pk=request.user.pk).update(preferred_language=lang)
+            request.user.preferred_language = lang
         return Response(me_payload(request.user))
+
+
+class MyPhotoView(APIView):
+    """The signed-in user's own avatar: a small thumbnail of the picture an administrator set for the account, else of the
+    official photo on their linked personnel record.
+
+    Needs no personnel permission (it is only ever the caller's own photo). 404 when no record is linked or it has no photo."""
+    content_negotiation_class = IgnoreNegotiation
+
+    def get(self, request):
+        from apps.personnel import profile as profile_svc
+        from apps.personnel.models import Personnel
+        jpeg = avatar_svc.read_avatar(request.user)  # a picture an administrator set for this account wins
+        if jpeg is None:
+            person = Personnel.objects.filter(account_id=request.user.pk).first()
+            jpeg = profile_svc.read_photo(person) if person else None
+        if jpeg is None:
+            return HttpResponse(status=404)
+        resp = HttpResponse(profile_svc.make_thumbnail(jpeg), content_type="image/jpeg")
+        resp["Cache-Control"] = "private, max-age=3600"  # the URL carries ?v=<photo version>, so a new photo is a new URL
+        resp["Content-Disposition"] = 'inline; filename="avatar.jpg"'
+        resp["X-Content-Type-Options"] = "nosniff"
+        return resp
 
 
 class PasswordChangeView(APIView):
@@ -254,8 +352,9 @@ class MfaConfirmView(APIView):
         with transaction.atomic():
             User.objects.filter(pk=user.pk).update(mfa_enabled=True)
             mark_fresh(request)
+            codes = backup_codes.generate(user)
             record("mfa.enable", request=request, entity_type="user", entity_id=user.pk)
-        return Response(me_payload(User.objects.get(pk=user.pk)))
+        return Response({**me_payload(User.objects.get(pk=user.pk)), "backup_codes": codes})  # shown once; only hashes are kept
 
 
 class StepUpView(APIView):
@@ -263,12 +362,17 @@ class StepUpView(APIView):
     throttle_scope = "mfa"
 
     def post(self, request):
-        ser = MfaConfirmSerializer(data=request.data)
+        ser = StepUpSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         user = User.objects.get(pk=request.user.pk)
         if not user.mfa_enabled:
             return error("mfa_not_enabled", "This account has no authenticator to confirm.", 409)
-        if not consume_totp(user, ser.validated_data["code"]):
+        passkey = ser.validated_data.get("passkey")
+        if passkey:
+            ok = passkeys.verify(request, user, passkey, "stepup")
+        else:
+            ok = bool((ser.validated_data.get("code") or "").strip()) and consume_second_factor(user, ser.validated_data["code"]) is not None
+        if not ok:
             LoginView._register_failure(request, user, "bad_step_up")
             raise field_error("code", "invalid_otp", "That code is not valid.")
         mark_fresh(request)
@@ -335,7 +439,7 @@ class PasswordResetView(APIView):
             otp = (d.get("otp") or "").strip()
             if not otp:
                 return error("otp_required", "Enter the code from your authenticator app.", status.HTTP_401_UNAUTHORIZED)  # the code is NOT burned
-            if not consume_totp(user, otp):
+            if consume_second_factor(user, otp) is None:
                 LoginView._register_failure(request, user, "bad_otp_reset")
                 return error("invalid_otp", "That code is not valid.", status.HTTP_401_UNAUTHORIZED)
         check_password_strength(d["new_password"], user=user)  # a weak password must not burn the code
@@ -470,6 +574,7 @@ class MfaRecoveryRedeemView(APIView):
             if used != 1:  # lost a race with another redemption
                 return fail
             User.objects.filter(pk=authed.pk).update(mfa_enabled=False, mfa_secret_enc="", failed_login_count=0, locked_until=None)
+            clear_second_factors(authed)
             authed.refresh_from_db()
             revoke_user_sessions(authed)
             record("auth.mfa_recovery", request=request, actor=authed, entity_type="user", entity_id=authed.pk)
@@ -535,6 +640,7 @@ class PasswordForgotView(APIView):
             _reset_email_body(user.username, code, minutes))
         record("auth.password_forgot", request=request, actor=user, outcome="success" if sent else "failure", entity_type="user", entity_id=user.pk)
         return generic
+
 
 
 def _reset_email_body(username, code, minutes):
@@ -662,6 +768,7 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         "reset_password": ("users.manage", "global"), "issue_reset_code": ("users.manage", "global"),
         "assignments": ("users.view", "global"), "suggest_username": ("users.manage", "global"), "bulk_create": ("users.manage", "global"), "access_review": ("users.view", "global"),
         "revoke_assignment": ("roles.assign", "global"),
+        "avatar": ("users.manage", "global"), "avatar_upload": ("users.manage", "global"), "avatar_remove": ("users.manage", "global"),
     }
 
     def get_object(self):
@@ -823,6 +930,7 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         user.mfa_enabled = False
         user.mfa_secret_enc = ""
         user.save(update_fields=["mfa_enabled", "mfa_secret_enc", "updated_at"])
+        clear_second_factors(user)
         revoke_user_sessions(user)
         record("user.reset_mfa", request=request, entity_type="user", entity_id=user.pk)
         alerts.notify("authenticator reset", f"{request.user.username} removed the authenticator of {user.username}.",
@@ -863,6 +971,40 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         alerts.notify("recovery code issued", f"{request.user.username} issued a one-time recovery code for {user.username}.",
                       request=request, actor=request.user)
         return Response({"code": code, "expires_at": expires, "valid_minutes": RESET_CODE_MINUTES})
+
+    # --- account profile picture: HQ administrators and super administrators, for their own account and for others ---------
+    # get_object() already refuses a non-super-administrator who tries to change a super administrator's account (own account excepted).
+    @action(detail=True, methods=["get"], content_negotiation_class=IgnoreNegotiation)
+    def avatar(self, request, pk=None):
+        from apps.personnel import profile as profile_svc
+        target = self.get_object()
+        jpeg = avatar_svc.read_avatar(target)
+        if jpeg is None:
+            return HttpResponse(status=404)
+        resp = HttpResponse(profile_svc.make_thumbnail(jpeg), content_type="image/jpeg")
+        resp["Cache-Control"] = "private, no-cache"
+        resp["X-Content-Type-Options"] = "nosniff"
+        return resp
+
+    @action(detail=True, methods=["post"], url_path="avatar/upload", parser_classes=[MultiPartParser])
+    def avatar_upload(self, request, pk=None):
+        from apps.personnel import profile as profile_svc
+        target = self.get_object()
+        upload = request.FILES.get("photo")
+        if upload is None:
+            raise field_error("photo", "photo_required", "Choose a photo.")
+        avatar_svc.save_avatar(target, profile_svc.process_photo(upload), request.user.username)
+        record("user.avatar_set", request=request, entity_type="user", entity_id=target.pk,
+               metadata={"own_account": target.pk == request.user.pk})
+        return Response({"has_avatar": True})
+
+    @action(detail=True, methods=["post"], url_path="avatar/remove")
+    def avatar_remove(self, request, pk=None):
+        target = self.get_object()
+        if avatar_svc.remove_avatar(target):
+            record("user.avatar_remove", request=request, entity_type="user", entity_id=target.pk,
+                   metadata={"own_account": target.pk == request.user.pk})
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["get", "post"])
     def assignments(self, request, pk=None):
@@ -915,3 +1057,131 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         record("role_assignment.revoke", request=request, entity_type="role_assignment", entity_id=a.pk,
                metadata={"user": str(target.pk), "role": a.role.code})
         return Response(status=204)
+
+
+# ---- backup codes and passkeys (self-service, on the Account page) --------------------------------------------------------
+class BackupCodesView(APIView):
+    """GET: how many unused codes are left. POST: replace the set with 10 new codes (shown once). Needs a fresh authenticator check."""
+    throttle_scope = "mfa"
+
+    def get(self, request):
+        return Response({"remaining": backup_codes.remaining(request.user) if request.user.mfa_enabled else 0})
+
+    def post(self, request):
+        if not request.user.mfa_enabled:
+            return error("mfa_not_enabled", "Set up the authenticator app first.", 409)
+        require_fresh_mfa(request)
+        codes = backup_codes.generate(request.user)
+        record("mfa.backup_codes_regenerated", request=request, entity_type="user", entity_id=request.user.pk)
+        return Response({"backup_codes": codes, "remaining": len(codes)})
+
+
+def _passkey_row(c):
+    return {"id": str(c.pk), "name": c.name, "created_at": c.created_at, "last_used_at": c.last_used_at}
+
+
+class PasskeyListView(APIView):
+    def get(self, request):
+        return Response({"results": [_passkey_row(c) for c in PasskeyCredential.objects.filter(user=request.user)]})
+
+
+class PasskeyRegisterOptionsView(APIView):
+    throttle_scope = "mfa"
+
+    def post(self, request):
+        if not request.user.mfa_enabled:
+            return error("mfa_not_enabled", "Set up the authenticator app before adding a passkey.", 409)
+        require_fresh_mfa(request)
+        return Response(passkeys.registration_options(request, request.user))
+
+
+class PasskeyRegisterVerifyView(APIView):
+    throttle_scope = "mfa"
+
+    def post(self, request):
+        from .webauthn import WebAuthnError
+        if not request.user.mfa_enabled:
+            return error("mfa_not_enabled", "Set up the authenticator app before adding a passkey.", 409)
+        require_fresh_mfa(request)
+        try:
+            row = passkeys.register(request, request.user, request.data.get("challenge_id"), request.data.get("credential"),
+                                    str(request.data.get("name") or ""))
+        except ValueError:
+            return error("passkey_limit", f"You can register up to {passkeys.MAX_PER_USER} passkeys.", 409)
+        except WebAuthnError:
+            record("mfa.passkey_add", request=request, outcome="failure", entity_type="user", entity_id=request.user.pk)
+            return error("invalid_passkey", "That passkey could not be added. Try again.", 400)
+        record("mfa.passkey_add", request=request, entity_type="user", entity_id=request.user.pk)
+        return Response(_passkey_row(row), status=201)
+
+
+class PasskeyDetailView(APIView):
+    def delete(self, request, pk):
+        require_fresh_mfa(request)
+        deleted, _ = PasskeyCredential.objects.filter(pk=pk, user=request.user).delete()
+        if not deleted:
+            return error("not_found", "Passkey not found.", 404)
+        record("mfa.passkey_remove", request=request, entity_type="user", entity_id=request.user.pk)
+        return Response(status=204)
+
+
+class PasskeyStepUpOptionsView(APIView):
+    """Challenge for confirming a sensitive action with a passkey (answered through the step-up endpoint)."""
+    throttle_scope = "mfa"
+
+    def post(self, request):
+        if not (request.user.mfa_enabled and passkeys.has_passkeys(request.user)):
+            return error("no_passkey", "No passkey is registered on this account.", 409)
+        return Response(passkeys.request_options(request, request.user, "stepup"))
+
+
+# ---- where am I signed in ---------------------------------------------------------------------------------------------------
+def _sid(session_key):
+    """A stable public handle for a session: the real key is the cookie value and must never be sent to the page."""
+    return hashlib.sha256(f"sid:{session_key}".encode()).hexdigest()[:20]
+
+
+def _user_sessions(user):
+    from django.contrib.sessions.models import Session
+    uid = str(user.pk)
+    for s in Session.objects.filter(expire_date__gt=timezone.now()).iterator():
+        data = s.get_decoded()
+        if data.get("_auth_user_id") == uid and data.get("auth_epoch") == user.auth_epoch:
+            yield s, data
+
+
+class MySessionsView(APIView):
+    """GET: every live sign-in of this account (device, address, started, last used). POST: end all the others."""
+
+    def get(self, request):
+        rows = []
+        for s, data in _user_sessions(request.user):
+            rows.append({
+                "id": _sid(s.session_key), "current": s.session_key == request.session.session_key,
+                "ua": data.get("ua", ""), "ip": data.get("ip", ""),
+                "started_at": datetime.fromtimestamp(int(data.get("login_at", 0)), tz=dt_timezone.utc) if data.get("login_at") else None,
+                "last_seen_at": s.expire_date - timedelta(seconds=settings.SESSION_COOKIE_AGE),
+            })
+        rows.sort(key=lambda r: (not r["current"], -(r["last_seen_at"].timestamp())))
+        return Response({"results": rows})
+
+    def post(self, request):
+        ended = 0
+        for s, _data in list(_user_sessions(request.user)):
+            if s.session_key != request.session.session_key:
+                s.delete()
+                ended += 1
+        record("auth.sessions_ended_others", request=request, entity_type="user", entity_id=request.user.pk, metadata={"count": ended})
+        return Response({"ended": ended})
+
+
+class MySessionDetailView(APIView):
+    def delete(self, request, sid):
+        for s, _data in list(_user_sessions(request.user)):
+            if _sid(s.session_key) == sid:
+                if s.session_key == request.session.session_key:
+                    return error("current_session", "Use Sign out to end this session.", 409)
+                s.delete()
+                record("auth.session_ended", request=request, entity_type="user", entity_id=request.user.pk)
+                return Response(status=204)
+        return error("not_found", "That session is already over.", 404)

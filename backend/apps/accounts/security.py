@@ -5,8 +5,8 @@ import pyotp
 
 from apps.core import crypto
 
-from . import scope
-from .models import User
+from . import backup_codes, scope
+from .models import MfaBackupCode, PasskeyChallenge, PasskeyCredential, User
 
 TOTP_INTERVAL = 30
 
@@ -41,3 +41,19 @@ def consume_totp(user, code):
             step = int(moment // TOTP_INTERVAL)
             return User.objects.filter(pk=user.pk, mfa_last_step__lt=step).update(mfa_last_step=step) == 1
     return False
+
+
+def consume_second_factor(user, code):
+    """Check what the person typed in the "code" box: a 6-digit authenticator code, or a one-time backup code.
+    Returns "totp", "backup_code", or None."""
+    code = (code or "").strip()
+    if code.isdigit() and len(code) == 6:
+        return "totp" if consume_totp(user, code) else None
+    return "backup_code" if backup_codes.consume(user, code) else None
+
+
+def clear_second_factors(user):
+    """The authenticator was reset or removed: its backup codes and passkeys go with it (they only mean something beside it)."""
+    MfaBackupCode.objects.filter(user=user).delete()
+    PasskeyCredential.objects.filter(user=user).delete()
+    PasskeyChallenge.objects.filter(user=user).delete()

@@ -75,6 +75,10 @@ export async function refreshCsrf(): Promise<void> {
 
 interface Options { method?: "GET" | "POST" | "PATCH" | "DELETE"; body?: unknown; headers?: Record<string, string>; query?: Record<string, string | number | undefined | null> }
 
+let lastApiAt = Date.now();
+/** When the server last answered a request: every answer renews the server-side idle timer, which the idle warning needs to know. */
+export const getLastApiAt = (): number => lastApiAt;
+
 export function api<T = unknown>(path: string, opts: Options = {}): Promise<T> {
   return withStepUp(() => apiOnce<T>(path, opts));
 }
@@ -109,6 +113,7 @@ async function apiOnce<T>(path: string, opts: Options): Promise<T> {
   let res: Response;
   try {
     res = await send();
+    lastApiAt = Date.now();
     if (res.status === 403 && method !== "GET") {
       const peek = (await res.clone().json().catch(() => null)) as ErrorBody | null;
       if (peek?.detail && /CSRF/i.test(peek.detail)) {
@@ -134,6 +139,13 @@ export const previewPhotos = new Map<string, string>();
 export function photoUrl(personId: string, v: number): string {
   if (import.meta.env.VITE_PREVIEW === "1") return previewPhotos.get(personId) ?? "";
   return `/api/v1/personnel/${personId}/photo/?v=${v}`;
+}
+
+/** URL of the signed-in user's own avatar (a small thumbnail of the photo on their personnel record), or "" when there is none. */
+export function myPhotoUrl(personnelId: string | null | undefined, v: number | null | undefined): string {
+  if (v == null) return "";
+  if (import.meta.env.VITE_PREVIEW === "1") return personnelId ? previewPhotos.get(personnelId) ?? "" : "";
+  return `/api/v1/auth/me/photo/?v=${v}`;
 }
 
 export async function upload<T>(path: string, field: string, file: File, extra: Record<string, string> = {}): Promise<T> {
