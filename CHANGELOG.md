@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Position retention (signed archive, then controlled purge):** `archive_keygen`, `archive_positions` and `purge_positions`. Old positions go into an Ed25519-signed, encrypted archive and a ledger row (`vehicle_position_archives`, migration `vehicles.0011`); a purge then deletes only rows that match a verified, ledgered archive, older than 30 days, after a cooling-off time and typed confirmations. The `vehicle_positions` delete trigger now allows exactly that case and nothing else (PostgreSQL). Standalone checker: `ops/verify_position_archive.py`. See `docs/POSITION_ARCHIVE.md`. New settings: `ARCHIVE_SIGNING_KEY`, `ARCHIVE_PUBLIC_KEYS`, `POSITION_RETENTION_DAYS`, `POSITION_PURGE_COOL_OFF_HOURS`.
+
+- **Vehicle tracking:** panel of vehicles and GPS trackers that have stopped reporting (`vehicle-tracking/silent/`); route trail with distance travelled (`vehicle-tracking/trail/`, drawn as plain SVG); tracker key rotation (`trackers/rotate/`, old key stops at once); privacy notice beside the phone-location buttons. English and Somali strings added (Somali wording to be reviewed). See `docs/VEHICLE_TRACKING.md`.
+
 - **Mail without a domain (Render free tier):** new backends `apps.core.appsscript_backend` (Google Apps Script web app sending as a Gmail account; `APPS_SCRIPT_URL`, `APPS_SCRIPT_TOKEN`; see `docs/APPS_SCRIPT_MAILER.md`) and `apps.core.gmail_backend` (Gmail API over HTTPS). Order of choice: Apps Script, Gmail API, Brevo, SMTP, console. Email subjects now say "ARMY HQ"; password-reset emails carry a link (`ARMYHQ_SITE_URL`) as well as the one-time code, and the reset page prefills and then clears it from the address bar.
 - **Client address behind proxies:** `DEBUG_CLIENT_IP=1` temporarily logs the proxy headers so `NUM_PROXIES` can be set correctly (3 on Render behind Cloudflare). Leave it off normally.
 - **Vehicle categories can be removed** (switched off, never deleted) from the manager; the server refuses while vehicles still use one. **Fix:** filtering vehicles by a model code no longer also returns vehicles that have no model.

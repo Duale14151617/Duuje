@@ -3,13 +3,14 @@ a phone sends its own location from the browser. Reads need vehicles.view, repor
 caller's unit scope); rows are voided with a reason, never deleted; every write is audited."""
 import hashlib
 import hmac
+import math
 import secrets
 from datetime import datetime, timedelta, timezone as dt_timezone
 from decimal import Decimal, InvalidOperation
 
 from django.core.cache import cache
 from django.db import IntegrityError, transaction
-from django.db.models import OuterRef, Subquery
+from django.db.models import OuterRef, Q, Subquery
 from django.http import Http404
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -36,6 +37,8 @@ from .views import _Page, _uid
 P = VehiclePosition
 STALE_HOURS = 24
 MIN_GAP_SECONDS = 20  # one phone cannot flood a vehicle's history
+TRAIL_MAX = 500  # points in one route
+TRAIL_MIN_STEP_KM = 0.025  # moves shorter than this are GPS drift, not travel
 
 
 def _coord(d, name, low, high):
@@ -120,6 +123,28 @@ def _out(p, now=None):
             "recorded_by": p.created_by_username, "void": p.voided_at is not None, "voided_reason": p.voided_reason, "version": p.version}
 
 
+def _haversine_km(lat1, lon1, lat2, lon2):
+    r = 6371.0088
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    a = math.sin((p2 - p1) / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(math.radians(lon2 - lon1) / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(a))
+
+
+def trail_distance_km(rows):
+    """Distance along oldest-first position rows, skipping steps under TRAIL_MIN_STEP_KM measured from the last counted point."""
+    total, last = 0.0, None
+    for r in rows:
+        pt = (float(r.latitude), float(r.longitude))
+        if last is None:
+            last = pt
+            continue
+        step = _haversine_km(last[0], last[1], pt[0], pt[1])
+        if step >= TRAIL_MIN_STEP_KM:
+            total += step
+            last = pt
+    return round(total, 2)
+
+
 class VehicleTrackingViewSet(viewsets.GenericViewSet):
     """Last known positions and position history. Out-of-scope rows answer 404."""
 
@@ -129,7 +154,8 @@ class VehicleTrackingViewSet(viewsets.GenericViewSet):
     lookup_value_regex = r"[0-9a-f\-]{36}"
     permission_map = {"latest": ("vehicles.view", "any"), "history": ("vehicles.view", "any"), "report": ("vehicles.position", "any"),
                       "void": ("vehicles.position", "any"), "trackers": ("vehicles.view", "any"), "tracker_add": ("vehicles.edit", "any"),
-                      "tracker_off": ("vehicles.edit", "any")}
+                      "tracker_off": ("vehicles.edit", "any"), "tracker_rotate": ("vehicles.edit", "any"),
+                      "silent": ("vehicles.view", "any"), "trail": ("vehicles.view", "any")}
 
     def _scoped(self):
         q = scope.unit_scope_q(self.request.user, "vehicles.view", "vehicle__org_unit__")
@@ -171,6 +197,61 @@ class VehicleTrackingViewSet(viewsets.GenericViewSet):
         now = timezone.now()
         return self.get_paginated_response([_out(x, now) for x in page])
 
+    @action(detail=False, methods=["get"])
+    def silent(self, request):
+        """Vehicles that should be reporting but are not: no usable position for ?hours= (default STALE_HOURS, 1 to 720), or none ever.
+        Vehicles that are in the workshop or decommissioned are left out, because silence is expected there. Also lists linked GPS
+        trackers that have gone quiet. Narrowed to the caller's unit scope."""
+        raw = (request.query_params.get("hours") or "").strip()
+        try:
+            hours = int(raw) if raw else STALE_HOURS
+        except ValueError:
+            raise field_error("hours", "invalid", "Hours must be a whole number.")
+        if not 1 <= hours <= 720:
+            raise field_error("hours", "invalid", "Hours must be between 1 and 720.")
+        q = scope.unit_scope_q(request.user, "vehicles.view", "org_unit__")
+        if q is None:
+            return Response({"hours": hours, "vehicles": [], "trackers": []})
+        now = timezone.now()
+        cutoff = now - timedelta(hours=hours)
+        newest = P.objects.filter(vehicle=OuterRef("pk"), voided_at__isnull=True).order_by("-recorded_at").values("recorded_at")[:1]
+        vq = (Vehicle.objects.filter(q).exclude(status__in=Vehicle.UNAVAILABLE).annotate(last=Subquery(newest))
+              .filter(Q(last__isnull=True) | Q(last__lt=cutoff)).order_by("vehicle_id")[:200])
+        vehicles = [{"id": str(v.pk), "vehicle_id": v.vehicle_id, "plate": v.plate, "make": v.make, "model": v.model, "never": v.last is None,
+                     "last_seen_at": v.last, "age_minutes": None if v.last is None else max(int((now - v.last).total_seconds() // 60), 0)}
+                    for v in vq]
+        tq = scope.unit_scope_q(request.user, "vehicles.view", "vehicle__org_unit__")
+        trackers = []
+        if tq is not None:
+            rows = (T.objects.filter(tq, active=True).filter(Q(last_seen_at__lt=cutoff) | Q(last_seen_at__isnull=True, created_at__lt=cutoff))
+                    .select_related("vehicle").order_by("last_seen_at")[:200])
+            trackers = [_tracker_out(t) for t in rows]
+        record_read(request, "vehicle.read_silent", entity_type="vehicle_position_silent", count=len(vehicles) + len(trackers))
+        return Response({"hours": hours, "vehicles": vehicles, "trackers": trackers})
+
+    @action(detail=False, methods=["get"])
+    def trail(self, request):
+        """One vehicle's route over a date range, oldest first, with the distance travelled. At most TRAIL_MAX points (the newest ones
+        when there are more; `truncated` says so). Distance adds up straight lines between points and ignores moves under 25 m, so a
+        parked vehicle's GPS drift does not add up to kilometres."""
+        p = request.query_params
+        key = (p.get("vehicle") or "").strip()
+        if not key:
+            raise field_error("vehicle", "required", "Choose a vehicle.")
+        qs = self._scoped().filter(voided_at__isnull=True)
+        qs = qs.filter(vehicle__vehicle_id=key.upper()) if key.upper().startswith("VEH-") else qs.filter(vehicle_id=_uid(key) or None)
+        if p.get("from"):
+            qs = qs.filter(recorded_at__date__gte=svc._date(p["from"], "from"))
+        if p.get("to"):
+            qs = qs.filter(recorded_at__date__lte=svc._date(p["to"], "to"))
+        newest_first = list(qs.order_by("-recorded_at")[:TRAIL_MAX + 1])
+        truncated = len(newest_first) > TRAIL_MAX
+        rows = list(reversed(newest_first[:TRAIL_MAX]))
+        points = [{"id": str(r.pk), "latitude": str(r.latitude), "longitude": str(r.longitude), "recorded_at": r.recorded_at, "source": r.source}
+                  for r in rows]
+        record_read(request, "vehicle.read_position_trail", entity_type="vehicle_position_trail", count=len(points))
+        return Response({"points": points, "count": len(points), "truncated": truncated, "distance_km": trail_distance_km(rows)})
+
     @action(detail=False, methods=["post"])
     def report(self, request):
         d = json_body(request)
@@ -207,6 +288,16 @@ class VehicleTrackingViewSet(viewsets.GenericViewSet):
         if row is None or not scope.can(request.user, "vehicles.edit", unit=row.vehicle.org_unit):
             raise Http404
         return Response(_tracker_out(switch_off_tracker(request, row, d, require_version(d))))
+
+    @action(detail=True, methods=["post"], url_path="trackers/rotate")
+    def tracker_rotate(self, request, pk=None):
+        d = json_body(request)
+        q = scope.unit_scope_q(request.user, "vehicles.view", "vehicle__org_unit__")
+        row = T.objects.filter(q).select_related("vehicle__org_unit").filter(pk=_uid(pk)).first() if (q is not None and _uid(pk)) else None
+        if row is None or not scope.can(request.user, "vehicles.edit", unit=row.vehicle.org_unit):
+            raise Http404
+        t, full = rotate_tracker(request, row, d, require_version(d))
+        return Response({**_tracker_out(t), "key": full})  # shown once
 
     @action(detail=True, methods=["post"])
     def void(self, request, pk=None):
@@ -271,6 +362,28 @@ def switch_off_tracker(request, row, d, version):
     t.save()
     record("vehicle.tracker_off", request=request, entity_type="vehicle_tracker", entity_id=t.pk, metadata={"vehicle_id": t.vehicle.vehicle_id})
     return t
+
+
+@transaction.atomic
+def rotate_tracker(request, row, d, version):
+    """Issue a new key for a tracker (the old one stops working at once). Use it when a key may have leaked or a Traccar server is
+    replaced. The device link, its history and last-seen time are kept; the new key is shown once, like the first."""
+    t = T.objects.select_for_update().select_related("vehicle").get(pk=row.pk)
+    if t.version != version:
+        raise VersionConflict()
+    if not t.active:
+        raise field_error("state", "already_off", "This tracker is switched off. Link it again to get a key.")
+    for _ in range(5):
+        prefix, full = _new_key()
+        if not T.objects.filter(key_prefix=prefix).exists():
+            break
+    else:
+        raise field_error("key", "retry", "Could not make a new key. Try again.")
+    t.key_prefix, t.key_hash = prefix, _hash(full)
+    t.version += 1
+    t.save()
+    record("vehicle.tracker_rotate", request=request, entity_type="vehicle_tracker", entity_id=t.pk, metadata={"vehicle_id": t.vehicle.vehicle_id})
+    return t, full
 
 
 def _stamp(value):

@@ -374,3 +374,13 @@ LOGGING = {
     "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "std", "filters": ["cid", "redact"]}},
     "root": {"handlers": ["console"], "level": os.environ.get("LOG_LEVEL", "INFO")},
 }
+
+
+# Position archive and purge (see docs/VEHICLE_TRACKING.md). The signing key is an Ed25519 private key made by `manage.py archive_keygen`;
+# keep it OUT of the database host and out of backups of the database. ARCHIVE_PUBLIC_KEYS (comma separated) lists the public keys that
+# may verify archives; when empty, the public half of ARCHIVE_SIGNING_KEY is used. Only the two commands need these; the web app does not.
+ARCHIVE_SIGNING_KEY = os.environ.get("ARCHIVE_SIGNING_KEY", "").strip()
+ARCHIVE_PUBLIC_KEYS = [k.strip() for k in os.environ.get("ARCHIVE_PUBLIC_KEYS", "").split(",") if k.strip()]
+POSITION_RETENTION_DAYS = int(os.environ.get("POSITION_RETENTION_DAYS", "365"))  # default for archive_positions --older-than-days (minimum 30)
+POSITION_PURGE_COOL_OFF_HOURS = int(os.environ.get("POSITION_PURGE_COOL_OFF_HOURS", "24"))  # time between archiving and purging
+

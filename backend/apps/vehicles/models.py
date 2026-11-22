@@ -429,6 +429,41 @@ class VehiclePosition(models.Model):
         raise AppendOnlyError("Vehicle register rows cannot be deleted.")
 
 
+class VehiclePositionArchive(models.Model):
+    """Ledger of position archives: one row per signed archive file made by `archive_positions`. The ledger is what lets the database
+    allow `purge_positions` to delete rows: a position can only be deleted while a row here says it was archived and verified.
+    Rows are never deleted; a purge only closes the batch."""
+
+    class Status(models.TextChoices):
+        ARCHIVED = "archived", "Archived"
+        PURGED = "purged", "Purged"
+        ABANDONED = "abandoned", "Abandoned"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)  # the batch id written inside the archive
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.CharField(max_length=150)
+    cutoff = models.DateTimeField()
+    range_start = models.DateTimeField()
+    range_end = models.DateTimeField()
+    row_count = models.PositiveIntegerField()
+    file_name = models.CharField(max_length=255)
+    data_sha256 = models.CharField(max_length=64)
+    signature = models.CharField(max_length=128)
+    key_fingerprint = models.CharField(max_length=16)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.ARCHIVED)
+    closed_at = models.DateTimeField(null=True, blank=True)
+    closed_by = models.CharField(max_length=150, blank=True)
+    purged_count = models.PositiveIntegerField(default=0)
+    skipped_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = "vehicle_position_archives"
+        ordering = ["-created_at"]
+
+    def delete(self, *args, **kwargs):
+        raise AppendOnlyError("Archive ledger rows cannot be deleted.")
+
+
 class VehicleTracker(models.Model):
     """A GPS tracker fitted to a vehicle that sends positions on its own (for example through a Traccar server forwarding to the
     tracker feed). Only a hash of its key is kept; the key is shown once when the tracker is linked. Switched off, never deleted."""
