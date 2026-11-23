@@ -6,6 +6,7 @@ import { useFetch } from "../api/useFetch";
 import { Chip, ErrorNotice, Field } from "./ui";
 import { DataTable, type Column } from "./DataTable";
 import { useI18n } from "../i18n";
+import { Geofences } from "./Geofences";
 
 interface VehicleB { id: string; vehicle_id: string; plate: string; make: string; model: string }
 interface Tracker { id: string; vehicle: VehicleB; device_ref: string; active: boolean; last_seen_at: string | null; version: number }
@@ -48,7 +49,7 @@ function Plot({ rows }: { rows: Pos[] }) {
 /** The route of one vehicle drawn from its recorded positions (oldest to newest). Plain SVG: no map service, no tiles. */
 function Trail({ data }: { data: TrailData }) {
   const { t } = useI18n();
-  if (data.count < 2) return <p className="muted">{t("trk.trailEmpty")}</p>;
+  if (!data.points || (data.count ?? 0) < 2) return <p className="muted">{t("trk.trailEmpty")}</p>;
   const pts = data.points.map((p) => ({ id: p.id, lat: Number(p.latitude), lon: Number(p.longitude) }));
   const lats = pts.map((x) => x.lat), lons = pts.map((x) => x.lon);
   const k = Math.cos(((Math.min(...lats) + Math.max(...lats)) / 2 * Math.PI) / 180);
@@ -203,17 +204,17 @@ export function VehiclePositions({ vehicleId }: { vehicleId?: string }) {
       <h2>{t("trk.title")}</h2>
       <p className="muted">{t("trk.subtitle")}</p>
       {error != null && <ErrorNotice error={error} />}
-      {!vehicleId && silent.data && (
+      {!vehicleId && silent.data?.vehicles && (
         <section className="card" role="status" aria-live="polite">
           <h3>{t("trk.silentTitle")}</h3>
           <p className="muted">{t("trk.silentHelp", { hours: silent.data.hours })}</p>
-          {silent.data.vehicles.length === 0 && silent.data.trackers.length === 0 && <p>{t("trk.silentNone")}</p>}
+          {silent.data.vehicles.length === 0 && (silent.data.trackers ?? []).length === 0 && <p>{t("trk.silentNone")}</p>}
           {silent.data.vehicles.length > 0 && (
             <ul>{silent.data.vehicles.map((v) => (
               <li key={v.id}>{label(v)} · {v.never || v.age_minutes === null ? <Chip tone="bad">{t("trk.silentNever")}</Chip> : t("trk.silentLast", { age: ago(v.age_minutes) })}</li>
             ))}</ul>
           )}
-          {silent.data.trackers.length > 0 && (
+          {(silent.data.trackers ?? []).length > 0 && (
             <>
               <p><strong>{t("trk.silentTrackers")}</strong></p>
               <ul>{silent.data.trackers.map((x) => <li key={x.id}>{label(x.vehicle)} · {x.device_ref} · {x.last_seen_at ? `${t("trk.lastSeen")} ${x.last_seen_at.slice(0, 16).replace("T", " ")}` : t("trk.neverSeen")}</li>)}</ul>
@@ -251,6 +252,7 @@ export function VehiclePositions({ vehicleId }: { vehicleId?: string }) {
       </Field>}
       {vehicle && <DataTable id="vehicle-history" caption={t("trk.history")} columns={cols(true)} rows={history.data?.results ?? []} rowKey={(x) => x.id} loading={history.loading} empty={{ title: t("trk.empty") }} />}
       {vehicle && trail.data && <Trail data={trail.data} />}
+      {!vehicleId && <Geofences />}
       {(canEdit || (trackers.data?.results?.length ?? 0) > 0) && (
         <section className="card">
           <h2>{t("trk.trackers")}</h2>

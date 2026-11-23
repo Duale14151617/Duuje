@@ -11,6 +11,7 @@ import uuid
 
 from django.db import models
 from django.db.models import Q
+from django.db.models.functions import Lower
 
 from apps.core.appendonly import AppendOnlyError, AppendOnlyModel
 
@@ -462,6 +463,76 @@ class VehiclePositionArchive(models.Model):
 
     def delete(self, *args, **kwargs):
         raise AppendOnlyError("Archive ledger rows cannot be deleted.")
+
+
+class Geofence(models.Model):
+    """A circular zone (a base, a restricted area). When a vehicle's reported position crosses its edge the system records an event.
+    Fences are switched off, never deleted: past events point at them."""
+
+    class AlertOn(models.TextChoices):
+        ENTER = "enter", "Entering"
+        EXIT = "exit", "Leaving"
+        BOTH = "both", "Entering and leaving"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6)
+    radius_m = models.PositiveIntegerField()
+    alert_on = models.CharField(max_length=5, choices=AlertOn.choices, default=AlertOn.BOTH)
+    active = models.BooleanField(default=True)
+    version = models.PositiveIntegerField(default=1)
+    created_by_username = models.CharField(max_length=150, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "vehicle_geofences"
+        ordering = ["name"]
+        constraints = [models.UniqueConstraint(Lower("name"), name="vehicle_geofence_name_ci_unique")]
+
+    def delete(self, *args, **kwargs):
+        raise AppendOnlyError("Geofences are switched off, not deleted.")
+
+
+class GeofenceState(models.Model):
+    """Whether a vehicle was last seen inside a fence. The first sighting only sets this (no event); later crossings make events."""
+    geofence = models.ForeignKey(Geofence, on_delete=models.PROTECT, related_name="states")
+    vehicle = models.ForeignKey("vehicles.Vehicle", on_delete=models.PROTECT, related_name="geofence_states")
+    inside = models.BooleanField()
+    as_of = models.DateTimeField()  # recorded_at of the fix this is based on
+
+    class Meta:
+        db_table = "vehicle_geofence_states"
+        constraints = [models.UniqueConstraint(fields=["geofence", "vehicle"], name="vehicle_geofence_state_unique")]
+
+
+class GeofenceEvent(models.Model):
+    """One crossing. Append-only. Holds its own copy of the place and time, and the position's id as plain text, so that retiring old
+    positions (see docs/POSITION_ARCHIVE.md) never has to touch the events."""
+
+    class Kind(models.TextChoices):
+        ENTER = "enter", "Entered"
+        EXIT = "exit", "Left"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    geofence = models.ForeignKey(Geofence, on_delete=models.PROTECT, related_name="events")
+    vehicle = models.ForeignKey("vehicles.Vehicle", on_delete=models.PROTECT, related_name="geofence_events")
+    kind = models.CharField(max_length=5, choices=Kind.choices)
+    occurred_at = models.DateTimeField()
+    latitude = models.DecimalField(max_digits=9, decimal_places=6)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6)
+    position_id = models.UUIDField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "vehicle_geofence_events"
+        ordering = ["-occurred_at", "-id"]
+        indexes = [models.Index(fields=["vehicle", "-occurred_at"], name="veh_gfevent_vehicle_idx"),
+                   models.Index(fields=["occurred_at"], name="veh_gfevent_time_idx")]
+
+    def delete(self, *args, **kwargs):
+        raise AppendOnlyError("Geofence events cannot be deleted.")
 
 
 class VehicleTracker(models.Model):

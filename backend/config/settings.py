@@ -384,3 +384,6 @@ ARCHIVE_PUBLIC_KEYS = [k.strip() for k in os.environ.get("ARCHIVE_PUBLIC_KEYS", 
 POSITION_RETENTION_DAYS = int(os.environ.get("POSITION_RETENTION_DAYS", "365"))  # default for archive_positions --older-than-days (minimum 30)
 POSITION_PURGE_COOL_OFF_HOURS = int(os.environ.get("POSITION_PURGE_COOL_OFF_HOURS", "24"))  # time between archiving and purging
 
+# Daily movement report: the day runs midnight to midnight in this zone (an IANA name such as Africa/Mogadishu). Default UTC.
+REPORT_TIME_ZONE = os.environ.get("REPORT_TIME_ZONE", "UTC").strip() or "UTC"
+

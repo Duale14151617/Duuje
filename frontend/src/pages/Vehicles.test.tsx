@@ -33,6 +33,9 @@ beforeEach(() => {
     const path = url.split("?")[0];
     const body: unknown =
       path.endsWith("/auth/csrf/") ? { csrf_token: "t" } :
+      path.endsWith("/vehicle-tracking/silent/") ? { hours: 24, vehicles: [], trackers: [] } :
+      path.endsWith("/vehicle-tracking/trail/") ? { points: [], count: 0, truncated: false, distance_km: 0 } :
+      path.endsWith("/vehicle-tracking/geofences/") || path.endsWith("/vehicle-tracking/geofence-events/") ? { results: [] } :
       path.endsWith("/vehicles/categories/") ? { results: [cat] } :
       path.endsWith("/vehicles/statuses/") ? { results: statuses } :
       path.endsWith("/vehicles/summary/") ? { unit, total: 2, direct: tally, subordinate: { ...tally, total: 0 }, combined: tally, decommissioned: 0, by_child_unit: [{ unit, total: 2, direct: 2 }] } :

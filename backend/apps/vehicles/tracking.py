@@ -11,7 +11,7 @@ from decimal import Decimal, InvalidOperation
 from django.core.cache import cache
 from django.db import IntegrityError, transaction
 from django.db.models import OuterRef, Q, Subquery
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from rest_framework import viewsets
@@ -25,20 +25,23 @@ from rest_framework.views import APIView
 
 from apps.accounts import scope
 from apps.accounts.permissions import ScopedPermission
+from apps.accounts.stepup import require_fresh_mfa
 from apps.audit.services import client_ip, record, record_read
 from apps.core.concurrency import VersionConflict, require_version
 from apps.core.errors import field_error
+from apps.core.negotiation import IgnoreNegotiation
 from apps.core.params import json_body
 
 from . import services as svc
-from .models import Vehicle, VehiclePosition, VehicleTracker, VehicleTrip
+from . import geofences
+from .models import Geofence, GeofenceEvent, Vehicle, VehiclePosition, VehicleTracker, VehicleTrip
 from .views import _Page, _uid
 
 P = VehiclePosition
 STALE_HOURS = 24
 MIN_GAP_SECONDS = 20  # one phone cannot flood a vehicle's history
 TRAIL_MAX = 500  # points in one route
-TRAIL_MIN_STEP_KM = 0.025  # moves shorter than this are GPS drift, not travel
+TRAIL_MIN_STEP_KM = geofences.MIN_STEP_KM  # moves shorter than this are GPS drift, not travel
 
 
 def _coord(d, name, low, high):
@@ -93,6 +96,7 @@ def report_position(request, vehicle, d):
     trip = VehicleTrip.objects.filter(vehicle=v, state="open").first()
     row = P.objects.create(vehicle=v, trip=trip, latitude=lat, longitude=lon, accuracy_m=acc, place=svc._text(d, "place", 150), source=source,
                            recorded_at=at, note=svc._text(d, "note", 200), created_by_username=_actor(request))
+    geofences.evaluate_position(row)
     record("vehicle.position_report", request=request, entity_type="vehicle_position", entity_id=row.pk,
            metadata={"vehicle_id": v.vehicle_id, "source": source})
     return row
@@ -123,11 +127,7 @@ def _out(p, now=None):
             "recorded_by": p.created_by_username, "void": p.voided_at is not None, "voided_reason": p.voided_reason, "version": p.version}
 
 
-def _haversine_km(lat1, lon1, lat2, lon2):
-    r = 6371.0088
-    p1, p2 = math.radians(lat1), math.radians(lat2)
-    a = math.sin((p2 - p1) / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(math.radians(lon2 - lon1) / 2) ** 2
-    return 2 * r * math.asin(math.sqrt(a))
+_haversine_km = geofences.haversine_km
 
 
 def trail_distance_km(rows):
@@ -155,7 +155,10 @@ class VehicleTrackingViewSet(viewsets.GenericViewSet):
     permission_map = {"latest": ("vehicles.view", "any"), "history": ("vehicles.view", "any"), "report": ("vehicles.position", "any"),
                       "void": ("vehicles.position", "any"), "trackers": ("vehicles.view", "any"), "tracker_add": ("vehicles.edit", "any"),
                       "tracker_off": ("vehicles.edit", "any"), "tracker_rotate": ("vehicles.edit", "any"),
-                      "silent": ("vehicles.view", "any"), "trail": ("vehicles.view", "any")}
+                      "silent": ("vehicles.view", "any"), "trail": ("vehicles.view", "any"),
+                      "fences": ("vehicles.view", "any"), "fence_add": ("vehicles.edit", "any"), "fence_update": ("vehicles.edit", "any"),
+                      "fence_events": ("vehicles.view", "any"), "daily_report": ("vehicles.view", "any"),
+                      "daily_report_export": ("vehicles.view", "any")}
 
     def _scoped(self):
         q = scope.unit_scope_q(self.request.user, "vehicles.view", "vehicle__org_unit__")
@@ -251,6 +254,93 @@ class VehicleTrackingViewSet(viewsets.GenericViewSet):
                   for r in rows]
         record_read(request, "vehicle.read_position_trail", entity_type="vehicle_position_trail", count=len(points))
         return Response({"points": points, "count": len(points), "truncated": truncated, "distance_km": trail_distance_km(rows)})
+
+    # ---- geofences ------------------------------------------------------------------------------------------------------
+    @action(detail=False, methods=["get"], url_path="geofences")
+    def fences(self, request):
+        """Every fence (a fence is a place, not a person's data, so any role that can see vehicles sees them). Active ones first."""
+        rows = Geofence.objects.order_by("-active", "name")
+        return Response({"results": [_fence_out(f) for f in rows]})
+
+    @action(detail=False, methods=["post"], url_path="geofences/add")
+    def fence_add(self, request):
+        d = json_body(request)
+        f = create_fence(request, d)
+        return Response(_fence_out(f), status=201)
+
+    @action(detail=True, methods=["post"], url_path="geofences/update")
+    def fence_update(self, request, pk=None):
+        d = json_body(request)
+        row = Geofence.objects.filter(pk=_uid(pk)).first() if _uid(pk) else None
+        if row is None:
+            raise Http404
+        return Response(_fence_out(update_fence(request, row, d, require_version(d))))
+
+    @action(detail=False, methods=["get"], url_path="geofence-events")
+    def fence_events(self, request):
+        """Crossings, newest first, for vehicles in the caller's scope. ?vehicle= (Vehicle ID or id) ?geofence= ?from= ?to= ?limit= (1 to 500)."""
+        p = request.query_params
+        q = scope.unit_scope_q(request.user, "vehicles.view", "vehicle__org_unit__")
+        if q is None:
+            return Response({"results": []})
+        qs = GeofenceEvent.objects.filter(q).select_related("geofence", "vehicle")
+        key = (p.get("vehicle") or "").strip()
+        if key:
+            qs = qs.filter(vehicle__vehicle_id=key.upper()) if key.upper().startswith("VEH-") else qs.filter(vehicle_id=_uid(key) or None)
+        if p.get("geofence"):
+            qs = qs.filter(geofence_id=_uid(p["geofence"]) or None)
+        if p.get("from"):
+            qs = qs.filter(occurred_at__date__gte=svc._date(p["from"], "from"))
+        if p.get("to"):
+            qs = qs.filter(occurred_at__date__lte=svc._date(p["to"], "to"))
+        try:
+            limit = int(p.get("limit") or 100)
+        except ValueError:
+            raise field_error("limit", "invalid", "Limit must be a whole number.")
+        if not 1 <= limit <= 500:
+            raise field_error("limit", "invalid", "Limit must be between 1 and 500.")
+        rows = list(qs.order_by("-occurred_at", "-id")[:limit])
+        record_read(request, "vehicle.read_geofence_events", entity_type="vehicle_geofence_event", count=len(rows))
+        return Response({"results": [{
+            "id": str(e.pk), "kind": e.kind, "occurred_at": e.occurred_at, "latitude": str(e.latitude), "longitude": str(e.longitude),
+            "geofence": {"id": str(e.geofence_id), "name": e.geofence.name},
+            "vehicle": {"id": str(e.vehicle_id), "vehicle_id": e.vehicle.vehicle_id, "plate": e.vehicle.plate, "make": e.vehicle.make, "model": e.vehicle.model}}
+            for e in rows]})
+
+    # ---- daily movement report ------------------------------------------------------------------------------------------
+    def _report_day(self, request):
+        from . import movement
+        raw = (request.query_params.get("date") or "").strip()
+        day = svc._date(raw, "date") if raw else timezone.now().astimezone(movement.report_tz()).date()
+        if day > timezone.now().astimezone(movement.report_tz()).date():
+            raise field_error("date", "future", "Choose today or an earlier day.")
+        return day
+
+    @action(detail=False, methods=["get"], url_path="daily-report")
+    def daily_report(self, request):
+        """What each vehicle in scope did on one day (?date=YYYY-MM-DD, default today). See apps/vehicles/movement.py for how it is worked out."""
+        from . import movement
+        report = movement.build_daily_report(request.user, self._report_day(request))
+        record_read(request, "vehicle.read_daily_report", entity_type="vehicle_daily_report", count=len(report["vehicles"]) + len(report["not_reporting"]))
+        return Response(report)
+
+    @action(detail=False, methods=["get"], url_path="daily-report/export", content_negotiation_class=IgnoreNegotiation, throttle_scope="bulk")
+    def daily_report_export(self, request):
+        """The same report as a CSV file. Needs a fresh authenticator check; the file's SHA-256 is written to the audit log."""
+        import hashlib
+
+        from . import movement
+        require_fresh_mfa(request)
+        report = movement.build_daily_report(request.user, self._report_day(request))
+        body = movement.report_csv(report)
+        digest = hashlib.sha256(body).hexdigest()
+        record("vehicle.export_daily_report", request=request, entity_type="vehicle_daily_report",
+               metadata={"date": report["date"], "vehicles": len(report["vehicles"]) + len(report["not_reporting"]), "sha256": digest})
+        resp = HttpResponse(body, content_type="text/csv; charset=utf-8")
+        resp["Content-Disposition"] = f'attachment; filename="daily-movement-{report["date"]}.csv"'
+        resp["Cache-Control"] = "no-store"
+        resp["X-Content-SHA256"] = digest
+        return resp
 
     @action(detail=False, methods=["post"])
     def report(self, request):
@@ -364,6 +454,95 @@ def switch_off_tracker(request, row, d, version):
     return t
 
 
+def _fence_out(f):
+    return {"id": str(f.pk), "name": f.name, "latitude": str(f.latitude), "longitude": str(f.longitude), "radius_m": f.radius_m,
+            "alert_on": f.alert_on, "active": f.active, "version": f.version, "created_by_username": f.created_by_username, "created_at": f.created_at}
+
+
+def _fence_radius(d, required=True):
+    v = d.get("radius_m")
+    if v in (None, ""):
+        if required:
+            raise field_error("radius_m", "required", "This field is required.")
+        return None
+    try:
+        n = int(str(v).strip())
+    except ValueError:
+        raise field_error("radius_m", "invalid_number", "Enter a whole number of metres.")
+    if not 50 <= n <= 100_000:
+        raise field_error("radius_m", "out_of_range", "Radius must be between 50 m and 100 km.")
+    return n
+
+
+def _fence_alert(d):
+    v = d.get("alert_on", Geofence.AlertOn.BOTH)
+    if v not in Geofence.AlertOn.values:
+        raise field_error("alert_on", "invalid_choice", "Choose entering, leaving or both.")
+    return v
+
+
+def _fence_name_free(name, exclude=None):
+    qs = Geofence.objects.filter(name__iexact=name)
+    if exclude is not None:
+        qs = qs.exclude(pk=exclude)
+    if qs.exists():
+        raise field_error("name", "duplicate", "A zone with this name already exists.")
+
+
+@transaction.atomic
+def create_fence(request, d):
+    name = svc._text(d, "name", 100, required=True)
+    _fence_name_free(name)
+    f = Geofence.objects.create(name=name, latitude=_coord(d, "latitude", Decimal("-90"), Decimal("90")),
+                                longitude=_coord(d, "longitude", Decimal("-180"), Decimal("180")), radius_m=_fence_radius(d),
+                                alert_on=_fence_alert(d), created_by_username=_actor(request))
+    record("vehicle.geofence_create", request=request, entity_type="vehicle_geofence", entity_id=f.pk, metadata={"name": f.name, "radius_m": f.radius_m})
+    return f
+
+
+@transaction.atomic
+def update_fence(request, row, d, version):
+    f = Geofence.objects.select_for_update().get(pk=row.pk)
+    if f.version != version:
+        raise VersionConflict()
+    changed, reset = [], False
+    if "name" in d:
+        name = svc._text(d, "name", 100, required=True)
+        _fence_name_free(name, exclude=f.pk)
+        f.name = name
+        changed.append("name")
+    if "latitude" in d:
+        f.latitude = _coord(d, "latitude", Decimal("-90"), Decimal("90"))
+        changed.append("latitude")
+        reset = True
+    if "longitude" in d:
+        f.longitude = _coord(d, "longitude", Decimal("-180"), Decimal("180"))
+        changed.append("longitude")
+        reset = True
+    if "radius_m" in d:
+        f.radius_m = _fence_radius(d)
+        changed.append("radius_m")
+        reset = True
+    if "alert_on" in d:
+        f.alert_on = _fence_alert(d)
+        changed.append("alert_on")
+    if "active" in d:
+        if not isinstance(d["active"], bool):
+            raise field_error("active", "invalid", "Must be true or false.")
+        if d["active"] != f.active:
+            f.active = d["active"]
+            changed.append("active")
+            reset = True  # vehicles may have moved while it was off
+    if not changed:
+        raise field_error("state", "nothing_to_change", "Nothing to change.")
+    if reset:
+        f.states.all().delete()  # starting points are stale: the next fix of each vehicle sets a new one (no event)
+    f.version += 1
+    f.save()
+    record("vehicle.geofence_update", request=request, entity_type="vehicle_geofence", entity_id=f.pk, metadata={"changed": changed})
+    return f
+
+
 @transaction.atomic
 def rotate_tracker(request, row, d, version):
     """Issue a new key for a tracker (the old one stops working at once). Use it when a key may have leaked or a Traccar server is
@@ -458,8 +637,9 @@ class TrackerFeedView(APIView):
             if P.objects.filter(vehicle=v, source="tracker", recorded_at=at, latitude=lat, longitude=lon).exists():
                 return Response({"status": "duplicate"})  # trackers resend; the same fix is stored once
             trip = VehicleTrip.objects.filter(vehicle=v, state="open").first()
-            P.objects.create(vehicle=v, trip=trip, latitude=lat, longitude=lon, accuracy_m=acc, source="tracker", recorded_at=at,
-                             created_by_username=f"tracker:{tracker.key_prefix}")
+            fix = P.objects.create(vehicle=v, trip=trip, latitude=lat, longitude=lon, accuracy_m=acc, source="tracker", recorded_at=at,
+                                   created_by_username=f"tracker:{tracker.key_prefix}")
+            geofences.evaluate_position(fix)
             T.objects.filter(pk=tracker.pk).update(last_seen_at=now)
         return Response({"status": "ok"}, status=201)
 

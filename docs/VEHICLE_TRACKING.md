@@ -40,6 +40,35 @@ units. Every read of latest, history, trail and silent lists is written to the a
 Vehicle positions page is open and sharing is on; nothing is sent in the background. The page shows this notice next to the location
 buttons. Share a phone's location only on official duty.
 
+## Zones (geofences)
+A zone is a circle: a centre, a radius (50 m to 100 km) and what to record (entering, leaving or both). Anyone who can see vehicles sees the
+zones; creating, changing or switching one off needs `vehicles.edit`. Zones are switched off, never deleted, because past events point at them.
+- `GET vehicle-tracking/geofences/` lists zones. `POST vehicle-tracking/geofences/add/` makes one. `POST vehicle-tracking/<id>/geofences/update/`
+  changes one (send the current `version`; `active: false` switches it off).
+- `GET vehicle-tracking/geofence-events/?vehicle=&geofence=&from=&to=&limit=` lists crossings, newest first, narrowed to the caller's units.
+
+How a crossing is decided (code: `apps/vehicles/geofences.py`):
+1. Every new position (typed, phone or tracker) is compared with every active zone; inside means within the radius of the centre.
+2. A fix whose accuracy is worse than the zone's radius is skipped for that zone: it says nothing reliable about the edge.
+3. The first usable fix of a vehicle for a zone only sets the starting point. No event. After that, outside to inside is an ENTER and inside to
+   outside is an EXIT. A zone set to record one direction still tracks both, so it never misses the next one.
+4. A fix older than the newest one already used (a tracker resending late) is ignored, so events follow time order.
+5. Changing a zone's place or size, or switching it off and on again, clears its starting points: the next fix sets a new one (no event).
+6. Events are written in the same transaction as the position and never changed or deleted. Voiding a position later does not remove the event it
+   caused. An event keeps its own copy of the place and time, so retiring old positions (`docs/POSITION_ARCHIVE.md`) never touches events.
+
+## Daily movement report
+`GET vehicle-tracking/daily-report/?date=YYYY-MM-DD` (default today; future days are refused). `GET vehicle-tracking/daily-report/export/` is the
+same as a CSV file: it needs a fresh authenticator check, and the file's SHA-256 is written to the audit log (`vehicle.export_daily_report`).
+Both are narrowed to the caller's units. The day runs midnight to midnight in `REPORT_TIME_ZONE` (an IANA name such as `Africa/Mogadishu`;
+default UTC, so set it).
+Per vehicle that reported: number of positions, first and last position, distance travelled, and for each zone the minutes inside and the number of
+entries and exits. Vehicles with no position that day are listed as not reporting (and appear in the CSV with 0 positions).
+- Distance adds straight lines between points and ignores moves under 25 m (the same rule as the route trail).
+- Minutes inside count the time between two fixes only when the earlier one was inside and the gap is at most 30 minutes; a longer silence is not
+  counted either way. These are estimates from reported points, not an odometer or a time sheet.
+- Voided positions and decommissioned vehicles are left out.
+
 ## Retention
 Positions are never deleted in normal running: the database refuses it. Old positions can be retired only through a signed archive
 and a controlled purge: see `docs/POSITION_ARCHIVE.md`.
