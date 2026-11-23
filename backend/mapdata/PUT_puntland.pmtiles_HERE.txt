@@ -1,0 +1,2 @@
+Put the Puntland tile file here, named puntland.pmtiles
+(the file from the BBBike zip: planet_46.252,6.548_51.623,13.618.pmtiles). See docs/VEHICLE_MAP.md.
