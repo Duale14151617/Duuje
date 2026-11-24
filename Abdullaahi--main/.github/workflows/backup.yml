@@ -1,0 +1,80 @@
+name: Nightly database backup
+
+# Dumps the live Render database every night, encrypts it to a PUBLIC key (this repository never holds the means to read it) and keeps
+# it as a private workflow artifact for 30 days. Optionally also restores it into a Neon database as a second, ready-to-use copy.
+# Setup is in docs/POLICE_DEPLOYMENT.md ("Backups"). The repository MUST be private.
+
+on:
+  schedule:
+    - cron: "17 21 * * *"   # 21:17 UTC = 00:17 in Garowe
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}      # Render "External Database URL"
+      AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}    # age PUBLIC key (starts with age1...)
+      NEON_URL: ${{ secrets.BACKUP_NEON_URL }}              # optional: Neon connection string for a live second copy
+      HEARTBEAT_URL: ${{ secrets.BACKUP_HEARTBEAT_URL }}    # optional: the site address, e.g. https://policehq.onrender.com
+      HEARTBEAT_TOKEN: ${{ secrets.BACKUP_HEARTBEAT_TOKEN }} # optional: same value as BACKUP_HEARTBEAT_TOKEN on Render
+      PG_VERSION: "16"                                      # match the Render database's PostgreSQL version
+    steps:
+      - name: Check settings
+        run: |
+          [ -n "$DATABASE_URL" ] || { echo "::error::Secret BACKUP_DATABASE_URL is not set"; exit 1; }
+          case "$AGE_RECIPIENT" in age1*) ;; *) echo "::error::Secret BACKUP_AGE_RECIPIENT must be an age public key (age1...)"; exit 1;; esac
+
+      - name: Install age
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq age
+
+      - name: Dump and encrypt
+        run: |
+          set -euo pipefail
+          umask 077
+          stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+          mkdir out
+          docker run --rm -e DATABASE_URL postgres:${PG_VERSION} \
+            sh -c 'pg_dump --format=custom --no-owner --no-privileges "$DATABASE_URL"' > out/dump.raw
+          # a dump that is suspiciously small means the connection or credentials failed quietly
+          [ "$(stat -c %s out/dump.raw)" -gt 20000 ] || { echo "::error::Dump is too small to be real"; exit 1; }
+          age -r "$AGE_RECIPIENT" -o "out/policehq-${stamp}.dump.age" out/dump.raw
+          (cd out && sha256sum "policehq-${stamp}.dump.age" > "policehq-${stamp}.dump.age.sha256")
+          echo "DUMP_RAW=out/dump.raw" >> "$GITHUB_ENV"
+          echo "Backup size: $(stat -c %s out/policehq-${stamp}.dump.age) bytes"
+
+      - name: Refresh the Neon copy (optional)
+        if: env.NEON_URL != ''
+        run: |
+          set -euo pipefail
+          docker run --rm -e NEON_URL -v "$PWD/out:/in:ro" postgres:${PG_VERSION} \
+            sh -c 'pg_restore --clean --if-exists --no-owner --no-privileges --dbname "$NEON_URL" /in/dump.raw'
+
+      - name: Remove the unencrypted dump
+        if: always()
+        run: shred -u out/dump.raw 2>/dev/null || rm -f out/dump.raw
+
+      - name: Keep the encrypted backup for 30 days
+        uses: actions/upload-artifact@v4
+        with:
+          name: policehq-backup-${{ github.run_id }}
+          path: out/
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Tell the app the backup worked (optional)
+        if: success()
+        run: |
+          if [ -n "$HEARTBEAT_URL" ] && [ -n "$HEARTBEAT_TOKEN" ]; then
+            curl -fsS --max-time 60 --retry 3 --retry-delay 20 -X POST -H "X-Cron-Token: $HEARTBEAT_TOKEN" "${HEARTBEAT_URL%/}/api/v1/system/heartbeat/backup/"
+          else
+            echo "No heartbeat secrets set: the System health page will not know the backup ran."
+          fi

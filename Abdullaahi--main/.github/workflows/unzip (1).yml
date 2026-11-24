@@ -1,0 +1,82 @@
+name: Unzip upload
+
+# Upload a .zip anywhere in the repo (e.g. from your phone on github.com),
+# then run this workflow. Leave zip_path empty and it picks the BIGGEST .zip
+# in the repo automatically. It extracts into the repo root, commits the
+# files and deletes the zip. Render then redeploys from the new commit.
+
+on:
+  workflow_dispatch:
+    inputs:
+      zip_path:
+        description: "Optional: path of a specific zip. Leave empty to use the biggest .zip in the repo"
+        required: false
+        default: ""
+      strip_top_folder:
+        description: "Remove the single top-level folder inside the zip (e.g. Duuje-main/)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  unzip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find zip
+        id: find
+        env:
+          ZIP_INPUT: ${{ inputs.zip_path }}
+        run: |
+          set -euo pipefail
+          if [ -n "$ZIP_INPUT" ]; then
+            ZIP="$ZIP_INPUT"
+            case "$ZIP" in *..*|/*) echo "Invalid path"; exit 1;; esac
+          else
+            ZIP=$(find . -type f -iname '*.zip' -not -path './.git/*' -not -path '*/node_modules/*' \
+                  -printf '%s\t%p\n' | sort -rn | head -n1 | cut -f2-)
+            ZIP="${ZIP#./}"
+          fi
+          if [ -z "$ZIP" ] || [ ! -f "$ZIP" ]; then
+            echo "No zip file found in the repo. Upload one first."
+            exit 1
+          fi
+          echo "Using zip: $ZIP ($(du -h "$ZIP" | cut -f1))"
+          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
+
+      - name: Extract zip
+        env:
+          ZIP: ${{ steps.find.outputs.zip }}
+          STRIP: ${{ inputs.strip_top_folder }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/extract && mkdir /tmp/extract
+          unzip -q "$ZIP" -d /tmp/extract
+          rm -rf /tmp/extract/__MACOSX
+          SRC=/tmp/extract
+          if [ "$STRIP" = "true" ]; then
+            COUNT=$(find /tmp/extract -mindepth 1 -maxdepth 1 | wc -l)
+            if [ "$COUNT" -eq 1 ] && [ -d "$(find /tmp/extract -mindepth 1 -maxdepth 1)" ]; then
+              SRC=$(find /tmp/extract -mindepth 1 -maxdepth 1)
+            fi
+          fi
+          # Copy into the repo root, never touching .git or the workflows folder
+          rsync -a --exclude='.git/' --exclude='.github/' "$SRC"/ ./
+          rm -f "$ZIP"
+
+      - name: Commit and push
+        env:
+          ZIP: ${{ steps.find.outputs.zip }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Nothing to commit."
+          else
+            git commit -m "Unzip $ZIP"
+            git push
+          fi
