@@ -3,6 +3,7 @@ import type { EquipmentSummary, FleetAnalytics, PpeSummary } from "../api/types"
 import { useI18n, type Key } from "../i18n";
 import { ChartPanel } from "./DashboardCharts";
 import { EmptyState } from "./ui";
+import { formatMoney, formatNumber } from "../lib/format";
 
 interface Seg { value: number; cls: "c1" | "c2"; label: string }
 export interface Bar { key: string; label: string; value: number; to?: string; segs?: Seg[] }
@@ -12,7 +13,7 @@ export function BarList({ rows, aria }: { rows: Bar[]; aria: string }) {
   const { t } = useI18n();
   const max = Math.max(1, ...rows.map((r) => r.value));
   const all = rows.reduce((n, r) => n + r.value, 0);
-  if (rows.length === 0) return <p className="muted">{t("common.empty")}</p>;
+  if (rows.length === 0) return <EmptyState compact icon="inbox" title={t("common.empty")} hint={t("common.emptyHint")} />;
   return (
     <ul className="hbars" aria-label={aria}>
       {rows.map((r) => {
@@ -21,19 +22,20 @@ export function BarList({ rows, aria }: { rows: Bar[]; aria: string }) {
         return (
           <li key={r.key} className="hb-row">
             <span className="hb-label" title={r.label}>{r.to ? <Link to={r.to}>{r.label}</Link> : r.label}</span>
-            <span className="hb-cell" tabIndex={0} aria-label={`${r.label}: ${r.value.toLocaleString()}`}>
+            {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- focusable so keyboard users can hear the bar value */}
+            <span className="hb-cell" tabIndex={0} aria-label={`${r.label}: ${formatNumber(r.value)}`}>
               <span className="hb-track" aria-hidden="true">
                 {segs.map((s) => <span key={s.label} className={`hb-seg ${s.cls}`} style={{ width: `${(s.value / max) * 100}%` }} />)}
               </span>
               <span className="hb-tip" role="tooltip">
                 <b>{r.label}</b>
-                {r.segs && r.segs.map((s) => <span key={s.label} className="hb-tip-row"><span className={`swatch ${s.cls}`} aria-hidden="true" />{s.label}<b>{s.value.toLocaleString()}</b></span>)}
-                <span className="hb-tip-row total">{t("dash.regionTotal")}<b>{r.value.toLocaleString()}</b></span>
+                {r.segs && r.segs.map((s) => <span key={s.label} className="hb-tip-row"><span className={`swatch ${s.cls}`} aria-hidden="true" />{s.label}<b>{formatNumber(s.value)}</b></span>)}
+                <span className="hb-tip-row total">{t("dash.regionTotal")}<b>{formatNumber(r.value)}</b></span>
                 <span className="muted">{t("dash.regionShare", { n: share })}</span>
                 {r.to && <Link className="hb-tip-link" to={r.to}>{t("equip.drill")}</Link>}
               </span>
             </span>
-            <span className="hb-nums"><b>{r.value.toLocaleString()}</b></span>
+            <span className="hb-nums"><b>{formatNumber(r.value)}</b></span>
           </li>
         );
       })}
@@ -42,7 +44,7 @@ export function BarList({ rows, aria }: { rows: Bar[]; aria: string }) {
 }
 
 function Stat({ label, value, to, warn }: { label: string; value: number | string; to?: string; warn?: boolean }) {
-  const body = <><b>{typeof value === "number" ? value.toLocaleString() : value}</b> {label}</>;
+  const body = <><b>{typeof value === "number" ? formatNumber(value) : value}</b> {label}</>;
   return <span className={warn ? "warnstat" : ""}>{to ? <Link to={to}>{body}</Link> : body}</span>;
 }
 
@@ -52,7 +54,7 @@ const conditionBars = (by: Record<string, number>, t: (k: Key) => string, link?:
 
 export function MoneyList({ rows, label }: { rows: { currency: string; total: string }[]; label: string }) {
   if (rows.length === 0) return null;
-  return <p className="muted money-line">{label}: {rows.map((r) => `${r.currency || "—"} ${Number(r.total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).join(" · ")}</p>;
+  return <p className="muted money-line">{label}: {rows.map((r) => formatMoney(r.total, r.currency || "—")).join(" · ")}</p>;
 }
 
 /** Fleet analytics: classification, condition, inspection and maintenance status, availability and (cost permission only) repair spend. */
@@ -69,16 +71,16 @@ export function FleetPanel({ f, unit }: { f: FleetAnalytics; unit?: string }) {
         <Stat label={t("fleet.underMaintenance")} value={f.under_maintenance} to={q("under_maintenance=1")} warn={f.under_maintenance > 0} />
       </div>
       <h3 className="chart-sub">{t("fleet.byGroup")}</h3>
-      <BarList aria={t("fleet.byGroup")} rows={f.by_group.filter((g) => g.count > 0).map((g) => ({ key: g.code, label: t(`fleet.group.${g.code}` as Key), value: g.count, to: q(`group=${g.code}`) }))} />
+      <BarList aria={t("fleet.byGroup")} rows={(f.by_group ?? []).filter((g) => g.count > 0).map((g) => ({ key: g.code, label: t(`fleet.group.${g.code}` as Key), value: g.count, to: q(`group=${g.code}`) }))} />
       <h3 className="chart-sub">{t("fleet.byCategory")}</h3>
-      <BarList aria={t("fleet.byCategory")} rows={f.by_category.filter((c) => c.count > 0).map((c) => ({ key: c.code, label: name(c), value: c.count, to: q(`category=${c.code}`) }))} />
+      <BarList aria={t("fleet.byCategory")} rows={(f.by_category ?? []).filter((c) => c.count > 0).map((c) => ({ key: c.code, label: name(c), value: c.count, to: q(`category=${c.code}`) }))} />
       {(f.by_model ?? []).length > 0 && <>
         <h3 className="chart-sub">{t("fleet.byModel")}</h3>
         <BarList aria={t("fleet.byModel")} rows={(f.by_model ?? []).map((m) => ({ key: m.code, label: m.name, value: m.count, to: q(`reference_model=${m.code}`) }))} />
       </>}
       <h3 className="chart-sub">{t("fleet.byCondition")}</h3>
-      <BarList aria={t("fleet.byCondition")} rows={conditionBars(f.by_condition, t, (c) => q(`condition=${c}`))} />
-      {f.expenditure.visible && <MoneyList rows={f.expenditure.by_currency} label={t("fleet.repairSpend")} />}
+      <BarList aria={t("fleet.byCondition")} rows={conditionBars(f.by_condition ?? {}, t, (c) => q(`condition=${c}`))} />
+      {f.expenditure?.visible && <MoneyList rows={f.expenditure.by_currency} label={t("fleet.repairSpend")} />}
     </ChartPanel>
   );
 }

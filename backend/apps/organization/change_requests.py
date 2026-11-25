@@ -491,7 +491,7 @@ def _resolve_person(actor, item):
 
 @transaction.atomic
 def propose_bulk_transfer(actor, request, *, items, order_ref, issuing_officer, order_date, org_unit=None, effective_date=None, reason=""):
-    """One Army order moving many people. Every row is checked first; if any row is wrong NOTHING is created. The requests share a
+    """One Police order moving many people. Every row is checked first; if any row is wrong NOTHING is created. The requests share a
     batch id and are approved, rejected or withdrawn as a whole (a super administrator's own entry applies the whole batch at once)."""
     import uuid
 

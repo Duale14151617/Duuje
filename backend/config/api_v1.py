@@ -22,8 +22,8 @@ from apps.weapons.views import WeaponViewSet
 from apps.ppe.views import PpeViewSet
 from apps.vehicles.views import VehicleViewSet
 from apps.vehicles.logbook import VehicleLogViewSet
-from apps.vehicles.maptiles import MapConfigView, MapTilesView
 from apps.vehicles.tracking import TrackerFeedView, VehicleTrackingViewSet
+from apps.vehicles.maptiles import MapConfigView, MapTilesView
 from apps.detention.facility_views import CustodyFacilityViewSet
 from apps.detention.incidents import CustodyIncidentViewSet
 from apps.detention.handover import ShiftHandoverViewSet
@@ -94,17 +94,14 @@ router.register("ammo-control", AmmoControlViewSet, basename="ammo-control")
 router.register("ppe", PpeViewSet, basename="ppe")
 router.register("vehicle-log", VehicleLogViewSet, basename="vehicle-log")
 router.register("vehicle-tracking", VehicleTrackingViewSet, basename="vehicle-tracking")
+router.register("detention", DetentionViewSet, basename="detention")
+router.register("detention-oversight", DetentionOversightViewSet, basename="detention-oversight")
 router.register("personnel-report", PersonnelReportViewSet, basename="personnel-report")
+router.register("shift-handovers", ShiftHandoverViewSet, basename="shift-handover")
+router.register("custody-incidents", CustodyIncidentViewSet, basename="custody-incident")
+router.register("custody-facilities", CustodyFacilityViewSet, basename="custody-facility")
+router.register("occurrence-book", OccurrenceViewSet, basename="occurrence-book")
 router.register("tax", TaxViewSet, basename="tax")
-
-# Custody and the Occurrence Book are switched off unless CUSTODY_ENABLED=1 (their URLs then answer 404; nothing is deleted).
-if settings.CUSTODY_ENABLED:
-    router.register("detention", DetentionViewSet, basename="detention")
-    router.register("detention-oversight", DetentionOversightViewSet, basename="detention-oversight")
-    router.register("shift-handovers", ShiftHandoverViewSet, basename="shift-handover")
-    router.register("custody-incidents", CustodyIncidentViewSet, basename="custody-incident")
-    router.register("custody-facilities", CustodyFacilityViewSet, basename="custody-facility")
-    router.register("occurrence-book", OccurrenceViewSet, basename="occurrence-book")
 router.register("vehicles", VehicleViewSet, basename="vehicle")
 router.register("equipment", EquipmentViewSet, basename="equipment")
 router.register("payroll/profiles", SalaryProfileViewSet, basename="payroll-profile")
@@ -148,9 +145,9 @@ urlpatterns = [
     path("auth/passkeys/register/options/", acc.PasskeyRegisterOptionsView.as_view()),
     path("auth/passkeys/register/verify/", acc.PasskeyRegisterVerifyView.as_view()),
     path("auth/passkeys/<uuid:pk>/", acc.PasskeyDetailView.as_view()),
+    path("tracker/feed/", TrackerFeedView.as_view()),  # GPS trackers (key-authenticated, add-position only)
     path("map/config/", MapConfigView.as_view()),
     path("map/puntland.pmtiles", MapTilesView.as_view()),  # self-hosted map tiles (HTTP Range)
-    path("tracker/feed/", TrackerFeedView.as_view()),  # GPS trackers (key-authenticated, add-position only)
     path("dashboard/", DashboardView.as_view()),
     path("dashboard/activity/", DashboardActivityView.as_view()),
     path("due-soon/", DueSoonView.as_view()),

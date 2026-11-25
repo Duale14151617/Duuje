@@ -28,7 +28,7 @@ def personnel_by_region(people):
     """Headcount per region for the people the caller may already see (`people` is scope-filtered by the caller).
 
     A unit's region is the second segment of its materialised path (HQ / region / ...). Units that sit outside any region
-    (system headquarters, the Army headquarters command) are grouped into one row with code None."""
+    (system headquarters, the Police headquarters command) are grouped into one row with code None."""
     rows = (people.order_by().values("org_unit__path")
             .annotate(total=Count("id"), active=Count("id", filter=Q(status="active"))))
     tally = defaultdict(lambda: [0, 0])

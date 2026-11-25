@@ -1,18 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { SHOW_OFFLINE_DESK } from "../offline/config";
+import { PendingBanner, usePendingCount } from "../offline/PendingBanner";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { api } from "../api/client";
 import { useFetch } from "../api/useFetch";
 import { useAuth } from "../auth/AuthContext";
 import { useI18n, type Key } from "../i18n";
+import { Avatar } from "./Avatar";
+import { NotificationBell } from "./NotificationBell";
+import { SystemFooter } from "./SystemFooter";
 import { GlobalSearch } from "./GlobalSearch";
 import { StepUpDialog } from "./StepUpDialog";
+import { IdleGuard } from "./IdleGuard";
 import { Icon, type IconName } from "./Icon";
 import { useMedia } from "./useMedia";
 import { InstallButton } from "../pwa/install";
+import { tabTitle, titleKeyFor } from "../lib/pageTitles";
 import { ThemeToggle } from "../theme/ThemeToggle";
 
-const SIDEBAR_KEY = "armyhq.sidebar";
-const GROUPS_KEY = "armyhq.navgroups"; // names of the sidebar sections the user has folded away
+const SIDEBAR_KEY = "policehq.sidebar";
+const GROUPS_KEY = "policehq.navgroups"; // names of the sidebar sections the user has folded away
 
 type NavItem = { to: string; label: Key; icon: IconName; show: boolean; match?: string[]; go?: string };
 
@@ -20,7 +27,7 @@ type NavItem = { to: string; label: Key; icon: IconName; show: boolean; match?: 
 const HUBS: { id: string; tabs: string[] }[] = [
   { id: "ammunition", tabs: ["/ammunition", "/accountability", "/ammo-control"] },
   { id: "weapons", tabs: ["/weapons", "/inventories", "/holdings"] },
-  { id: "vehicles", tabs: ["/vehicles", "/equipment"] },
+  { id: "vehicles", tabs: ["/vehicles", "/vehicle-log", "/vehicle-tracking", "/equipment"] },
 ];
 const TAB_PATHS = HUBS.flatMap((h) => h.tabs);
 
@@ -28,15 +35,19 @@ const TAB_PATHS = HUBS.flatMap((h) => h.tabs);
 const NAV_SECTIONS: { key: string; title?: Key; to: string[] }[] = [
   { key: "top", to: ["/", "/notifications"] },
   { key: "units", title: "nav.group.units", to: ["/organization", "/structure", "/structure-changes", "/units"] },
-  { key: "people", title: "nav.group.people", to: ["/my-record", "/personnel", "/search", "/change-requests", "/attendance", "/training", "/ranks"] },
+  { key: "people", title: "nav.group.people", to: ["/my-record", "/personnel", "/personnel-report", "/credentials", "/search", "/change-requests", "/attendance", "/leave", "/promotion", "/fitness", "/training", "/ranks"] },
   { key: "pay", title: "nav.group.pay", to: ["/payroll", "/survivors"] },
-  { key: "reporting", title: "nav.group.reporting", to: ["/reports", "/summary", "/analytics", "/tasks"] },
+  { key: "reporting", title: "nav.group.reporting", to: ["/reports", "/summary", "/schedules", "/analytics", "/tasks", "/due-soon"] },
   { key: "logistics", title: "nav.group.logistics", to: ["/logistics", "/ammunition", "/ppe", "/weapons", "/vehicles", "/food"] },
-  { key: "admin", title: "nav.group.admin", to: ["/users", "/integrations", "/audit"] },
+  { key: "custody", title: "nav.group.custody", to: ["/detention", "/occurrence-book", "/shift-handover", "/custody-facilities", "/custody-oversight", "/custody-incidents", "/offline-desk"] },
+  { key: "revenue", title: "nav.group.revenue", to: ["/tax", "/tax-oversight"] },
+  { key: "admin", title: "nav.group.admin", to: ["/users", "/integrations", "/audit", "/system-health"] },
 ];
 
 export function Layout() {
   const { me, can, logout } = useAuth();
+  const pendingOffline = usePendingCount();
+  const signOut = () => { if (pendingOffline > 0 && !window.confirm(t("off.logoutWarn", { n: pendingOffline }))) return; void logout(); };
   const { t, lang, setLang, name } = useI18n();
 
   const location = useLocation();
@@ -49,20 +60,36 @@ export function Layout() {
     { to: "/structure-changes", icon: "swap", label: "nav.structureChanges", show: can("org.structure_propose") || can("org.structure_approve") },
     { to: "/my-record", icon: "users", label: "nav.myRecord", show: Boolean(me?.personnel_id) && (can("personnel.view") || can("personnel.view_team")) },
     { to: "/personnel", icon: "users", label: "nav.personnel", show: can("personnel.view") || can("personnel.view_team") },
+    { to: "/personnel-report", icon: "list", label: "nav.personnelReport", show: can("personnel.view") },
+    { to: "/credentials", icon: "file", label: "nav.credentials", show: can("credentials.view") || can("credentials.issue") },
     { to: "/search", icon: "search", label: "nav.search", show: can("search.cross_service") },
     { to: "/reports", icon: "file", label: "nav.reports", show: can("reports.view") },
     { to: "/summary", icon: "list", label: "nav.summary", show: can("reports.summary") },
+    { to: "/schedules", icon: "clock", label: "nav.schedules", show: can("schedules.manage") },
     { to: "/logistics", icon: "box", label: "nav.logistics", show: ["logistics.view", "logistics.restricted", "logistics.configure", "logistics.approve", "logistics.restricted_approve", "logistics.report"].some(can) },
     { to: "/ammunition", go: can("logistics.restricted") ? "/ammunition" : "/accountability", icon: "box", label: "nav.hub.ammunition", show: can("logistics.restricted") || can("weapons.view"), match: ["/ammunition", "/accountability", "/ammo-control"] },
     { to: "/ppe", icon: "lock", label: "nav.ppe", show: can("logistics.view") },
     { to: "/weapons", icon: "lock", label: "nav.hub.weapons", show: can("weapons.view"), match: ["/weapons", "/inventories", "/holdings"] },
     { to: "/vehicles", go: can("vehicles.view") ? "/vehicles" : "/equipment", icon: "box", label: "nav.vehicles", show: ["vehicles.view", "weapons.view", "equipment.manage"].some(can), match: ["/vehicles", "/equipment"] },
+    { to: "/detention", icon: "lock", label: "nav.detention", show: can("detention.view") },
+    { to: "/occurrence-book", icon: "list", label: "nav.occurrence", show: can("detention.view") },
+    { to: "/shift-handover", icon: "swap", label: "nav.handover", show: can("detention.view") },
+    { to: "/custody-facilities", icon: "building", label: "nav.facilities", show: ["detention.verify", "detention.incident_review"].some(can) },
+    { to: "/custody-oversight", icon: "building", label: "nav.oversight", show: ["detention.verify", "detention.incident_review"].some(can) },
+    { to: "/custody-incidents", icon: "lock", label: "nav.incidents", show: ["detention.verify", "detention.incident_review"].some(can) },
+    { to: "/offline-desk", icon: "lock", label: "off.nav", show: SHOW_OFFLINE_DESK && can("detention.manage") },
+    { to: "/tax", icon: "list", label: "nav.tax", show: can("tax.view") },
+    { to: "/tax-oversight", icon: "list", label: "nav.taxOversight", show: can("tax.view") },
     { to: "/payroll", icon: "list", label: "nav.payroll", show: can("payroll.view") },
     { to: "/survivors", icon: "users", label: "nav.survivors", show: can("survivor.view") },
     { to: "/attendance", icon: "check", label: "nav.attendance", show: can("attendance.view") },
+    { to: "/leave", icon: "check", label: "nav.leave", show: can("leave.view") || can("leave.own") || can("roster.view") },
+    { to: "/promotion", icon: "check", label: "nav.promotion", show: can("promotion.view") },
+    { to: "/fitness", icon: "check", label: "nav.fitness", show: can("fitness.view") },
     { to: "/units", icon: "building", label: "nav.units", show: can("org.view") },
     { to: "/change-requests", icon: "swap", label: "nav.changeRequests", show: can("changes.propose") || can("changes.approve") },
     { to: "/tasks", icon: "check", label: "nav.tasks", show: can("tasks.view") },
+    { to: "/due-soon", icon: "clock", label: "nav.dueSoon", show: ["credentials.view", "vehicles.view", "detention.view"].some(can) },
     { to: "/food", icon: "box", label: "nav.food", show: can("food.view") },
     { to: "/training", icon: "cap", label: "nav.training", show: ["training.view", "training.configure", "training.report"].some(can) },
     { to: "/analytics", icon: "activity", label: "nav.analytics", show: can("analytics.view") },
@@ -70,6 +97,7 @@ export function Layout() {
     { to: "/users", icon: "lock", label: "nav.users", show: can("users.view") },
     { to: "/integrations", icon: "plug", label: "nav.integrations", show: can("integrations.view") },
     { to: "/audit", icon: "check", label: "nav.audit", show: can("audit.view") },
+    { to: "/system-health", icon: "activity", label: "nav.systemHealth", show: can("users.view") },
     { to: "/notifications", icon: "bell", label: "nav.notifications", show: true },
   ];
 
@@ -82,6 +110,8 @@ export function Layout() {
     { to: "/inventories", label: "nav.inventories", show: can("weapons.view") },
     { to: "/holdings", label: "nav.holdings", show: can("weapons.view") },
     { to: "/vehicles", label: "nav.vehicles", show: can("vehicles.view") },
+    { to: "/vehicle-log", label: "vlog.title", show: can("vehicles.view") },
+    { to: "/vehicle-tracking", label: "nav.tracking", show: can("vehicles.view") },
     { to: "/equipment", label: "nav.equipment", show: ["vehicles.view", "weapons.view", "equipment.manage"].some(can) },
   ];
 
@@ -119,6 +149,11 @@ export function Layout() {
 
   // close after any navigation (link tap, back/forward) and when the viewport grows past the drawer breakpoint
   useEffect(() => { setOpen(false); }, [location.pathname]);
+  // the browser tab names the screen, in the interface language
+  const titleKey = titleKeyFor(location.pathname);
+  const pageTitle = titleKey ? t(titleKey) : null;
+  const appTitle = t("app.name");
+  useEffect(() => { document.title = tabTitle(pageTitle, appTitle); }, [pageTitle, appTitle]);
   useEffect(() => { if (!isMobile) setOpen(false); }, [isMobile]);
 
   // while the drawer is open: lock background scroll, move focus in, Escape closes, Tab stays inside
@@ -188,10 +223,12 @@ export function Layout() {
           <InstallButton />
           <ThemeToggle />
           <button onClick={() => void switchLang()} lang={lang === "en" ? "so" : "en"}>{t("lang.other")}</button>
-          <Link className="icon-btn" to="/account" aria-label={t("nav.account")} title={t("nav.account")}><Icon name="users" size={18} /></Link>
-          <button className="icon-btn" onClick={() => void logout()} aria-label={t("common.signOut")} title={t("common.signOut")}><Icon name="logout" size={18} /></button>
+          <NotificationBell count={count} onChanged={unread.reload} />
+          <Link className="icon-btn avatar-link" to="/account" aria-label={t("nav.account")} title={t("nav.account")}><Avatar size={30} /></Link>
+          <button className="icon-btn" onClick={signOut} aria-label={t("common.signOut")} title={t("common.signOut")}><Icon name="logout" size={18} /></button>
         </div>
       </header>
+      <PendingBanner count={pendingOffline} />
       {import.meta.env.VITE_PREVIEW === "1" && <div className="preview-banner" role="note">{t("preview.banner")}</div>}
       <div className="scope-strip" aria-label={t("scope.label")}>
         {me && me.assignments.length > 0 ? (
@@ -273,8 +310,9 @@ export function Layout() {
         )}
         <Outlet />
       </main>
-      <footer className="muted small" style={{ textAlign: "center", padding: "1rem" }}>{t("app.name")} · {t("app.footer")}</footer>
+      <SystemFooter />
       <StepUpDialog />
+      <IdleGuard />
     </div>
   );
 }

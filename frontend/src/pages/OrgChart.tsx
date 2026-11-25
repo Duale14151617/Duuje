@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import type { ChartNode, OrgAnalytics } from "../api/types";
+import type { ChartNode, ChartPrison, OrgAnalytics } from "../api/types";
 import { useFetch } from "../api/useFetch";
 import { BarRow, StatTiles } from "../components/OrgBits";
 import { Chip, ErrorNotice, Loading } from "../components/ui";
@@ -8,7 +8,7 @@ import { useI18n, type Key } from "../i18n";
 
 function Node({ node, depth }: { node: ChartNode; depth: number }) {
   const { t, name } = useI18n();
-  const [open, setOpen] = useState(depth < 1);
+  const [open, setOpen] = useState(depth < 2);
   const kids = node.children.length > 0;
   return (
     <li>
@@ -25,6 +25,12 @@ function Node({ node, depth }: { node: ChartNode; depth: number }) {
           <span>{t("org2.inactive")}: <b>{node.inactive}</b></span>
         </span>
       </div>
+      {(node.facilities?.length ?? 0) > 0 && (
+        <ul className="org-jails">{node.facilities!.map((f) => (
+          <li key={f.id}><div className="org-node"><span className="tog-gap" /><Chip>{t("act.jails")}</Chip> {name(f)}
+            <span className="counts muted"><span>{t("act.held")}: <b>{f.in_custody}</b>{f.capacity != null ? ` / ${f.capacity}` : ""}</span></span></div></li>
+        ))}</ul>
+      )}
       {kids && open && <ul>{node.children.map((c) => <Node key={c.id} node={c} depth={depth + 1} />)}</ul>}
     </li>
   );
@@ -32,8 +38,8 @@ function Node({ node, depth }: { node: ChartNode; depth: number }) {
 
 /** Expandable organizational chart: General Headquarters > commands > brigades > battalions, each with its strength. */
 export function OrgChart() {
-  const { t } = useI18n();
-  const chart = useFetch<{ count: number; roots: ChartNode[]; counts_complete: boolean }>("/organization/units/chart/");
+  const { t, name } = useI18n();
+  const chart = useFetch<{ count: number; roots: ChartNode[]; prisons?: ChartPrison[]; counts_complete: boolean }>("/organization/units/chart/");
   if (chart.loading && !chart.data) return <Loading />;
   return (
     <div className="org-chart">
@@ -41,6 +47,12 @@ export function OrgChart() {
       {chart.data && !chart.data.counts_complete && <p className="muted">{t("uo.noCounts")}</p>}
       {chart.data && chart.data.roots.length === 0 && <p className="muted">{t("org2.chartEmpty")}</p>}
       <ul>{chart.data?.roots.map((n) => <Node key={n.id} node={n} depth={0} />)}</ul>
+      {(chart.data?.prisons?.length ?? 0) > 0 && (
+        <div className="card">
+          <h3>{t("act.prisons")}</h3>
+          <p className="muted">{chart.data!.prisons!.map((p) => name(p)).join(" · ")}</p>
+        </div>
+      )}
     </div>
   );
 }

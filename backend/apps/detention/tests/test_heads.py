@@ -1,10 +1,3 @@
-import unittest
-
-from django.conf import settings
-
-if not settings.CUSTODY_ENABLED:  # custody is switched off for now; set CUSTODY_ENABLED=1 to run these tests
-    raise unittest.SkipTest("custody is switched off (CUSTODY_ENABLED=0)")
-
 """Work-area head roles: each sees and does only its own area. Synthetic data only."""
 from apps.detention.tests.test_custody_units import FAC, OVR, UnitBase
 from apps.detention.tests.test_detention import URL

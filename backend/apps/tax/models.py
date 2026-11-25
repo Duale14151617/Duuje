@@ -1,6 +1,6 @@
 """Vehicle and traffic taxes (cash, paper receipt).
 
-* These are CIVILIAN vehicles and the people who pay for them: a separate register from the Army vehicle fleet (apps.vehicles).
+* These are CIVILIAN vehicles and the people who pay for them: a separate register from the Police vehicle fleet (apps.vehicles).
 * A payment is one paper receipt. The receipt number is written on the receipt book page by hand and typed in here; the same number
   cannot be used twice in a station. Payments are voided with a reason, never deleted, and cannot be voided once handed over.
 * Cash handover: a collector hands over the unit's uncollected receipts as one batch; a DIFFERENT person counts the cash and confirms

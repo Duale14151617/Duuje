@@ -8,7 +8,9 @@ interface Auth {
   loading: boolean;
   /** True when the last attempt to reach the API failed at the network level (backend down or not deployed). */
   offline: boolean;
-  login: (username: string, password: string, otp?: string) => Promise<void>;
+  login: (username: string, password: string, otp?: string, passkey?: Record<string, unknown>) => Promise<void>;
+  /** Tell the server the person is still here (renews the idle timer). */
+  keepAlive: () => Promise<void>;
   logout: () => Promise<void>;
   reload: () => Promise<void>;
   can: (permission: string) => boolean;
@@ -39,13 +41,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { void reload(); }, [reload]);
 
-  const login = useCallback(async (username: string, password: string, otp?: string) => {
-    const m = await api<Me>("/auth/login/", { method: "POST", body: { username, password, otp } });
+  const login = useCallback(async (username: string, password: string, otp?: string, passkey?: Record<string, unknown>) => {
+    const m = await api<Me>("/auth/login/", { method: "POST", body: { username, password, otp, passkey } });
     await refreshCsrf(); // Django rotates the CSRF token on login
     setOffline(false);
     setMe(m);
     setLang(m.preferred_language);
   }, [setLang]);
+
+  const keepAlive = useCallback(async () => {
+    try {
+      await api<Me>("/auth/me/"); // any answer renews the server's idle timer; the 12-hour cap never moves, so nothing to store
+    } catch (e) {
+      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) setMe(null); // the server already ended the session
+    }
+  }, []);
 
   const logout = useCallback(async () => {
     try { await api("/auth/logout/", { method: "POST" }); } finally {
@@ -55,9 +65,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<Auth>(() => ({
-    me, loading, offline, login, logout, reload,
+    me, loading, offline, login, keepAlive, logout, reload,
     can: (p) => !!me && me.restrictions.length === 0 && me.permissions.includes(p),
-  }), [me, loading, offline, login, logout, reload]);
+  }), [me, loading, offline, login, keepAlive, logout, reload]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

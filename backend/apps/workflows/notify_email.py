@@ -30,7 +30,7 @@ def email_new(recipients):
                 continue  # already mailed recently; the app shows the rest
             unread = Notification.objects.filter(recipient=user, read_at__isnull=True).count()
             link = f"\n\nOpen it here: {settings.SITE_URL}/notifications" if settings.SITE_URL else ""
-            send_background(user.email, "ARMY HQ: you have new notifications",
+            send_background(user.email, "POLICE HQ: you have new notifications",
                             f"You have {unread} unread notification{'s' if unread != 1 else ''} waiting in the system.{link}\n\n"
                             "For your security this message does not include any details. Sign in to read them.\n"
                             "You can stop these emails on your Account page.")

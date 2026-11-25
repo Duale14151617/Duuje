@@ -6,7 +6,7 @@ from apps.detention import hierarchy
 
 
 class Command(BaseCommand):
-    help = ("Check, without changing anything, that every active army station has a correct parent (district or regional command) and region, "
+    help = ("Check, without changing anything, that every active police station has a correct parent (district or regional command) and region, "
             "its departments and a consistent custody setup. Use --strict to exit with an error when something is wrong.")
 
     def add_arguments(self, parser):
@@ -14,11 +14,6 @@ class Command(BaseCommand):
         parser.add_argument("--json", action="store_true", help="Print the findings as JSON")
 
     def handle(self, *args, **opts):
-        from django.conf import settings
-
-        if not settings.CUSTODY_ENABLED:
-            self.stdout.write("Custody is switched off (CUSTODY_ENABLED=0): nothing done.")
-            return
         res = hierarchy.check()
         if opts["json"]:
             self.stdout.write(json.dumps(res, indent=2, default=str))

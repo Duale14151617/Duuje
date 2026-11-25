@@ -4,7 +4,6 @@ Three kinds: ID cards about to expire, vehicles due for service, and court dates
 here invents a deadline: each date comes from a record somebody entered. A list never shows more than CAP rows per kind (the true
 count is always given). The same figures feed the daily digest notification, which says only HOW MANY items are waiting.
 """
-from django.conf import settings
 from datetime import timedelta
 
 from django.db.models import Exists, OuterRef, Q
@@ -59,8 +58,6 @@ def _vehicle_service(user, today, unit=None):
 
 
 def _court(user, now, unit=None):
-    if not settings.CUSTODY_ENABLED:  # custody is switched off
-        return None
     q = scope.unit_scope_q(user, "detention.view", "org_unit__")
     if q is None:
         return None

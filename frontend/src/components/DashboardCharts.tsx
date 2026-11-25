@@ -6,6 +6,7 @@ import { useI18n } from "../i18n";
 import { Icon, type IconName } from "./Icon";
 import { useMedia } from "./useMedia";
 import { EmptyState } from "./ui";
+import { formatDayMonth, formatNumber } from "../lib/format";
 
 /** Card that wraps one chart, styled like the other dashboard panels. */
 export function ChartPanel({ icon, title, actions, children }: { icon: IconName; title: string; actions?: ReactNode; children: ReactNode }) {
@@ -54,14 +55,14 @@ export function RegionChart({ rows, linkFor }: { rows: RegionHeadcount[]; linkFo
   return (
     <>
       <div className="chart-stats">
-        <span><b>{all.toLocaleString()}</b> {t("dash.personnelTitle")}</span>
+        <span><b>{formatNumber(all)}</b> {t("dash.personnelTitle")}</span>
         <span><b>{pct(active, all)}%</b> {t("dash.activePersonnel")}</span>
-        <span className={inactiveAll > 0 ? "warnstat" : ""}><b>{inactiveAll.toLocaleString()}</b> {t("dash.inactive")}</span>
+        <span className={inactiveAll > 0 ? "warnstat" : ""}><b>{formatNumber(inactiveAll)}</b> {t("dash.inactive")}</span>
       </div>
       <div className="chart-toolbar">
         <Legend items={[
-          { cls: "c1", label: `${t("dash.activePersonnel")} ${active.toLocaleString()}` },
-          { cls: "c2", label: `${t("dash.inactive")} ${inactiveAll.toLocaleString()}` },
+          { cls: "c1", label: `${t("dash.activePersonnel")} ${formatNumber(active)}` },
+          { cls: "c2", label: `${t("dash.inactive")} ${formatNumber(inactiveAll)}` },
         ]} />
         <label className="chart-sort"><span>{t("dash.sortBy")}</span>
           <select value={sort} onChange={(e) => setSort(e.target.value as RegionSort)}>
@@ -77,23 +78,24 @@ export function RegionChart({ rows, linkFor }: { rows: RegionHeadcount[]; linkFo
           return (
             <li key={r.code ?? "hq"} className="hb-row">
               <span className="hb-label" title={text}>{links ? <Link to={links.all} aria-label={t("dash.viewRegion", { name: text })}>{text}</Link> : text}</span>
-              <span className="hb-cell" tabIndex={0} aria-label={`${text}: ${t("dash.activePersonnel")} ${r.active.toLocaleString()}, ${t("dash.inactive")} ${inactive.toLocaleString()}, ${t("dash.regionTotal")} ${r.total.toLocaleString()}`}>
+              {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- focusable so keyboard users can hear the bar value */}
+              <span className="hb-cell" tabIndex={0} aria-label={`${text}: ${t("dash.activePersonnel")} ${formatNumber(r.active)}, ${t("dash.inactive")} ${formatNumber(inactive)}, ${t("dash.regionTotal")} ${formatNumber(r.total)}`}>
                 <span className="hb-track" aria-hidden="true">
                   <span className="hb-seg c1" style={{ width: `${(r.active / max) * 100}%` }} />
                   <span className="hb-seg c2" style={{ width: `${(inactive / max) * 100}%`, minWidth: inactive > 0 ? 3 : undefined }} />
                 </span>
                 <span className="hb-tip" role="tooltip">
                   <b>{text}</b>
-                  <span className="hb-tip-row"><span className="swatch c1" aria-hidden="true" />{t("dash.activePersonnel")}<b>{r.active.toLocaleString()}</b></span>
-                  <span className="hb-tip-row"><span className="swatch c2" aria-hidden="true" />{t("dash.inactive")}<b>{inactive.toLocaleString()}</b></span>
-                  <span className="hb-tip-row total">{t("dash.regionTotal")}<b>{r.total.toLocaleString()}</b></span>
+                  <span className="hb-tip-row"><span className="swatch c1" aria-hidden="true" />{t("dash.activePersonnel")}<b>{formatNumber(r.active)}</b></span>
+                  <span className="hb-tip-row"><span className="swatch c2" aria-hidden="true" />{t("dash.inactive")}<b>{formatNumber(inactive)}</b></span>
+                  <span className="hb-tip-row total">{t("dash.regionTotal")}<b>{formatNumber(r.total)}</b></span>
                   <span className="muted">{t("dash.regionShare", { n: pct(r.total, all) })} · {t("dash.activeRate", { n: pct(r.active, r.total) })}</span>
                   {links && <Link className="hb-tip-link" to={links.active}>{t("dash.viewActive")}</Link>}
                 </span>
               </span>
               <span className="hb-nums">
-                <b>{r.total.toLocaleString()}</b>
-                <span className="hb-split"><span className="c1t">{r.active.toLocaleString()}</span> / <span className={inactive > 0 ? "c2t" : "mutet"}>{inactive.toLocaleString()}</span></span>
+                <b>{formatNumber(r.total)}</b>
+                <span className="hb-split"><span className="c1t">{formatNumber(r.active)}</span> / <span className={inactive > 0 ? "c2t" : "mutet"}>{formatNumber(inactive)}</span></span>
               </span>
             </li>
           );
@@ -162,9 +164,7 @@ export function ActivityChart({ days }: { days: DayActivity[] }) {
   const plotH = H - PAD.top - PAD.bottom;
   const base = H - PAD.bottom;
   const grid = [0, top / 2, top].map((v) => ({ v, y: base - (v / top) * plotH }));
-  const fmt = (iso: string, opts: Intl.DateTimeFormatOptions) => {
-    try { return new Intl.DateTimeFormat(lang, opts).format(new Date(`${iso}T12:00:00`)); } catch { return iso.slice(5); }
-  };
+  const fmt = (iso: string, opts: Intl.DateTimeFormatOptions) => formatDayMonth(iso, lang, opts.weekday as "long" | "short" | undefined, opts.month as "long" | "short");
   if (total === 0) return <p className="muted chart-empty">{t(dense ? "dash.noActivity30d" : "dash.noActivity")}</p>;
   const shown = pick !== null ? days[pick] : null;
   const toggle = (k: "events" | "issues") => setShow((s) => (s[k] && !s[other(k)] ? s : { ...s, [k]: !s[k] }));  // keep one series visible
@@ -176,8 +176,8 @@ export function ActivityChart({ days }: { days: DayActivity[] }) {
   return (
     <>
       <div className="chart-stats">
-        <span><b>{total.toLocaleString()}</b> {t("dash.events")}</span>
-        <span className={issuesTotal > 0 ? "issue" : ""}><b>{issuesTotal.toLocaleString()}</b> {t("dash.activityIssues")}</span>
+        <span><b>{formatNumber(total)}</b> {t("dash.events")}</span>
+        <span className={issuesTotal > 0 ? "issue" : ""}><b>{formatNumber(issuesTotal)}</b> {t("dash.activityIssues")}</span>
         <span className={issuesTotal > 0 ? "issue" : ""}>{t("dash.issueRate", { n: total > 0 ? Math.round((issuesTotal / total) * 1000) / 10 : 0 })}</span>
       </div>
       <ul className="chart-legend chart-switches">
@@ -191,8 +191,8 @@ export function ActivityChart({ days }: { days: DayActivity[] }) {
       </ul>
       <p className="chart-readout" aria-live="polite">
         {shown
-          ? t("dash.dayDetail", { date: fmt(shown.date, { weekday: "long", day: "numeric", month: "long" }), events: shown.events.toLocaleString(), issues: shown.issues.toLocaleString() })
-          : <span className="muted">{t("dash.busiestDay")}: {fmt(peak.date, { weekday: "short", day: "numeric", month: "short" })} · {peak.events.toLocaleString()}</span>}
+          ? t("dash.dayDetail", { date: fmt(shown.date, { weekday: "long", day: "numeric", month: "long" }), events: formatNumber(shown.events), issues: formatNumber(shown.issues) })
+          : <span className="muted">{t("dash.busiestDay")}: {fmt(peak.date, { weekday: "short", day: "numeric", month: "short" })} · {formatNumber(peak.events)}</span>}
       </p>
       <svg className="chart-svg" viewBox={`0 0 ${W} ${H}`} role="group" aria-label={title} preserveAspectRatio="xMidYMid meet" onMouseLeave={() => setPick(null)}>
         {grid.map((g) => (

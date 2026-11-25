@@ -5,6 +5,7 @@ import { useFetch } from "../api/useFetch";
 import { Chip, ErrorNotice, Field, Notice, Loading, EmptyState } from "../components/ui";
 import { UnitPicker } from "../components/UnitPicker";
 import { useI18n, type Key } from "../i18n";
+import { formatDateTime } from "../lib/format";
 
 const KINDS = ["issue", "return", "expended", "lost"] as const;
 type Kind = (typeof KINDS)[number];
@@ -196,7 +197,7 @@ function RoundsForm({ person, unitId, lines, onDone, onCancel }: {
 }
 
 function History({ personnelId, version }: { personnelId: string; version: number }) {
-  const { t, name } = useI18n();
+  const { t, name, lang } = useI18n();
   const h = useFetch<{ results: Move[] }>("/weapons/rounds_history/", { personnel: personnelId, v: version });
   const rows = h.data?.results ?? [];
   return (
@@ -210,7 +211,7 @@ function History({ personnelId, version }: { personnelId: string; version: numbe
           <li key={m.id} className="item">
             <div className="stat"><span>{t(`hold.${m.kind === "issue" ? "issued" : m.kind === "return" ? "returned" : m.kind}` as Key)} · {name(m.category)}</span><b>{m.delta > 0 ? `+${m.delta}` : m.delta}</b></div>
             <p className="muted">
-              {new Date(m.at).toLocaleString()} · {t("hold.balanceAfter")} {m.balance_after}
+              {formatDateTime(m.at, lang)} · {t("hold.balanceAfter")} {m.balance_after}
               {m.reference ? ` · ${t("hold.voucher")} ${m.reference}` : ""}{m.authority_ref ? ` · ${m.authority_ref}` : ""}{m.note ? ` · ${m.note}` : ""} · {m.actor}
             </p>
           </li>

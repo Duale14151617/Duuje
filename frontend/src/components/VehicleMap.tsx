@@ -75,8 +75,6 @@ function buildStyle(config: MapConfig) {
   };
 }
 
-const pointsFc = (pts: LatLon[]): Fc => ({ type: "FeatureCollection", features: pts.map(([la, lo]) => ({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [lo, la] } })) });
-
 export default function VehicleMap(props: MapProps) {
   const box = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);

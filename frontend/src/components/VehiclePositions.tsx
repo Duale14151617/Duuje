@@ -6,6 +6,7 @@ import { useFetch } from "../api/useFetch";
 import { Chip, ErrorNotice, Field } from "./ui";
 import { DataTable, type Column } from "./DataTable";
 import { useI18n } from "../i18n";
+import { formatTime } from "../lib/format";
 import { Geofences, type Zone } from "./Geofences";
 import type { MapConfig, MapDraft, MapVehicle, MapZone } from "./VehicleMap";
 
@@ -24,7 +25,6 @@ interface TrailData { points: { id: string; latitude: string; longitude: string;
 const VehicleMap = lazy(() => import("./VehicleMap"));
 interface MapInfo extends MapConfig { available: boolean }
 
-const formatTime = (d: Date, lang: string) => d.toLocaleTimeString(lang === "so" ? "so-SO" : "en-GB", { hour: "2-digit", minute: "2-digit" });
 const ago = (m: number) => (m < 60 ? `${m} min` : m < 2880 ? `${Math.floor(m / 60)} h` : `${Math.floor(m / 1440)} d`);
 const mapLink = (p: Pos) => `https://www.openstreetmap.org/?mlat=${p.latitude}&mlon=${p.longitude}#map=15/${p.latitude}/${p.longitude}`;
 const label = (v: VehicleB) => `${v.vehicle_id}${v.plate ? ` · ${v.plate}` : ""}`;
@@ -81,8 +81,10 @@ function Trail({ data }: { data: TrailData }) {
   );
 }
 
-/** Where military vehicles are. Lives inside the Vehicles page (fleet-wide) and the vehicle detail (one vehicle); it has no page or menu item of its own. */
-export function VehiclePositions({ vehicleId }: { vehicleId?: string }) {
+/** Where police vehicles are: latest positions on the map, route trail, silent vehicles, zones and the daily movement report, trackers.
+ *  Used fleet-wide on the Vehicle tracking page and for one vehicle (`vehicleId`) on the vehicle detail. `heading={false}` hides the
+ *  title when the page already has one. */
+export function VehiclePositions({ vehicleId, heading = true }: { vehicleId?: string; heading?: boolean }) {
   const { t, lang } = useI18n();
   const { can } = useAuth();
   const canReport = can("vehicles.position");
@@ -222,8 +224,7 @@ export function VehiclePositions({ vehicleId }: { vehicleId?: string }) {
   const feedUrl = `${window.location.origin}/api/v1/tracker/feed/`;
   return (
     <>
-      <h2>{t("trk.title")}</h2>
-      <p className="muted">{t("trk.subtitle")}</p>
+      {heading && <><h2>{t("trk.title")}</h2><p className="muted">{t("trk.subtitle")}</p></>}
       {error != null && <ErrorNotice error={error} />}
       {!vehicleId && silent.data?.vehicles && (
         <section className="card" role="status" aria-live="polite">

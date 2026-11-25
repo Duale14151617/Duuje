@@ -4,7 +4,7 @@ import type { FoodAllocationOut, FoodBatchOut, FoodOptions, FoodSupplier, FoodWa
 import { useFetch } from "../api/useFetch";
 import { UnitPicker } from "../components/UnitPicker";
 import { BulkTransfer, OpeningImport } from "./FoodBulk";
-import { Chip, ErrorNotice, Field, formatDate, Loading, Notice, Tabs } from "../components/ui";
+import { EmptyState, Chip, ErrorNotice, Field, formatDate, Loading, Notice, Tabs } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
 
 const B = "/logistics";
@@ -24,15 +24,15 @@ function Warnings() {
   return (
     <>
       <div className="card"><h2>{t("fd.lowStock")}</h2>
-        {d.low_stock.length === 0 ? <p className="muted">{t("fd.none")}</p> : d.low_stock.map((x) => (
+        {d.low_stock.length === 0 ? <EmptyState compact icon="box" title={t("fd.none")} hint={t("common.emptyHint")} /> : d.low_stock.map((x) => (
           <p key={x.stock_line}>{x.org_unit} · {x.category}: <strong>{x.quantity}</strong> {x.uom} ({t("fd.reorder")} {x.reorder_level})</p>))}
       </div>
       <div className="card"><h2>{t("fd.expiring", { days: d.days })}</h2>
-        {d.expiring.length === 0 ? <p className="muted">{t("fd.none")}</p> : d.expiring.map((x) => (
+        {d.expiring.length === 0 ? <EmptyState compact icon="box" title={t("fd.none")} hint={t("common.emptyHint")} /> : d.expiring.map((x) => (
           <p key={x.batch}>{x.expired && <Chip tone="rejected">{t("fd.expired")}</Chip>} {x.org_unit} · {x.category} · {x.remaining} {x.uom} · {x.expires_on}{x.supplier ? ` · ${x.supplier}` : ""}</p>))}
       </div>
       <div className="card"><h2>{t("fd.unbatched")}</h2>
-        {d.unbatched.length === 0 ? <p className="muted">{t("fd.none")}</p> : d.unbatched.map((x) => (
+        {d.unbatched.length === 0 ? <EmptyState compact icon="box" title={t("fd.none")} hint={t("common.emptyHint")} /> : d.unbatched.map((x) => (
           <p key={x.stock_line}>{x.org_unit} · {x.category}: {t("fd.ledger")} {x.ledger} / {t("fd.batched")} {x.batched}</p>))}
       </div>
     </>

@@ -3,6 +3,7 @@
 Safe to re-run. Roles/permissions are system-defined and are re-synced; organization units
 and ranks are only created if missing, so administrator edits and rank approvals are kept.
 """
+from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
@@ -54,8 +55,8 @@ PERMISSIONS = {
     "survivor.verify": "Verify or reject beneficiaries and mark a case verified",
     "survivor.approve": "Authorize survivor allocations and close cases (never your own proposal)",
     "weapons.manage": "Register weapons, issue them to personnel, take them back and record condition for units in scope",
-    "vehicles.view": "View the military vehicle register (Vehicle ID, plate, driver, location, status, history) for units in scope; every view is audited",
-    "vehicles.create": "Register Army vehicles into units in scope",
+    "vehicles.view": "View the Police vehicle register (Vehicle ID, plate, driver, location, status, history) for units in scope; every view is audited",
+    "vehicles.create": "Register Police vehicles into units in scope",
     "vehicles.edit": "Edit vehicle details, assign drivers and custodians, record location, status, maintenance and documents for units in scope",
     "vehicles.transfer": "Transfer vehicles between units (needs authority in both the sending and receiving unit)",
     "vehicles.dispose": "Propose decommissioning/disposal of a vehicle (the proposal needs separate approval)",
@@ -117,7 +118,7 @@ PERMISSIONS = {
     "restricted.access": "Reach personnel records inside restricted units. Never implied by any other permission",
     "tasks.view": "View administrative tasks of units in scope",
     "tasks.manage": "Record, assign, start, complete and cancel administrative tasks of units in scope (headquarters administrators and super administrator)",
-    "changes.propose": "Propose hierarchy-affecting changes (personnel transfers) with the Army order that authorizes them (headquarters); nothing applies until the super administrator approves",
+    "changes.propose": "Propose hierarchy-affecting changes (personnel transfers) with the Police order that authorizes them (headquarters); nothing applies until the super administrator approves",
     "changes.approve": "Approve, reject or start review of proposed hierarchy changes (super administrator); cannot approve one's own request except as the super administrator's own immediate entry",
     "food.view": "View food stores, suppliers, allocations and expiry warnings in scope",
     "food.manage": "Receive food from suppliers, allocate it to units and record deliveries in scope (headquarters administrators and super administrator)",
@@ -227,7 +228,7 @@ ROLES = {
                BASIC + ["personnel.view_team"]),
     # Taliye Guuto / Taliye Urur: record attendance for their unit and below, and make the unit situation report (attendance,
     # personnel status, ammunition issued and remaining). Assigned per unit; link it to the command appointment so that it ends with it.
-    "unit_commander": ("Unit commander (Taliye Guuto / Taliye Urur)", "Taliyaha cutubka (Taliye Guuto / Taliye Urur)", False, False,
+    "unit_commander": ("Unit commander (Taliye Koox)", "Taliyaha cutubka (Taliye Koox)", False, False,
                        ["unit"], BASIC + ["personnel.view", "attendance.view", "attendance.record", "reports.view", "reports.submit",
                                           "logistics.view", "logistics.restricted", "weapons.view", "vehicles.view", "vehicles.position", "detention.view", "detention.manage"]),
     # Taliye Qaybeed: sees what the heads of the Guuto and Urur in the region have posted (reports, attendance, personnel). Assigned at the
@@ -301,7 +302,7 @@ DEPARTMENTS = [
 FORMATION_ROLES = {"TALISKA_GUUD": "ghq", "QAYB": "regional", "GUUTO": "brigade", "URUR": "battalion"}
 # code -> (role, Somali, English, unit type it belongs to or None for any unit, exclusive). Leadership offices for unit profiles.
 LEADERSHIP_TYPES = [
-    ("TALIYE_GUUD", "commander", "Taliyaha Taliska Guud", "Army Headquarters commander (Taliye Taliska Guud)", "TALISKA_GUUD", True),
+    ("TALIYE_GUUD", "commander", "Taliyaha Taliska Guud", "Police Headquarters commander (Taliye Taliska Guud)", "TALISKA_GUUD", True),
     ("UNIT_DEPUTY", "deputy", "Ku-xigeenka taliyaha", "Deputy commander", None, True),
     ("ADMIN_LEAD", "administrative", "Madaxa maamulka", "Head of administration", None, True),
     ("DEPT_HEAD", "department_head", "Madaxa waaxda", "Head of department", None, True),
@@ -317,7 +318,7 @@ APPOINTMENT_TYPES = [
 BRANCHES = [("ARMY", "Army", "Ciidanka Dhulka")]
 REGIONS = ["Bari", "Nugaal", "Mudug"]
 
-# Army ranks live in apps/ranks/catalogue.py (the 16 official Puntland Army ranks, as supplied).
+# Army ranks live in apps/ranks/catalogue.py (the 16 official Puntland Police ranks, as supplied).
 # The organizational template lives in apps/organization/reference.py.
 
 
@@ -345,7 +346,7 @@ for _role, _codes in {
     "member": ["leave.own"],
 }.items():
     EXTRA.setdefault(_role, []).extend(_codes)
-VEHICLE_CATEGORIES = [  # code, name_en, name_so, sort. Available categories only: seeding does not assert that the Army owns any vehicle of a type.
+VEHICLE_CATEGORIES = [  # code, name_en, name_so, sort. Available categories only: seeding does not assert that the Police owns any vehicle of a type.
     ("ambulance", "Ambulance", "Gaari bakhaar", 10), ("armored_truck", "Armored truck", "Gawaari hubaysan", 20),
     ("hilux_4x4", "Hilux 4x4", "Hilux 4x4", 30), ("truck", "Truck", "Gawaari xamuul", 40), ("bus", "Bus", "Bas", 50),
     ("motorcycle", "Motorcycle", "Mooto", 60), ("utility", "Utility vehicle", "Gaari adeeg", 70),
@@ -418,16 +419,19 @@ class Command(BaseCommand):
             region = OU.objects.filter(code=name.upper()).first() or OU.objects.create(
                 code=name.upper(), name_en=name, name_so=name, level=OU.Level.REGION, parent=hq)
             for bcode, b in branches.items():
+                if getattr(settings, "POLICEHQ_PROFILE", "army") == "police":
+                    break  # the Police deployment builds its own regional commands (apply_police_structure)
                 OU.objects.filter(code=f"{region.code}-{bcode}").first() or OU.objects.create(
                     code=f"{region.code}-{bcode}", name_en=f"{name} {b.name_en}",
                     name_so=f"{name} {b.name_so}", level=OU.Level.BRANCH, parent=region, branch=b)
 
         army = branches["ARMY"]
-        # Official Puntland Army ranks (18, as supplied). Idempotent; never overwrites administrator edits or approvals.
+        # Official Puntland Police ranks (18, as supplied). Idempotent; never overwrites administrator edits or approvals.
         created, removed, deactivated = apply_official_ranks(Rank, Personnel, army, timezone.now())
         # Organizational template (Taliska Guud ... Unug), specialist designations and the expected relationships.
         types = ensure_reference(UnitType, SpecialistDesignation, DesignationRule)
-        tag_regional_army_commands(OU, ServiceBranch, types)
+        if getattr(settings, "POLICEHQ_PROFILE", "army") != "police":
+            tag_regional_army_commands(OU, ServiceBranch, types)
         for code, so, en, utype, exclusive in APPOINTMENT_TYPES:  # created once; administrator edits are never overwritten
             AppointmentType.objects.get_or_create(code=code, defaults={
                 "name_so": so, "name_en": en, "unit_type": types.get(utype), "exclusive": exclusive})

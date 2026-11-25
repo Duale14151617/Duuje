@@ -15,7 +15,7 @@ class Migration(migrations.Migration):
             fields=[
                 ("id", models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
                 ("code", models.CharField(max_length=64, unique=True)),
-                ("kind", models.CharField(choices=[("jail_center", "Jail center (army lock-up)"), ("prison", "Prison")], max_length=12)),
+                ("kind", models.CharField(choices=[("jail_center", "Jail center (police lock-up)"), ("prison", "Prison")], max_length=12)),
                 ("name_en", models.CharField(max_length=150)),
                 ("name_so", models.CharField(blank=True, max_length=150)),
                 ("location", models.CharField(blank=True, max_length=200)),

@@ -1,7 +1,7 @@
-# Military vehicle tracking
+# Police vehicle tracking
 
-Tracking is part of the Vehicles feature, not a separate area: **Vehicles → Tracking** tab (all vehicles in your scope) and a
-**Vehicle positions** section on each vehicle's page. There is no separate menu item.
+Tracking has its own page, **Vehicle tracking** (every vehicle in your scope: map, silent vehicles, zones, daily movement report,
+trackers), and a **Vehicle positions** section on each vehicle's page. Both use the same Puntland map (see VEHICLE_MAP.md).
 
 ## Three ways a position arrives
 1. **Typed in** by an officer (latitude, longitude, optional place and note).

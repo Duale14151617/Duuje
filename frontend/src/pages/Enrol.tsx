@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { BackupCodesPanel } from "../components/BackupCodesPanel";
 import { ErrorNotice, Field } from "../components/ui";
 import { useI18n } from "../i18n";
 
@@ -54,6 +55,7 @@ export function MfaEnrol() {
   const [code, setCode] = useState("");
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  const [codes, setCodes] = useState<string[] | null>(null);
 
   async function start() {
     setError(null);
@@ -69,8 +71,9 @@ export function MfaEnrol() {
     setBusy(true);
     setError(null);
     try {
-      await api("/auth/mfa/confirm/", { method: "POST", body: { code } });
-      await reload();
+      const r = await api<{ backup_codes?: string[] }>("/auth/mfa/confirm/", { method: "POST", body: { code } });
+      if (r?.backup_codes?.length) setCodes(r.backup_codes); // show them once before moving on
+      else await reload();
     } catch (err) {
       setError(err);
     } finally {
@@ -78,6 +81,14 @@ export function MfaEnrol() {
     }
   }
 
+  if (codes) {
+    return (
+      <div className="auth">
+        <h1>{t("enrol.mfaTitle")}</h1>
+        <BackupCodesPanel codes={codes} onDone={() => void reload()} />
+      </div>
+    );
+  }
   return (
     <div className="auth">
       <h1>{t("enrol.mfaTitle")}</h1>

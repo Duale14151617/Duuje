@@ -1,4 +1,4 @@
-"""Combined cross-service report: Army strength, aggregates only.
+"""Combined cross-service report: Police strength, aggregates only.
 
 Needs `reports.combined` (headquarters-wide: command authority, super_admin). It is computed with exactly the same scope
 rules as every other personnel-data report, so:
@@ -93,7 +93,7 @@ def build(user) -> dict:
 
 
 class CombinedReportViewSet(viewsets.GenericViewSet):
-    """Army strength in one view. Read-only, aggregates only, audited on every view."""
+    """Police strength in one view. Read-only, aggregates only, audited on every view."""
 
     permission_classes = [ScopedPermission]
     pagination_class = None

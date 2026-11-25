@@ -11,7 +11,20 @@
 
 export interface PdfColumn { header: string; width: number; align?: "left" | "right" }
 export interface PdfSection { heading?: string; columns: PdfColumn[]; rows: string[][] }
+/** Institutional letterhead: header band with crest, reference line, classification footer. Omit for a plain document. */
+export interface PdfBrand {
+  org: string;              // e.g. "Puntland Police"
+  unit: string;             // e.g. "Headquarters"
+  classification: string;   // e.g. "CONFIDENTIAL - FOR OFFICIAL USE ONLY"
+  reference: string;        // document reference printed on every page
+  referenceLabel: string;
+  generatedByLabel: string;
+  generatedBy: string;
+  /** Baseline JPEG of the crest (see lib/crest.ts); the header is drawn without it when absent. */
+  crest?: { jpeg: Uint8Array; width: number; height: number };
+}
 export interface PdfDoc {
+  brand?: PdfBrand;
   title: string;
   subtitle?: string;
   footer?: string;
@@ -96,6 +109,12 @@ const num = (n: number) => (Math.round(n * 100) / 100).toString();
 
 interface PageOps { ops: string[] }
 
+type Color = number | [number, number, number];  // gray level, or r g b (0..1)
+const NAVY: Color = [0.04, 0.12, 0.25];
+const GOLD: Color = [0.78, 0.63, 0.29];
+const fillOp = (c: Color) => (typeof c === "number" ? `${c} g` : `${c[0]} ${c[1]} ${c[2]} rg`);
+const strokeOp = (c: Color) => (typeof c === "number" ? `${c} G` : `${c[0]} ${c[1]} ${c[2]} RG`);
+
 export function buildPdf(doc: PdfDoc): Uint8Array {
   const [PW, PH] = doc.landscape ? [841.89, 595.28] : [595.28, 841.89];
   const M = 40, FOOT = 28;
@@ -104,20 +123,51 @@ export function buildPdf(doc: PdfDoc): Uint8Array {
   let page: PageOps;
   let y = 0;
 
-  const newPage = () => { page = { ops: [] }; pages.push(page); y = PH - M; };
-  const text = (s: string, x: number, yy: number, size: number, bold = false, gray = 0) =>
-    page.ops.push(`BT ${gray} g /${bold ? "F2" : "F1"} ${size} Tf ${num(x)} ${num(yy)} Td (${esc(s)}) Tj ET`);
-  const rect = (x: number, yy: number, w: number, h: number, gray: number) =>
-    page.ops.push(`${gray} g ${num(x)} ${num(yy)} ${num(w)} ${num(h)} re f`);
-  const rule = (yy: number, gray = 0.8) =>
-    page.ops.push(`${gray} G 0.5 w ${num(M)} ${num(yy)} m ${num(PW - M)} ${num(yy)} l S`);
+  let newPage = () => { page = { ops: [] }; pages.push(page); y = PH - M; };
+  const text = (s: string, x: number, yy: number, size: number, bold = false, color: Color = 0) =>
+    page.ops.push(`BT ${fillOp(color)} /${bold ? "F2" : "F1"} ${size} Tf ${num(x)} ${num(yy)} Td (${esc(s)}) Tj ET`);
+  const rect = (x: number, yy: number, w: number, h: number, color: Color) =>
+    page.ops.push(`${fillOp(color)} ${num(x)} ${num(yy)} ${num(w)} ${num(h)} re f`);
+  const rule = (yy: number, color: Color = 0.8, width = 0.5) =>
+    page.ops.push(`${strokeOp(color)} ${width} w ${num(M)} ${num(yy)} m ${num(PW - M)} ${num(yy)} l S`);
   const ensure = (h: number) => { if (y - h < M + FOOT) newPage(); };
+
+  // Letterhead: a full header band on the first page, a slim one on the rest. Sets `y` to where content may start.
+  const brand = doc.brand;
+  const crest = brand?.crest;
+  const banner = (full: boolean) => {
+    if (!brand) return;
+    const bh = full ? 78 : 26;
+    rect(0, PH - bh, PW, bh, NAVY);
+    rect(0, PH - bh - 2.5, PW, 2.5, GOLD);
+    const cls = encode(brand.classification.toUpperCase());
+    if (full) {
+      let tx = M;
+      if (crest) {
+        const ch = 54, cw = (ch * crest.width) / crest.height, cy = PH - bh + (bh - ch) / 2;
+        rect(M - 2, cy - 2, cw + 4, ch + 4, 1);  // white badge so the crest's own background never looks boxed
+        page.ops.push(`q ${num(cw)} 0 0 ${num(ch)} ${num(M)} ${num(cy)} cm /Im1 Do Q`);
+        tx = M + cw + 16;
+      }
+      text(encode(brand.org.toUpperCase()), tx, PH - 36, 15, true, 1);
+      text(encode(brand.unit), tx, PH - 53, 10, false, GOLD);
+      text(cls, PW - M - textWidth(cls, 7.5, true), PH - 22, 7.5, true, GOLD);
+    } else {
+      text(encode(`${brand.org} - ${brand.unit}`), M, PH - 17, 8, true, 1);
+      const ref = encode(brand.reference);
+      text(ref, PW - M - textWidth(ref, 8, false), PH - 17, 8, false, GOLD);
+    }
+    y = PH - bh - 2.5 - (full ? 10 : 18);
+  };
+  const origNewPage = newPage;
+  newPage = () => { origNewPage(); banner(pages.length === 1); };
 
   newPage();
   for (const line of wrap(doc.title, usable, 18, true)) { y -= 20; text(line, M, y, 18, true); }
   if (doc.subtitle) for (const line of wrap(doc.subtitle, usable, 10, false)) { y -= 13; text(line, M, y, 10, false, 0.35); }
-  const stamp = `${doc.generatedLabel ?? "Generated"}: ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`;
-  y -= 13; text(encode(stamp), M, y, 8, false, 0.45);
+  const when = `${doc.generatedLabel ?? "Generated"}: ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`;
+  const stamp = brand ? `${brand.referenceLabel}: ${brand.reference}   |   ${when}   |   ${brand.generatedByLabel}: ${brand.generatedBy}` : when;
+  for (const line of wrap(stamp, usable, 8, false)) { y -= 13; text(line, M, y, 8, false, 0.45); }
   y -= 8; rule(y, 0.5); y -= 6;
 
   const SIZE = 9, LEAD = 11.5, PADX = 4, PADY = 3.5;
@@ -171,6 +221,13 @@ export function buildPdf(doc: PdfDoc): Uint8Array {
   pages.forEach((p, idx) => {
     page = p;
     const label = encode(doc.pageLabel ? doc.pageLabel(idx + 1, total) : `Page ${idx + 1} of ${total}`);
+    if (brand) {
+      rule(M + 4, GOLD, 1);
+      text(encode(brand.classification.toUpperCase()), M, M - 8, 7.5, true, NAVY);
+      text(label, PW - M - textWidth(label, 8, false), M - 8, 8, false, 0.45);
+      text(encode([footer, brand.reference].filter(Boolean).join("   |   ")), M, M - 19, 7, false, 0.5);
+      return;
+    }
     text(label, PW - M - textWidth(label, 8, false), M - 6, 8, false, 0.45);
     if (footer) text(footer, M, M - 6, 8, false, 0.45);
   });
@@ -181,14 +238,23 @@ export function buildPdf(doc: PdfDoc): Uint8Array {
   objs[1] = "<< /Type /Catalog /Pages 2 0 R >>";
   objs[3] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>";
   objs[4] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>";
-  objs[5] = `<< /Title (${esc(encode(doc.title))}) /Producer (Puntland Defence Forces HQ) >>`;
+  objs[5] = `<< /Title (${esc(encode(doc.title))}) /Producer (${esc(encode(brand?.org || "Puntland HQ"))})` +
+    (brand ? ` /Author (${esc(encode(brand.generatedBy))}) /Subject (${esc(encode(brand.reference))})` : "") + " >>";
   let next = 6;
+  let imgId = 0;
+  if (crest) {
+    imgId = next++;
+    let bin = "";
+    for (let i = 0; i < crest.jpeg.length; i += 8192) bin += String.fromCharCode(...crest.jpeg.subarray(i, i + 8192));
+    objs[imgId] = `<< /Type /XObject /Subtype /Image /Width ${crest.width} /Height ${crest.height} /ColorSpace /DeviceRGB ` +
+      `/BitsPerComponent 8 /Filter /DCTDecode /Length ${crest.jpeg.length} >>\nstream\n${bin}\nendstream`;
+  }
   for (const p of pages) {
     const content = p.ops.join("\n");
     const cid = next++, pid = next++;
     objs[cid] = `<< /Length ${content.length} >>\nstream\n${content}\nendstream`;
     objs[pid] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${num(PW)} ${num(PH)}] /Contents ${cid} 0 R ` +
-      `/Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>`;
+      `/Resources << /Font << /F1 3 0 R /F2 4 0 R >>${imgId ? ` /XObject << /Im1 ${imgId} 0 R >>` : ""} >> >>`;
     kids.push(pid);
   }
   objs[2] = `<< /Type /Pages /Count ${kids.length} /Kids [${kids.map((k) => `${k} 0 R`).join(" ")}] >>`;

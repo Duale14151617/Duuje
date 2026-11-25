@@ -8,7 +8,7 @@ no_delete_trigger = importlib.import_module("apps.vehicles.migrations.0002_integ
 
 
 class Migration(migrations.Migration):
-    dependencies = [("vehicles", "0007_reference_models_photos_armament"), ("personnel", "0008_attendance_support_category")]
+    dependencies = [("vehicles", "0008_police_vehicles_group"), ("personnel", "0008_attendance_support_category")]
 
     operations = [
         migrations.CreateModel(

@@ -1,10 +1,3 @@
-import unittest
-
-from django.conf import settings
-
-if not settings.CUSTODY_ENABLED:  # custody is switched off for now; set CUSTODY_ENABLED=1 to run these tests
-    raise unittest.SkipTest("custody is switched off (CUSTODY_ENABLED=0)")
-
 """Station detention units: verification, cells and capacity, duplicate custody, station-to-station transfer, custody reviews,
 oversight dashboards, hierarchy check and the full booking-to-release/transfer workflows. Synthetic data only."""
 from datetime import timedelta
@@ -353,28 +346,28 @@ class OversightTests(UnitBase):
         self.assertEqual(admin.get(OVR + "hierarchy/").status_code, 200)
 
 
+@override_settings(POLICEHQ_PROFILE="police")
 class HierarchyAndSetupTests(TestCase):
-    """Custody sits on the Urur (battalion) of the Army structure; the structure itself is not changed by the custody module."""
-
     @classmethod
     def setUpTestData(cls):
         call_command("seed_reference_data", verbosity=0)
-        call_command("apply_army_structure", "--apply", stdout=StringIO())
+        call_command("apply_police_structure", "--apply", stdout=StringIO())
 
-    def ururs(self):
+    def test_every_active_station_has_a_correct_parent_region_and_jail_record(self):
         from apps.organization.models import OrganizationalUnit as OU
-        return OU.objects.filter(unit_type__code="URUR", active=True)
-
-    def test_every_active_urur_has_a_correct_parent_region_and_jail_record(self):
         res = hierarchy.check()
         self.assertEqual(res["errors"], 0, [f for f in res["findings"] if f["severity"] == "error"])
         by_id = hierarchy.index()
-        self.assertTrue(self.ururs().exists())
-        for st in self.ururs():
-            region, _guuto, _ = hierarchy.lineage(st, by_id)
+        stations = OU.objects.filter(unit_type__code="POLICE_STATION", active=True)
+        self.assertTrue(stations.exists())
+        for st in stations:
+            region, district, _ = hierarchy.lineage(st, by_id)
             self.assertIsNotNone(region, st.code)
+            self.assertEqual(region.unit_type.code, "POLICE_REGION")
             self.assertTrue(st.path.startswith(st.parent.path))
             self.assertEqual(CustodyFacility.objects.filter(org_unit=st, kind="jail_center").count(), 1, st.code)
+        # stations have no real district yet: reported as a note, not invented
+        self.assertTrue(any(f["code"] == "no_district" for f in res["findings"]))
 
     def test_automatic_jail_records_are_unverified_so_nothing_is_assumed_operational(self):
         self.assertFalse(CustodyFacility.objects.filter(kind="jail_center", status="operational").exists())
@@ -386,11 +379,12 @@ class HierarchyAndSetupTests(TestCase):
         before = (CustodyFacility.objects.count(), CustodyFacility.objects.filter(kind="prison").count())
         for _ in range(2):
             call_command("apply_custody_facilities", stdout=StringIO())
-            call_command("apply_army_structure", "--apply", stdout=StringIO())
+            call_command("apply_police_structure", "--apply", stdout=StringIO())
         self.assertEqual((CustodyFacility.objects.count(), CustodyFacility.objects.filter(kind="prison").count()), before)
 
     def test_ensure_jail_center_never_adds_a_second_jail_or_edits_one(self):
-        st = self.ururs().first()
+        from apps.organization.models import OrganizationalUnit as OU
+        st = OU.objects.filter(unit_type__code="POLICE_STATION").first()
         fac = CustodyFacility.objects.get(org_unit=st)
         fac.code, fac.name_en = "CUSTOM-CODE", "Renamed by admin"
         fac.save()
@@ -398,14 +392,14 @@ class HierarchyAndSetupTests(TestCase):
         self.assertFalse(created)
         self.assertEqual((got.pk, CustodyFacility.objects.filter(org_unit=st).count(), CustodyFacility.objects.get(pk=fac.pk).name_en), (fac.pk, 1, "Renamed by admin"))
 
-    def test_a_misplaced_urur_is_reported_and_strict_mode_fails(self):
+    def test_a_misplaced_station_is_reported_and_strict_mode_fails(self):
         from apps.organization.models import OrganizationalUnit as OU, UnitType
-        office = OU.objects.filter(unit_type__code="URUR_HOWLGELIN").first()
-        bad = OU.objects.create(code="BAD-URUR", name_en="Misplaced", level=OU.Level.UNIT, parent=office, branch=office.branch,
-                                unit_type=UnitType.objects.get(code="URUR"))
+        section = OU.objects.filter(unit_type__code="POLICE_SECTION").first()
+        bad = OU.objects.create(code="BAD-STATION", name_en="Misplaced", level=OU.Level.UNIT, parent=section, branch=section.branch,
+                                unit_type=UnitType.objects.get(code="POLICE_STATION"))
         codes = {(f["code"], f["unit"]) for f in hierarchy.check()["findings"]}
-        self.assertIn(("wrong_parent_type", "BAD-URUR"), codes)
+        self.assertIn(("wrong_parent_type", "BAD-STATION"), codes)
         with self.assertRaises(CommandError):
             call_command("verify_station_hierarchy", "--strict", stdout=StringIO())
         call_command("verify_station_hierarchy", stdout=StringIO())  # without --strict it only reports
-        self.assertTrue(CustodyFacility.objects.filter(org_unit=bad).exists())  # a new Urur still gets its jail record, unverified
+        self.assertTrue(CustodyFacility.objects.filter(org_unit=bad).exists())  # a new station still gets its jail record, unverified

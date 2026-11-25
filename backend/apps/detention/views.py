@@ -153,8 +153,8 @@ def _locked(pk, version):
 
 
 def is_custody_station(unit):
-    """A unit that can hold or receive people: an army station, or any unit that has a jail center."""
-    return bool(unit.unit_type_id and unit.unit_type.code == "URUR") or CustodyFacility.objects.filter(org_unit=unit, kind="jail_center").exists()
+    """A unit that can hold or receive people: a police station, or any unit that has a jail center."""
+    return bool(unit.unit_type_id and unit.unit_type.code == "POLICE_STATION") or CustodyFacility.objects.filter(org_unit=unit, kind="jail_center").exists()
 
 
 def _jail_center(d, unit):
@@ -326,7 +326,7 @@ def _destination_station(d, r):
     if unit.pk == r.org_unit_id:
         raise field_error("destination_unit", "same_station", "The person is already held at this station.")
     if not unit.active or not is_custody_station(unit):
-        raise field_error("destination_unit", "not_a_station", "Choose an active Urur (custody unit).")
+        raise field_error("destination_unit", "not_a_station", "Choose an active police station.")
     if not CustodyFacility.objects.filter(org_unit=unit, kind="jail_center", active=True, status="operational").exists():
         raise field_error("destination_unit", "no_operational_facility", "That station has no verified, operational jail center to receive the person.")
     return unit

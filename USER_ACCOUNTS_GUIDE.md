@@ -37,6 +37,13 @@ them all or none. The temporary passwords are shown **once** and can be download
 per file (each account needs a slow password hash), so upload large lists in batches. You can only give roles you hold yourself and
 link people inside your own scope.
 
+### Handing the accounts over (sign-in sheet and checklist)
+
+Right after **Create all accounts**, press **Print sign-in sheet (PDF)**. It lists each person's username, temporary password and expiry with a signature
+column, and ends with the **first-login checklist** (new password, authenticator app, setup key, 6-digit code, verify email), so people can finish setting up
+without calling headquarters. The passwords exist only on that screen and in that sheet: print it once, hand each password over in person, collect the
+signature, then destroy the sheet. The checklist alone (**First-login checklist (PDF)**) can be printed at any time, before or after.
+
 ## Email (needed for verification and "Forgot your password?")
 
 These features are **off** until outgoing email works, because without it the codes only print in the server log.

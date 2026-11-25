@@ -68,13 +68,14 @@ class SystemStatusView(APIView):
 
 # What the login page and header call this deployment. Public, read-only, no secrets.
 PROFILES = {
-    "army": {"name_en": "Puntland Defence Forces HQ", "name_so": "Puntland Defence Forces HQ", "short_name": "ARMY HQ"},
+    "army": {"name_en": "Puntland Police HQ", "name_so": "Taliska Guud ee Booliska Puntland", "short_name": "POLICE HQ"},
+    "police": {"name_en": "Puntland Police HQ", "name_so": "Taliska Guud ee Booliska Puntland", "short_name": "POLICE HQ"},
 }
 
 
 class ProfileView(_Public):
     def get(self, request):
-        profile = getattr(settings, "ARMYHQ_PROFILE", "army")
+        profile = getattr(settings, "POLICEHQ_PROFILE", "army")
         return JsonResponse({"profile": profile, **PROFILES.get(profile, PROFILES["army"])})
 
 
@@ -103,7 +104,7 @@ class TestEmailView(APIView):
         if not (user.email and user.email_verified_at):
             return Response({"code": "email_not_verified", "detail": "Confirm your own email address first (Account page)."}, status=409)
         try:
-            send_mail("Puntland Defence Forces HQ: test message", "This is a test from the system health check. If you can read it, email works.",
+            send_mail("Police HQ: test message", "This is a test from the system health check. If you can read it, email works.",
                       None, [user.email], fail_silently=False)
         except Exception:
             record("system.test_email", request=request, outcome="failure")

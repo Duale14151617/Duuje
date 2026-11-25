@@ -11,11 +11,26 @@ import { ForgotPassword } from "./pages/ForgotPassword";
 import { Account } from "./pages/Account";
 import { RecoverMfa } from "./pages/RecoverMfa";
 import { Attendance } from "./pages/Attendance";
+import { Leave } from "./pages/Leave";
+import { Promotion } from "./pages/Promotion";
+import { Fitness } from "./pages/Fitness";
 import { Ammunition } from "./pages/Ammunition";
 import { Weapons } from "./pages/Weapons";
 import { Inventories } from "./pages/Inventories";
 import { Ppe } from "./pages/Ppe";
 import { VehicleDetail, Vehicles } from "./pages/Vehicles";
+import { VehicleLog } from "./pages/VehicleLog";
+import { VehicleTracking } from "./pages/VehicleTracking";
+import { CustodyFacilities } from "./pages/CustodyFacilities";
+import { DetentionOversight } from "./pages/DetentionOversight";
+import { CustodyIncidents } from "./pages/CustodyIncidents";
+import { Detention } from "./pages/Detention";
+import { OccurrenceBook } from "./pages/OccurrenceBook";
+import { PersonnelReport } from "./pages/PersonnelReport";
+import { ShiftHandover } from "./pages/ShiftHandover";
+import { TaxOversight } from "./pages/TaxOversight";
+import { OfflineDesk } from "./offline/OfflineDesk";
+import { Tax } from "./pages/Tax";
 import { Equipment, EquipmentDetail } from "./pages/Equipment";
 import { Holdings } from "./pages/Holdings";
 import { AmmoAccountability } from "./pages/AmmoAccountability";
@@ -42,21 +57,31 @@ import { FoodStores } from "./pages/FoodStores";
 import { UnitOverview, UnitsHome } from "./pages/UnitOverview";
 import { ChangeRequests } from "./pages/ChangeRequests";
 import { Tasks } from "./pages/Tasks";
+import { DueSoon } from "./pages/DueSoon";
+import { SystemHealth } from "./pages/SystemHealth";
 import { DepartmentProfile } from "./pages/DepartmentProfile";
 import { OrgSettings } from "./pages/OrgSettings";
 import { OrgTree } from "./pages/OrgTree";
 import { MyRecord } from "./pages/MyRecord";
 import { StructureChanges } from "./pages/StructureChanges";
 import { UserDetail, Users } from "./pages/Users";
+import { Credentials } from "./pages/Credentials";
+import { CredentialView } from "./pages/CredentialView";
+import { Schedules } from "./pages/Schedules";
+import { Verify } from "./pages/Verify";
 
 export default function App() {
   const { me, loading } = useAuth();
   const location = useLocation();
-  if (loading) return <main><Loading /></main>;
+  // Public: opened by scanning the QR code on an ID card or letter. Works whether or not anyone is signed in.
+  const verifyMatch = /^\/verify\/([^/]+)\/?$/.exec(location.pathname);
+  if (verifyMatch) return <Routes><Route path="verify/:code" element={<Verify />} /></Routes>;
+  if (loading) return <main><Loading variant="cards" /></main>;
   if (!me) {
     if (location.pathname === "/reset") return <ResetPassword />;
     if (location.pathname === "/forgot") return <ForgotPassword />;
     if (location.pathname === "/recover") return <RecoverMfa />;
+    if (location.pathname === "/offline-desk") return <OfflineDesk />;
     return <Login />;
   }
   if (me.restrictions.includes("password_change")) return <ForcedPassword />;
@@ -73,6 +98,8 @@ export default function App() {
         <Route path="org-settings" element={<OrgSettings />} />
         <Route path="change-requests" element={<ChangeRequests />} />
         <Route path="tasks" element={<Tasks />} />
+        <Route path="due-soon" element={<DueSoon />} />
+        <Route path="system-health" element={<SystemHealth />} />
         <Route path="food" element={<FoodStores />} />
         <Route path="institutions" element={<Institutions />} />
         <Route path="tree" element={<OrgTree />} />
@@ -84,10 +111,28 @@ export default function App() {
         <Route path="personnel/new" element={<PersonnelForm />} />
         <Route path="personnel/import" element={<PersonnelImport />} />
         <Route path="attendance" element={<Attendance />} />
+        <Route path="leave" element={<Leave />} />
+        <Route path="promotion" element={<Promotion />} />
+        <Route path="fitness" element={<Fitness />} />
         <Route path="weapons" element={<Weapons />} />
         <Route path="inventories" element={<Inventories />} />
         <Route path="vehicles" element={<Vehicles />} />
         <Route path="vehicles/:id" element={<VehicleDetail />} />
+        <Route path="vehicle-log" element={<VehicleLog />} />
+        <Route path="vehicle-tracking" element={<VehicleTracking />} />
+        <Route path="detention" element={<Detention />} />
+        <Route path="occurrence-book" element={<OccurrenceBook />} />
+        <Route path="shift-handover" element={<ShiftHandover />} />
+        <Route path="custody-facilities" element={<CustodyFacilities />} />
+        <Route path="custody-oversight" element={<DetentionOversight />} />
+        <Route path="custody-incidents" element={<CustodyIncidents />} />
+        <Route path="offline-desk" element={<OfflineDesk />} />
+        <Route path="tax" element={<Tax />} />
+        <Route path="tax-oversight" element={<TaxOversight />} />
+        <Route path="personnel-report" element={<PersonnelReport />} />
+        <Route path="credentials" element={<Credentials />} />
+        <Route path="credentials/:id" element={<CredentialView />} />
+        <Route path="schedules" element={<Schedules />} />
         <Route path="equipment" element={<Equipment />} />
         <Route path="equipment/:id" element={<EquipmentDetail />} />
         <Route path="holdings" element={<Holdings />} />

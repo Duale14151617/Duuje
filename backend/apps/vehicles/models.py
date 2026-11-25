@@ -1,4 +1,4 @@
-"""Military vehicle registry. One persistent record per Army vehicle, a stable system-generated Vehicle ID, and append-only history.
+"""Police vehicle registry. One persistent record per Police vehicle, a stable system-generated Vehicle ID, and append-only history.
 
 * The registration plate is an attribute, never the identifier: plates can change, the Vehicle ID cannot.
 * Category (Ambulance, Armored truck, Hilux 4x4 ...) is configurable data and is stored apart from make/model.
@@ -17,9 +17,10 @@ from apps.core.appendonly import AppendOnlyError, AppendOnlyModel
 
 
 class VehicleCategory(models.Model):
-    """Configurable category. Seeded with the categories named by the Army; seeding does not assert the Army owns any."""
+    """Configurable category. Seeded with the Police vehicle types (police_fleet.py); seeding does not assert the Police owns any."""
 
     class Group(models.TextChoices):
+        POLICE_VEHICLES = "police_vehicles"  # the main category of the Police fleet (see police_fleet.py)
         UTILITY = "utility"
         PERSONNEL_TRANSPORT = "personnel_transport"
         GENERAL_TRANSPORT = "general_transport"
@@ -430,6 +431,32 @@ class VehiclePosition(models.Model):
         raise AppendOnlyError("Vehicle register rows cannot be deleted.")
 
 
+class VehicleTracker(models.Model):
+    """A GPS tracker fitted to a vehicle that sends positions on its own (for example through a Traccar server forwarding to the
+    tracker feed). Only a hash of its key is kept; the key is shown once when the tracker is linked. Switched off, never deleted."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.PROTECT, related_name="trackers")
+    device_ref = models.CharField(max_length=60)  # the device id the tracker or Traccar sends (IMEI or Traccar identifier)
+    key_prefix = models.CharField(max_length=8, unique=True, editable=False)
+    key_hash = models.CharField(max_length=64, editable=False)  # SHA-256 of the full key (256-bit random secret)
+    active = models.BooleanField(default=True)
+    last_seen_at = models.DateTimeField(null=True, blank=True)
+    created_by_username = models.CharField(max_length=150, blank=True)
+    switched_off_at = models.DateTimeField(null=True, blank=True)
+    switched_off_by_username = models.CharField(max_length=150, blank=True)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "vehicle_trackers"
+        ordering = ["-created_at"]
+        constraints = [models.UniqueConstraint(fields=["device_ref"], condition=Q(active=True), name="vehtracker_one_active_per_device")]
+
+    def delete(self, *args, **kwargs):
+        raise AppendOnlyError("Vehicle register rows cannot be deleted.")
+
+
 class VehiclePositionArchive(models.Model):
     """Ledger of position archives: one row per signed archive file made by `archive_positions`. The ledger is what lets the database
     allow `purge_positions` to delete rows: a position can only be deleted while a row here says it was archived and verified.
@@ -466,7 +493,7 @@ class VehiclePositionArchive(models.Model):
 
 
 class Geofence(models.Model):
-    """A zone (a base, a restricted area): a circle, or a polygon drawn on the map. When a vehicle's reported position crosses its edge
+    """A zone (a police station, a post, a restricted area): a circle, or a polygon drawn on the map. When a vehicle's reported position crosses its edge
     the system records an event. For a polygon, latitude/longitude hold its centre and radius_m the distance from the centre to its
     farthest corner (used to judge whether a fix is accurate enough); `points` holds the corners. Fences are switched off, never
     deleted: past events point at them."""

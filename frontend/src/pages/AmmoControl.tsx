@@ -5,6 +5,7 @@ import { useAuth } from "../auth/AuthContext";
 import { UnitPicker } from "../components/UnitPicker";
 import { Chip, EmptyState, ErrorNotice, Field, Loading, PageHeader, TabPanel, Tabs, formatDate } from "../components/ui";
 import { useI18n } from "../i18n";
+import { formatDay } from "../lib/format";
 
 interface Named { name_en: string; name_so: string }
 interface Person { id: string; full_name: string; service_number: string | null; rank: { code: string } & Named }
@@ -30,7 +31,7 @@ interface TraceOut {
 
 type Tab = "events" | "warnings" | "trace";
 
-const dayOf = (iso: string, lang: string) => new Date(`${iso}T00:00:00`).toLocaleDateString(lang === "so" ? "so-SO" : "en-GB", { dateStyle: "medium" });
+const dayOf = (iso: string, lang: string) => formatDay(iso, lang);
 const who = (p: Person) => `${p.rank.code} ${p.full_name}${p.service_number ? ` (${p.service_number})` : ""}`;
 
 /** Ammunition control: training events that must balance, warning flags, and the weapon / lot trace. */
@@ -202,7 +203,7 @@ function Trace() {
           {lot.in_store.length > 0 && <><h3>{t("ac.t.inStore")}</h3>
             <ul className="list">{lot.in_store.map((r, i) => <li key={i} className="item">{name(r.unit)} · {name(r.category)}: {r.rounds}</li>)}</ul></>}
           <h3>{t("ac.t.lotIssues")}</h3>
-          {lot.issues.length === 0 ? <p className="muted">{t("ac.t.none")}</p> : (
+          {lot.issues.length === 0 ? <EmptyState compact icon="inbox" title={t("ac.t.none")} hint={t("common.emptyHint")} /> : (
             <ul className="list">{lot.issues.map((r, i) => <li key={i} className="item"><b>{who(r.personnel)}</b> <span className="muted">· {name(r.unit)} · {name(r.category)}: {r.rounds} · {r.reference}{r.event ? ` · ${r.event}` : ""} · {formatDate(r.at, lang)}</span></li>)}</ul>
           )}
         </section>

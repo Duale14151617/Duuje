@@ -1,4 +1,4 @@
-"""ARMY HQ settings. Every secret comes from environment variables."""
+"""POLICE HQ settings. Every secret comes from environment variables."""
 import base64
 import hashlib
 import os
@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
+
+from apps.core import env as hqenv  # POLICEHQ_* variables; the older POLICEHQ_* names keep working
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -46,8 +48,11 @@ if render_hostname and render_hostname not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(render_hostname)
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 # Public address of the app, used for links in emails (password reset). Falls back to the Render hostname.
-SITE_URL = os.environ.get("ARMYHQ_SITE_URL", f"https://{render_hostname}" if render_hostname else "").rstrip("/")
+SITE_URL = hqenv.get("SITE_URL", f"https://{render_hostname}" if render_hostname else "").rstrip("/")
 TRUST_PROXY_HEADERS = env_bool("TRUST_PROXY_HEADERS", False)
+# Which organization this deployment serves: "army" (default) or "police". Police skips the Police regional commands and uses
+# apply_police_structure instead (see apps/organization/police_structure.py). Same code, separate database.
+POLICEHQ_PROFILE = hqenv.get("PROFILE", "army").strip().lower()
 DEBUG_CLIENT_IP = env_bool("DEBUG_CLIENT_IP", False)  # temporary: log proxy headers to find the real client address
 if TRUST_PROXY_HEADERS:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -67,22 +72,22 @@ INSTALLED_APPS = [
     "apps.logistics",
     "apps.training",
     "apps.attendance",
+    "apps.leave",
+    "apps.promotion",
+    "apps.medical",
     "apps.weapons",
     "apps.ppe",
     "apps.equipment",
     "apps.vehicles",
+    "apps.detention",
+    "apps.occurrence",
+    "apps.tax",
     "apps.payroll",
     "apps.audit",
     "apps.dashboard",
     "apps.analytics",
     "apps.integrations",
     "apps.inventories",
-    "apps.leave",
-    "apps.promotion",
-    "apps.medical",
-    "apps.detention",
-    "apps.occurrence",
-    "apps.tax",
     "apps.issuance",
     "apps.schedules",
 ]
@@ -171,6 +176,14 @@ DATA_UPLOAD_MAX_NUMBER_FIELDS = 200
 if not DEBUG:  # __Host- cookies: Secure, Path=/, no Domain, so subdomains cannot overwrite them
     SESSION_COOKIE_NAME = "__Host-armyhq-session"
     CSRF_COOKIE_NAME = "__Host-armyhq-csrf"
+SAMPLE_DATA_ON = hqenv.get_bool("SAMPLE_MODE", False)  # shown by the health check: sample data must be off in production
+BACKUP_HEARTBEAT_TOKEN = os.environ.get("BACKUP_HEARTBEAT_TOKEN", "")  # the nightly backup job reports in with this
+SESSION_IDLE_WARNING_SECONDS = int(os.environ.get("SESSION_IDLE_WARNING_SECONDS", "120"))  # the screen warns this long before idle sign-out
+# Passkeys (WebAuthn). Leave both empty to use the address the browser is on (right for Render). Set them if the app is reachable
+# under several hostnames: the RP id is the registrable domain, the origins are full https:// addresses.
+WEBAUTHN_RP_ID = os.environ.get("WEBAUTHN_RP_ID", "")
+WEBAUTHN_ORIGINS = [o.strip() for o in os.environ.get("WEBAUTHN_ORIGINS", "").split(",") if o.strip()]
+WEBAUTHN_RP_NAME = os.environ.get("WEBAUTHN_RP_NAME", "Puntland Police HQ")
 SESSION_SAVE_EVERY_REQUEST = True  # sliding idle timeout
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
@@ -213,16 +226,16 @@ REST_FRAMEWORK = {
         "recover": "5/min",
         "forgot": "5/min",   # emailing a password-reset code
         "verify": "10/min",  # emailing / confirming an email-verification code
-        "bulk": os.environ.get("THROTTLE_BULK", "30/hour"),  # imports and exports
-        "integration": os.environ.get("THROTTLE_INTEGRATION", "60/min"),  # per integration client (2.0)
         "docverify": os.environ.get("THROTTLE_DOCVERIFY", "30/min"),  # public QR check of an ID card or letter, and the cron trigger, per address
+        "bulk": os.environ.get("THROTTLE_BULK", "30/hour"),  # imports and exports
         "tracker": os.environ.get("THROTTLE_TRACKER", "600/min"),  # GPS tracker feed, per address (a Traccar server sends for many vehicles)
+        "integration": os.environ.get("THROTTLE_INTEGRATION", "60/min"),  # per integration client (2.0)
     },
 }
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "ARMY HQ API",
-    "DESCRIPTION": "Administrative platform API (draft, synthetic data only).",
+    "TITLE": "POLICE HQ API",
+    "DESCRIPTION": "Administrative platform API.",
     "VERSION": "2.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
 }
@@ -231,73 +244,47 @@ ENABLE_API_DOCS = env_bool("ENABLE_API_DOCS", DEBUG)
 # Self-hosted Puntland map (PMTiles). Default: backend/mapdata/puntland.pmtiles. Set MAP_TILES_FILE to use a file elsewhere (e.g. a Render disk).
 MAP_TILES_FILE = os.environ.get("MAP_TILES_FILE", "").strip()
 
-# Custody (detention register, facilities, incidents, handover, oversight, offline desk) and the Occurrence Book are SWITCHED OFF for now
-# (not enough information yet). Nothing is deleted: the code, tables and permissions stay, and setting CUSTODY_ENABLED=1 turns it all back on.
-CUSTODY_ENABLED = env_bool("CUSTODY_ENABLED", False)
+# Position archive and purge (see docs/POSITION_ARCHIVE.md). The signing key is an Ed25519 private key made by `manage.py archive_keygen`;
+# keep it OUT of the database host and out of backups of the database. ARCHIVE_PUBLIC_KEYS (comma separated) lists the public keys that
+# may verify archives; when empty, the public half of ARCHIVE_SIGNING_KEY is used. Only the two commands need these; the web app does not.
+ARCHIVE_SIGNING_KEY = os.environ.get("ARCHIVE_SIGNING_KEY", "").strip()
+ARCHIVE_PUBLIC_KEYS = [k.strip() for k in os.environ.get("ARCHIVE_PUBLIC_KEYS", "").split(",") if k.strip()]
+POSITION_RETENTION_DAYS = int(os.environ.get("POSITION_RETENTION_DAYS", "365"))  # default for archive_positions --older-than-days (minimum 30)
+POSITION_PURGE_COOL_OFF_HOURS = int(os.environ.get("POSITION_PURGE_COOL_OFF_HOURS", "24"))  # time between archiving and purging
 
-# ---- Custody (detention register), Occurrence Book, vehicle and traffic taxes --------------------------------------------------------
-# In this Army deployment the unit that holds people is the Urur (battalion) guardroom; the level above it is the Guuto (apps/detention/hierarchy.py).
+# Daily movement report: the day runs midnight to midnight in this zone (an IANA name such as Africa/Mogadishu). Default UTC.
+REPORT_TIME_ZONE = os.environ.get("REPORT_TIME_ZONE", "UTC").strip() or "UTC"
+
+# Personnel exports stay off until the institution approves them (see docs/LIMITATIONS.md).
+# Detention register: a person held this many hours or longer is flagged for review (an alert only; set to the rule your command applies).
 # Vehicle and traffic taxes: currency used for cash handovers when none is given.
 TAX_CURRENCY = os.environ.get("TAX_CURRENCY", "USD").strip().upper()[:3] or "USD"
 DETENTION_REVIEW_HOURS = int(os.environ.get("DETENTION_REVIEW_HOURS", "48"))  # review alert interval, set by the administration; not a legal limit
+# 1 = refuse a booking at a station that has no verified, operational jail center (default: record the arrest and flag it on the dashboard)
 # Court-date reminder window (days) and the age below which a person counts as a juvenile for the cell warnings. Both are decided by the
 # institution: the juvenile age is EMPTY (rule off) until you set it.
 DETENTION_COURT_REMINDER_DAYS = int(os.environ.get("DETENTION_COURT_REMINDER_DAYS", "2"))
 DETENTION_JUVENILE_UNDER_AGE = os.environ.get("DETENTION_JUVENILE_UNDER_AGE", "")
-# 1 = refuse a booking at a unit that has no verified, operational jail center (default: record the arrest and flag it on the dashboard)
 DETENTION_REQUIRE_OPERATIONAL_FACILITY = os.environ.get("DETENTION_REQUIRE_OPERATIONAL_FACILITY", "0") == "1"
-DETENTION_HANDOVER_ACK_HOURS = int(os.environ.get("DETENTION_HANDOVER_ACK_HOURS", "12"))  # a shift-handover note unacknowledged this long shows as overdue
-
-# ---- Sign-in security and system health ------------------------------------------------------------------------------------------------
-SAMPLE_DATA_ON = env_bool("ARMYHQ_SAMPLE_MODE", False)  # shown by the health check: sample data must be off in production
-BACKUP_HEARTBEAT_TOKEN = os.environ.get("BACKUP_HEARTBEAT_TOKEN", "")  # the nightly backup job reports in with this
-SESSION_IDLE_WARNING_SECONDS = int(os.environ.get("SESSION_IDLE_WARNING_SECONDS", "120"))  # the screen warns this long before idle sign-out
-# Passkeys (WebAuthn). Leave both empty to use the address the browser is on (right for Render). Set them if the app is reachable
-# under several hostnames: the RP id is the registrable domain, the origins are full https:// addresses.
-WEBAUTHN_RP_ID = os.environ.get("WEBAUTHN_RP_ID", "")
-WEBAUTHN_ORIGINS = [o.strip() for o in os.environ.get("WEBAUTHN_ORIGINS", "").split(",") if o.strip()]
-WEBAUTHN_RP_NAME = os.environ.get("WEBAUTHN_RP_NAME", "Puntland Defence Forces HQ")
-# Email alerts for new in-app notifications (off by default; needs working outgoing email). Each user must also opt in on the Account page
-# and have a verified address. The mail never names anyone or anything: it only says there is something to read. At most one mail per
-# user per NOTIFICATION_EMAIL_MIN_MINUTES, which also protects a Gmail sender's daily limit.
-NOTIFICATION_EMAILS_ENABLED = env_bool("NOTIFICATION_EMAILS_ENABLED", False)
-NOTIFICATION_EMAIL_MIN_MINUTES = int(os.environ.get("NOTIFICATION_EMAIL_MIN_MINUTES", "30"))
-# Facts for the status footer, shown to signed-in users only (never on the public endpoints).
-APP_VERSION = os.environ.get("APP_VERSION", "2.1.2")
-APP_BUILD = os.environ.get("RENDER_GIT_COMMIT", "")[:7]  # Render sets this to the deployed commit
-SUPPORT_CONTACT = os.environ.get("SUPPORT_CONTACT", "").strip()[:200]  # e.g. "support@example.org" or "+252 ..."
-
-# ---- ID cards, official letters and scheduled reports ---------------------------------------------------------------------------------
-# An ID card is valid for this many years from the day it is issued. The reference printed on documents starts with this prefix.
-ID_CARD_VALID_YEARS = int(os.environ.get("ID_CARD_VALID_YEARS", "2"))
-ISSUANCE_REF_PREFIX = os.environ.get("ISSUANCE_REF_PREFIX", "PDF")
-# Scheduled email reports (counts only, to users with a verified email who may open the same report). Set 0 to switch the whole feature off.
-SCHEDULED_REPORTS_ENABLED = env_bool("SCHEDULED_REPORTS_ENABLED", True)
-# Times in a schedule ("every Monday at 07:00") are read in this zone.
-SCHEDULES_TIMEZONE = os.environ.get("SCHEDULES_TIMEZONE", "Africa/Mogadishu")
-# Optional: lets an outside scheduler call POST /api/v1/schedules/run-due/ with header X-Cron-Token (24+ characters). Unset = that URL answers 404.
-SCHEDULES_CRON_TOKEN = os.environ.get("SCHEDULES_CRON_TOKEN", "")
-
-# Personnel exports stay off until the institution approves them (see docs/LIMITATIONS.md).
 PERSONNEL_EXPORT_ENABLED = env_bool("PERSONNEL_EXPORT_ENABLED", False)
 
 # Emergency override of the different-person payroll rules, super admin only, written reason required, always audited (see apps/payroll/breakglass.py).
 # Off by default outside development: it is an override of separation of duties, so a deployment must opt in on purpose.
-BREAK_GLASS_ENABLED = env_bool("ARMYHQ_BREAK_GLASS", DEBUG)
+BREAK_GLASS_ENABLED = hqenv.get_bool("BREAK_GLASS", DEBUG)
 
 # Fresh-MFA ("step-up") rule: credential resets, role assignment, personnel export and break-glass need an authenticator code entered
 # within this many seconds (apps/accounts/stepup.py). On by default outside development.
-STEP_UP_MFA_REQUIRED = env_bool("ARMYHQ_STEP_UP_MFA", not DEBUG)
-STEP_UP_MFA_SECONDS = int(os.environ.get("ARMYHQ_STEP_UP_SECONDS", "600"))
+STEP_UP_MFA_REQUIRED = hqenv.get_bool("STEP_UP_MFA", not DEBUG)
+STEP_UP_MFA_SECONDS = int(hqenv.get("STEP_UP_SECONDS", "600"))
 
 # Security alert emails (apps/accounts/alerts.py): break-glass use, credential resets, privileged sign-ins from a new address, lockouts.
 # Sent to these addresses and to every verified super administrator email.
-SECURITY_ALERT_EMAILS = [a.strip() for a in os.environ.get("ARMYHQ_ALERT_EMAILS", "").split(",") if a.strip()]
-SECURITY_ALERTS_ASYNC = env_bool("ARMYHQ_ALERTS_ASYNC", not DEBUG)
+SECURITY_ALERT_EMAILS = [a.strip() for a in hqenv.get("ALERT_EMAILS", "").split(",") if a.strip()]
+SECURITY_ALERTS_ASYNC = hqenv.get_bool("ALERTS_ASYNC", not DEBUG)
 
 # Reset/recovery/notice emails are handed to a background worker so the reply never waits on the mail provider (and a slow reply cannot
 # reveal that an account exists). Inline in development and tests.
-EMAIL_SEND_ASYNC = env_bool("ARMYHQ_EMAIL_ASYNC", not DEBUG)
+EMAIL_SEND_ASYNC = hqenv.get_bool("EMAIL_ASYNC", not DEBUG)
 
 # Summary exports stay off until approved, like personnel exports.
 REPORT_EXPORT_ENABLED = env_bool("REPORT_EXPORT_ENABLED", False)
@@ -321,6 +308,15 @@ MFA_RECOVERY_CODE_MINUTES = int(os.environ.get("MFA_RECOVERY_CODE_MINUTES", "15"
 EMAIL_VERIFICATION_ENABLED = env_bool("EMAIL_VERIFICATION_ENABLED", False)
 EMAIL_VERIFY_CODE_MINUTES = int(os.environ.get("EMAIL_VERIFY_CODE_MINUTES", "15"))
 PASSWORD_FORGOT_ENABLED = env_bool("PASSWORD_FORGOT_ENABLED", False)
+# Email alerts for new in-app notifications (off by default; needs working outgoing email). Each user must also opt in on the Account page
+# and have a verified address. The mail never names anyone or anything: it only says there is something to read. At most one mail per
+# user per NOTIFICATION_EMAIL_MIN_MINUTES, which also protects a Gmail sender's daily limit.
+# Facts for the status footer, shown to signed-in users only (never on the public endpoints).
+APP_VERSION = os.environ.get("APP_VERSION", "2.1.2")
+APP_BUILD = os.environ.get("RENDER_GIT_COMMIT", "")[:7]  # Render sets this to the deployed commit
+SUPPORT_CONTACT = (os.environ.get("SUPPORT_CONTACT") or hqenv.get("SUPPORT_CONTACT", "")).strip()[:200]  # e.g. "support@example.org" or "+252 ..."
+NOTIFICATION_EMAILS_ENABLED = env_bool("NOTIFICATION_EMAILS_ENABLED", False)
+NOTIFICATION_EMAIL_MIN_MINUTES = int(os.environ.get("NOTIFICATION_EMAIL_MIN_MINUTES", "30"))
 # A temporary password (set by an administrator, must be changed at first sign-in) stops working after this many days.
 TEMP_PASSWORD_DAYS = int(os.environ.get("TEMP_PASSWORD_DAYS", "7"))
 PASSWORD_FORGOT_CODE_MINUTES = int(os.environ.get("PASSWORD_FORGOT_CODE_MINUTES", "30"))
@@ -349,7 +345,7 @@ EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
 EMAIL_TIMEOUT = 10
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "no-reply@armyhq.invalid")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "no-reply@policehq.invalid")
 INTEGRATION_MAX_DAYS = int(os.environ.get("INTEGRATION_MAX_DAYS", "365"))  # longest allowed credential lifetime
 # Aggregate cells smaller than this are withheld from integration responses (small-number disclosure control).
 INTEGRATION_MIN_CELL = int(os.environ.get("INTEGRATION_MIN_CELL", "5"))
@@ -379,14 +375,13 @@ LOGGING = {
 }
 
 
-# Position archive and purge (see docs/VEHICLE_TRACKING.md). The signing key is an Ed25519 private key made by `manage.py archive_keygen`;
-# keep it OUT of the database host and out of backups of the database. ARCHIVE_PUBLIC_KEYS (comma separated) lists the public keys that
-# may verify archives; when empty, the public half of ARCHIVE_SIGNING_KEY is used. Only the two commands need these; the web app does not.
-ARCHIVE_SIGNING_KEY = os.environ.get("ARCHIVE_SIGNING_KEY", "").strip()
-ARCHIVE_PUBLIC_KEYS = [k.strip() for k in os.environ.get("ARCHIVE_PUBLIC_KEYS", "").split(",") if k.strip()]
-POSITION_RETENTION_DAYS = int(os.environ.get("POSITION_RETENTION_DAYS", "365"))  # default for archive_positions --older-than-days (minimum 30)
-POSITION_PURGE_COOL_OFF_HOURS = int(os.environ.get("POSITION_PURGE_COOL_OFF_HOURS", "24"))  # time between archiving and purging
-
-# Daily movement report: the day runs midnight to midnight in this zone (an IANA name such as Africa/Mogadishu). Default UTC.
-REPORT_TIME_ZONE = os.environ.get("REPORT_TIME_ZONE", "UTC").strip() or "UTC"
-
+# --- ID cards, official letters and scheduled reports ---------------------------------------------------------------------------
+# An ID card is valid for this many years from the day it is issued. The reference printed on documents starts with this prefix.
+ID_CARD_VALID_YEARS = int(os.environ.get("ID_CARD_VALID_YEARS", "2"))
+ISSUANCE_REF_PREFIX = os.environ.get("ISSUANCE_REF_PREFIX", "PHQ")
+# Scheduled email reports (counts only, to users with a verified email who may open the same report). Set 0 to switch the whole feature off.
+SCHEDULED_REPORTS_ENABLED = env_bool("SCHEDULED_REPORTS_ENABLED", True)
+# Times in a schedule ("every Monday at 07:00") are read in this zone.
+SCHEDULES_TIMEZONE = os.environ.get("SCHEDULES_TIMEZONE", "Africa/Mogadishu")
+# Optional: lets an outside scheduler call POST /api/v1/schedules/run-due/ with header X-Cron-Token (24+ characters). Unset = that URL answers 404.
+SCHEDULES_CRON_TOKEN = os.environ.get("SCHEDULES_CRON_TOKEN", "")

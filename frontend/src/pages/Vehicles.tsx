@@ -4,16 +4,17 @@ import { api, uploadForm } from "../api/client";
 import type { Page } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { useFetch } from "../api/useFetch";
-import { Chip, ErrorNotice, Field, Loading, Notice, PageHeader } from "../components/ui";
+import { EmptyState, Chip, ErrorNotice, Field, Loading, Notice, PageHeader } from "../components/ui";
 import { DataTable, type Column } from "../components/DataTable";
 import { FilterBar } from "../components/FilterBar";
 import { Icon } from "../components/Icon";
 import { UnitPicker } from "../components/UnitPicker";
-import { VehiclePositions } from "../components/VehiclePositions";
 import { FleetPanel } from "../components/EquipmentPanels";
 import type { FleetAnalytics } from "../api/types";
 import { useI18n, type Key } from "../i18n";
 import { SpecEditor, SpecTable, VerificationChip } from "./Equipment";
+import { VehiclePositions } from "../components/VehiclePositions";
+import { formatMoney } from "../lib/format";
 
 type Ownership = "state" | "private";
 const PLATE_PREFIX: Record<Ownership, string> = { state: "GD", private: "PL" };  // state property -> GD---, private -> PL---
@@ -84,8 +85,6 @@ export function Vehicles() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [registering, setRegistering] = useState(false);
-  const tracking = sp.get("view") === "tracking";
-  const setView = (v: "" | "tracking") => { const n = new URLSearchParams(sp); if (v) n.set("view", v); else n.delete("view"); setSp(n); };
   const cats = useFetch<{ results: Cat[] }>("/vehicles/categories/");
   const models = useFetch<Page<RefModel>>("/equipment/", { kind: "vehicle_model", page_size: 100 });
   const st = useStatuses();
@@ -122,11 +121,6 @@ export function Vehicles() {
   return (
     <>
       <PageHeader title={t("veh.title")} actions={can("vehicles.create") && !registering ? <button type="button" onClick={() => setRegistering(true)}><Icon name="plus" size={16} /><span>{t("veh.register")}</span></button> : undefined} />
-      <div className="row" role="tablist">
-        <button type="button" role="tab" aria-selected={!tracking} className={tracking ? "secondary" : ""} onClick={() => setView("")}>{t("veh.tab.register")}</button>
-        <button type="button" role="tab" aria-selected={tracking} className={tracking ? "" : "secondary"} onClick={() => setView("tracking")}>{t("veh.tab.tracking")}</button>
-      </div>
-      {tracking ? <VehiclePositions /> : <>
       <ErrorNotice error={list.error ?? summary.error} />
       <FilterBar
         search={{ value: q, label: t("veh.search"), onChange: reset(setQ) }}
@@ -135,7 +129,7 @@ export function Vehicles() {
           { id: "reference_model", label: t("veh.refModel"), value: refModel, onChange: (v) => setParam("reference_model", v), options: (models.data?.results ?? []).map((m) => ({ value: m.code, label: m.name })) },
           { id: "ownership", label: t("veh.ownership"), value: ownership, onChange: (v) => setParam("ownership", v), options: [{ value: "state", label: t("veh.ownership.state") }, { value: "private", label: t("veh.ownership.private") }] },
           { id: "status", label: t("veh.status"), value: status, onChange: reset(setStatus), options: st.list.map((x) => ({ value: x.code, label: name(x) })) },
-          { id: "group", label: t("fleet.group"), value: group, onChange: (v) => setParam("group", v), options: ["utility", "personnel_transport", "general_transport", "protected_transport", "combat_vehicle", "other"].map((g) => ({ value: g, label: t(`fleet.group.${g}` as Key) })) },
+          { id: "group", label: t("fleet.group"), value: group, onChange: (v) => setParam("group", v), options: ["police_vehicles", "utility", "personnel_transport", "general_transport", "protected_transport", "combat_vehicle", "other"].map((g) => ({ value: g, label: t(`fleet.group.${g}` as Key) })) },
           { id: "condition", label: t("veh.condition"), value: condition, onChange: (v) => setParam("condition", v), options: CONDITIONS.map((c) => ({ value: c, label: t(`cond.${c}` as Key) })) },
         ]}
         advancedExtra={<>
@@ -162,7 +156,6 @@ export function Vehicles() {
       <DataTable id="vehicles" caption={t("veh.title")} columns={columns} rows={list.data?.results} rowKey={(v) => v.id}
                  loading={list.loading} filtered={filtered} onReset={resetAll} empty={{ icon: "truck", title: t("veh.none") }}
                  page={page} count={list.data?.count} pageSize={pageSize} onPage={setPage} onPageSize={(n) => { setPageSize(n); setPage(1); }} />
-      </>}
     </>
   );
 }
@@ -438,12 +431,12 @@ export function VehicleDetail() {
         {d.assignment_history.map((e) => <li key={e.id} className="item"><b>{t(`vevent.${e.kind}` as Key)}</b><p className="muted">{(e.effective_date ?? e.at).slice(0, 10)} · {e.actor}{e.authority_ref ? ` · ${e.authority_ref}` : ""}</p></li>)}
       </ul>
       <h2>{t("veh.maintenance")}</h2>
-      {(maint.data?.results ?? []).length === 0 && <p className="muted">{t("veh.none")}</p>}
+      {(maint.data?.results ?? []).length === 0 && <EmptyState compact icon="truck" title={t("veh.none")} hint={t("common.emptyHint")} />}
       <ul className="list">
         {(maint.data?.results ?? []).map((m) => (
           <li key={m.id} className="item">
             <b>{t(`vkind.${m.kind}` as Key)}</b> · {m.performed_on} · <Chip tone={m.state === "completed" ? "approved" : "draft"}>{m.state}</Chip>
-            <p className="muted">{m.reported_issue || "—"} → {m.work_performed || "—"}{m.workshop ? ` · ${m.workshop}` : ""}{m.next_due_date ? ` · ${t("veh.nextDue")}: ${m.next_due_date}` : ""}{m.cost ? ` · ${m.cost} ${m.currency ?? ""}` : ""}</p>
+            <p className="muted">{m.reported_issue || "—"} → {m.work_performed || "—"}{m.workshop ? ` · ${m.workshop}` : ""}{m.next_due_date ? ` · ${t("veh.nextDue")}: ${m.next_due_date}` : ""}{m.cost ? ` · ${formatMoney(m.cost, m.currency)}` : ""}</p>
             {m.state === "open" && cap.edit && !closed && (
               <button type="button" className="secondary" disabled={busy}
                       onClick={() => { const work = window.prompt(t("veh.work")); if (work) { setBusy(true); void api(`/vehicles/${id}/maintenance/${m.id}/complete/`, { method: "POST", body: { version: m.version, work_performed: work } }).then(reloadAll).catch(setError).finally(() => setBusy(false)); } }}>
@@ -454,7 +447,7 @@ export function VehicleDetail() {
         ))}
       </ul>
       <h2>{t("veh.documents")}</h2>
-      {(docs.data?.results ?? []).length === 0 && <p className="muted">{t("veh.none")}</p>}
+      {(docs.data?.results ?? []).length === 0 && <EmptyState compact icon="truck" title={t("veh.none")} hint={t("common.emptyHint")} />}
       <ul className="list">
         {(docs.data?.results ?? []).map((x) => (
           <li key={x.id} className="item">

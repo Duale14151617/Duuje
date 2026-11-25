@@ -1,10 +1,15 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { SHOW_OFFLINE_DESK } from "../offline/config";
+import { brand, emblemName } from "../lib/brand";
 import { ApiError, api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { ErrorNotice, Notice } from "../components/ui";
 import { useI18n } from "../i18n";
 import { InstallButton } from "../pwa/install";
 import { ThemeToggle } from "../theme/ThemeToggle";
+import { useDocumentTitle } from "../lib/pageTitles";
+import { getPasskey, passkeysSupported, wasCancelled } from "../lib/webauthn";
+import { IDLE_NOTICE_KEY } from "../components/IdleGuard";
 
 const icon = (children: ReactNode) => (
   <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7"
@@ -26,6 +31,8 @@ export function Login() {
   const [otp, setOtp] = useState("");
   const [needOtp, setNeedOtp] = useState(false);
   const [canEmailRecover, setCanEmailRecover] = useState(false);
+  const [passkey, setPasskey] = useState<{ challenge_id: string; options: Record<string, unknown> } | null>(null);
+  const [idleNotice] = useState(() => { try { const v = sessionStorage.getItem(IDLE_NOTICE_KEY); sessionStorage.removeItem(IDLE_NOTICE_KEY); return v === "1"; } catch { return false; } });
   const [canForgot, setCanForgot] = useState(false);
   useEffect(() => { // which optional email features this server has switched on
     api<{ password_forgot?: boolean }>("/auth/options/").then((o) => setCanForgot(o?.password_forgot === true)).catch(() => undefined);
@@ -40,8 +47,27 @@ export function Login() {
     try {
       await login(username, password, needOtp ? otp : undefined);
     } catch (err) {
-      if (err instanceof ApiError && err.code === "otp_required") { setNeedOtp(true); setCanEmailRecover(err.body.email_recovery === true); }
+      if (err instanceof ApiError && err.code === "otp_required") {
+        setNeedOtp(true); setCanEmailRecover(err.body.email_recovery === true);
+        setPasskey((err.body as { passkey?: { challenge_id: string; options: Record<string, unknown> } }).passkey ?? null);
+      }
       else setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  useDocumentTitle(t("login.title"), t("app.name"));
+  async function signInWithPasskey() {
+    if (!passkey) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const credential = await getPasskey(passkey.options);
+      await login(username, password, undefined, { challenge_id: passkey.challenge_id, credential });
+    } catch (err) {
+      if (!wasCancelled(err)) setError(err);
+      if (err instanceof ApiError) setPasskey(null); // that challenge is spent; a code (or a fresh password step) is needed
     } finally {
       setBusy(false);
     }
@@ -50,7 +76,7 @@ export function Login() {
   return (
     <div className="lp">
       <header className="lp-header">
-        <img className="lp-header-crest" src="/defence-force.jpg" alt="" width={64} height={64} />
+        <img className="lp-header-crest" src={brand.primary.img} alt="" width={64} height={64} />
         <div className="lp-header-text">
           <div className="lp-header-title">{t("app.name")}</div>
           <div className="lp-header-tag">Integrated <i>·</i> Secure <i>·</i> Efficient</div>
@@ -73,7 +99,7 @@ export function Login() {
         <div className="lp-bg lp-bg-right" aria-hidden="true" />
 
         <section className="lp-center">
-          <img className="lp-crest" src="/defence-force.jpg" alt="Puntland Defence Force crest" width={176} height={176} />
+          <img className="lp-crest" src={brand.primary.img} alt={brand.primary.alt} width={176} height={176} />
           <h1 className="lp-title">{t("app.name")}</h1>
           <div className="lp-sub"><span>Headquarters Administration</span></div>
           <div className="lp-motto">Discipline <i>·</i> Readiness <i>·</i> Security</div>
@@ -84,6 +110,8 @@ export function Login() {
             <img className="lp-avatar" src="/avatar-default.png" alt="" aria-hidden="true" width={80} height={80} />
 
             {offline && !error && <Notice kind="error">{t("err.network")}</Notice>}
+            {SHOW_OFFLINE_DESK && <p className="muted"><a href="/offline-desk">{t("off.link")}</a></p>}
+            {idleNotice && !error ? <Notice kind="info">{t("login.idleSignedOut")}</Notice> : null}
             <ErrorNotice error={error} />
 
             <form onSubmit={(e) => void submit(e)}>
@@ -113,11 +141,14 @@ export function Login() {
                   <label htmlFor="lp-otp">{t("login.otp")}</label>
                   <div className="lp-input">
                     <LockIcon />
-                    <input id="lp-otp" value={otp} onChange={(e) => setOtp(e.target.value)} inputMode="numeric"
-                           autoComplete="one-time-code" maxLength={8} required autoFocus // eslint-disable-line jsx-a11y/no-autofocus -- the code field appears after the password step
+                    <input id="lp-otp" value={otp} onChange={(e) => setOtp(e.target.value)}
+                           autoComplete="one-time-code" autoCapitalize="characters" spellCheck={false} maxLength={16} required autoFocus // eslint-disable-line jsx-a11y/no-autofocus -- the code field appears after the password step
                            />
                   </div>
                   <small className="lp-hint">{t("login.otpHint")}</small>
+                  {passkey && passkeysSupported() && (
+                    <button type="button" className="secondary lp-passkey" disabled={busy} onClick={() => void signInWithPasskey()}>{t("login.usePasskey")}</button>
+                  )}
                   {canEmailRecover && <small className="lp-hint"><a href="/recover">{t("recover.link")}</a></small>}
                 </div>
               )}
@@ -135,9 +166,9 @@ export function Login() {
             </p>
 
             <div className="lp-card-foot">
-              <img src="/ministry.jpg" alt="Ministry of Security Puntland emblem" width={56} height={56} />
+              <img src={brand.oversight.img} alt={brand.oversight.alt} width={56} height={56} />
               <div>
-                <div className="lp-foot-1">Ministry of Security Puntland</div>
+                <div className="lp-foot-1">{emblemName(brand.oversight, lang)}</div>
                 <div className="lp-foot-2">{t("app.name")} <i>·</i> {t("app.footer")}</div>
               </div>
             </div>

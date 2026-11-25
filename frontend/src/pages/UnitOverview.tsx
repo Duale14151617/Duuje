@@ -8,6 +8,7 @@ import { DataTable, type Column } from "../components/DataTable";
 import { ExportPdfButton } from "../components/ExportPdfButton";
 import { FilterBar } from "../components/FilterBar";
 import { BarRow, Holder, StatTiles } from "../components/OrgBits";
+import { UnitActivity } from "../components/UnitActivity";
 import { UnitPicker } from "../components/UnitPicker";
 import { Chip, ErrorNotice, Field, Loading, Notice, PageHeader, TabPanel, Tabs } from "../components/ui";
 import { statusTone } from "../components/status";
@@ -47,7 +48,7 @@ export function UnitsHome() {
   );
 }
 
-type Tab = "overview" | "leadership" | "departments" | "personnel";
+type Tab = "overview" | "activity" | "leadership" | "departments" | "personnel";
 const ORDERINGS = ["name", "rank", "service_number", "status", "department", "unit"];
 
 function OfficeRows({ offices }: { offices: OrgOffice[] }) {
@@ -205,8 +206,12 @@ export function UnitOverview() {
   if (res.error || !res.data) return <ErrorNotice error={res.error} />;
   const o = res.data;
   const title = name(o.unit);
+  const act = o.activity;
+  const hasActivity = o.facilities.length > 0 || !!(act.occurrence || act.custody || act.attendance || act.vehicles);
   const tabs: { id: Tab; label: string }[] = [
-    { id: "overview", label: t("org2.tab.overview") }, { id: "leadership", label: t("org2.tab.leadership") },
+    { id: "overview", label: t("org2.tab.overview") },
+    ...(hasActivity ? [{ id: "activity" as const, label: t("org2.tab.activity") }] : []),
+    { id: "leadership", label: t("org2.tab.leadership") },
     { id: "departments", label: t("org2.tab.departments") },
     ...(o.can.name ? [{ id: "personnel" as const, label: t("org2.tab.personnel") }] : []),
   ];
@@ -279,6 +284,8 @@ export function UnitOverview() {
           </div>
         ))}
       </TabPanel>
+
+      <TabPanel id="activity" active={tab === "activity"} idPrefix="unit"><UnitActivity profile={o} /></TabPanel>
 
       <TabPanel id="leadership" active={tab === "leadership"} idPrefix="unit">
         {([["commander", lead.commander], ["deputy", lead.deputy], ["administrative", lead.administrative]] as const).map(([k, rows]) => (

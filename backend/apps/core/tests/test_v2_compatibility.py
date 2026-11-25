@@ -140,7 +140,8 @@ class RouteCompatibilityTests(BaseApiTest):
                                  ("ammo-control", "ammo-control"),
                                  # modules added after 2.0: protective equipment, equipment/vehicle models, inventory catalogue
                                  ("ppe", "ppe"), ("equipment", "equipment"), ("inventories", "inventory"),
-                                 # Army modules: vehicle log and tracking, taxes (custody and the occurrence book are switched off: CUSTODY_ENABLED)
+                                 # Police modules: detention register, custody facilities, occurrence book, vehicle log and tracking, taxes
+                                 ("detention", "detention"), ("detention-oversight", "detention-oversight"), ("custody-incidents", "custody-incident"), ("custody-facilities", "custody-facility"), ("occurrence-book", "occurrence-book"),
                                  ("vehicle-tracking", "vehicle-tracking"), ("vehicle-log", "vehicle-log"), ("tax", "tax"),
                                  # leave and roster, promotion eligibility, fitness for duty
                                  ("leave", "leave"), ("roster", "roster"), ("promotion", "promotion"), ("fitness", "fitness")})  # attendance, weapons, ammunition and payroll modules

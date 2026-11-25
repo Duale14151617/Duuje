@@ -1,7 +1,6 @@
 # Deploying the frontend on Netlify (no backend)
 
-Netlify hosts only the static single-page app. The Django API and PostgreSQL are **not** part of it. Synthetic data only;
-see `LIMITATIONS.md` before any real use.
+Netlify hosts only the static single-page app. The Django API and PostgreSQL are **not** part of it. See `LIMITATIONS.md`.
 
 ## Standalone preview (default): `npm run build:preview`
 Builds the app with `VITE_PREVIEW=1` (`.env.preview`). The API client then answers from an in-memory sample data set

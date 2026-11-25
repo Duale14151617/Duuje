@@ -28,7 +28,7 @@ from django.utils import timezone
 
 from apps.core import crypto
 
-FORMAT = "armyhq-position-archive/1"
+FORMAT = "policehq-position-archive/1"
 DATA, MANIFEST, SIGNATURE = "data.jsonl.gz.enc", "manifest.json", "manifest.sig"
 MIN_AGE_DAYS = 30  # also enforced by the database trigger
 DEFAULT_MAX_ROWS = 200_000

@@ -28,6 +28,8 @@ FORMATION_ROLE_CHOICES = [
     ("regional", "Regional command"),
     ("brigade", "Brigade"),
     ("battalion", "Battalion"),
+    ("district", "District"),
+    ("station", "Police station"),
 ]
 
 
@@ -202,7 +204,7 @@ def check_placement(level, parent, branch):
     if level == L.BRANCH:
         if branch is None:
             raise PlacementError("branch_required")
-        # The Army headquarters (Taliska Guud) is an Army command directly under the system headquarters; every other
+        # The Police headquarters (Taliska Guud) is an Police command directly under the system headquarters; every other
         # branch command still sits under a region exactly as before.
         if parent.level == L.HQ and branch.code == "ARMY":
             return branch
@@ -254,7 +256,7 @@ class ChangeRequest(models.Model):
     """A hierarchy-affecting action proposed by an HQ administrator and decided by the super administrator.
 
     Nothing in a request touches live data until it is approved; approval re-validates and applies it in one transaction.
-    Every request carries the Army order that authorizes it (reference, issuing officer, date). `payload` is plain data
+    Every request carries the Police order that authorizes it (reference, issuing officer, date). `payload` is plain data
     (validated by the handler for `kind`, never executed). A super administrator's own proposal is applied at once and
     flagged `self_approved`, so the audit trail still shows the order behind it."""
 

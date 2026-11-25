@@ -1,4 +1,4 @@
-"""Detention register (Army custody). One row per person held at a station, plus an append-only log of what happened to them.
+"""Detention register (Police custody). One row per person held at a station, plus an append-only log of what happened to them.
 
 * A record is never deleted. A wrong entry is voided with a reason; a person leaving custody is closed with an outcome.
 * The custody clock runs from `booked_at` until `ended_at`. Anything held past DETENTION_REVIEW_HOURS is flagged for review (a
@@ -30,16 +30,16 @@ def id_key(value):
 class CustodyFacility(models.Model):
     """A place where people are held. Two kinds, kept apart on purpose:
 
-    * Jail center (Jeel / lock-up): the army cell at a station. Short-term custody run by the Army: people arrested and held
+    * Jail center (Jeel / lock-up): the police cell at a station. Short-term custody run by the Police: people arrested and held
       while the case is investigated and until they are charged, released or handed to the court. Belongs to one station.
-    * Prison (Xabsi): a long-term institution run by the prison authority, NOT the Army. It receives people the court has
-      sentenced (or remanded). The Army only hand people over; the system records the hand-over, nothing inside the prison.
+    * Prison (Xabsi): a long-term institution run by the prison authority, NOT the Police. It receives people the court has
+      sentenced (or remanded). The Police only hand people over; the system records the hand-over, nothing inside the prison.
 
     Never deleted: a facility that closes is switched off (active = False).
     """
 
     class Kind(models.TextChoices):
-        JAIL_CENTER = "jail_center", "Jail center (army lock-up)"
+        JAIL_CENTER = "jail_center", "Jail center (police lock-up)"
         PRISON = "prison", "Prison"
 
     class Status(models.TextChoices):

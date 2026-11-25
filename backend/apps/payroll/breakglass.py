@@ -1,6 +1,6 @@
 """Break-glass override for the "must be a different person" rules in payroll and payments.
 
-Only a user holding `system.full_access` (super_admin) can use it, only when ARMYHQ_BREAK_GLASS is on, and only with a written reason
+Only a user holding `system.full_access` (super_admin) can use it, only when POLICEHQ_BREAK_GLASS is on, and only with a written reason
 (sent in the X-Override-Reason header, at least 15 characters). It skips ONE separation-of-duties check for ONE action; every other
 rule (state, amounts, validity, permissions) still applies, and every use is written to the audit log with the reason.
 """

@@ -96,7 +96,7 @@ class Command(BaseCommand):
             with transaction.atomic():
                 if connection.vendor == "postgresql":  # names the batch the database trigger will check; lasts for this transaction only
                     with connection.cursor() as cur:
-                        cur.execute("SELECT set_config('armyhq.purge_archive', %s, true)", [str(ledger.pk)])
+                        cur.execute("SELECT set_config('policehq.purge_archive', %s, true)", [str(ledger.pk)])
                 live = {str(p.pk): p for p in VehiclePosition.objects.select_for_update().filter(pk__in=[r["id"] for r in part]).select_related("vehicle")}
                 ids = [r["id"] for r in part if r["id"] in live and archive.serialize_row(live[r["id"]]) == r]
                 kept += sum(1 for r in part if r["id"] in live) - len(ids)

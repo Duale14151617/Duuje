@@ -54,7 +54,7 @@ interface Props<R> {
 }
 
 const DEFAULT_WIDTH = 160;
-const storeKey = (id: string) => `armyhq.table.${id}`;
+const storeKey = (id: string) => `policehq.table.${id}`;
 
 function loadPrefs(id: string, validIds: string[]): TablePrefs | null {
   try {
@@ -213,6 +213,7 @@ export function DataTable<R>({
                         action={onReset ? <button type="button" className="secondary" onClick={onReset}>{t("filter.reset")}</button> : undefined} />
           : <EmptyState icon={empty.icon} title={empty.title} hint={empty.hint} action={empty.action} />
       ) : (
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- scrollable region must be keyboard focusable
         <div className={`dt-scroll${loading && rows ? " is-loading" : ""}`} tabIndex={0} role="region" aria-label={caption}>
           <table style={{ minWidth: tableMin }}>
             <caption className="sr-only">{caption}</caption>
@@ -230,6 +231,7 @@ export function DataTable<R>({
                           <Icon name={active ? (sort!.dir === "asc" ? "chevronUp" : "chevronDown") : "sort"} size={14} />
                         </button>
                       ) : <span className="dt-head">{c.header}</span>}
+                      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex -- focusable resize separator (keyboard resizing) */}
                       <span className="dt-resize" role="separator" aria-orientation="vertical" tabIndex={0}
                             aria-label={t("table.resize", { name: c.header })} aria-valuemin={MIN_COL} aria-valuemax={MAX_COL}
                             aria-valuenow={Math.round(widthOf(c))}

@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
     initial = True
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ("organization", "0012_departments_and_formation_roles"),
+        ("organization", "0015_remove_stray_draft_structure_change"),
         ("personnel", "0012_strength_snapshot"),
     ]
     operations = [

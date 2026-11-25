@@ -149,6 +149,7 @@ class VehicleTrackingViewSet(viewsets.GenericViewSet):
     """Last known positions and position history. Out-of-scope rows answer 404."""
 
     permission_classes = [ScopedPermission]
+    throttle_scope = None  # set per action for the CSV export
     pagination_class = _Page
     parser_classes = [JSONParser]
     lookup_value_regex = r"[0-9a-f\-]{36}"
