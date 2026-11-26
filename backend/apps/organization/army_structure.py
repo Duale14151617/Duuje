@@ -5,9 +5,9 @@ configurable and can be restructured later with the normal tools.
 
 Shape created:
     System HQ
-      Police Headquarters "Taliska Guud"         (Police branch command directly under the system HQ)
+      Army Headquarters "Taliska Guud"         (Army branch command directly under the system HQ)
         Hogganka Ciidanka / Maaliyadda / Taakulada / Howlgelinta / Isgaarsiinta / Caafimaadka / Gaadiidka   (directorates)
-      Regional commands "Qaybta ..." (Police branch command of each region, type Qayb)
+      Regional commands "Qaybta ..." (Army branch command of each region, type Qayb)
         Mudug & Cayn, Nugaal & Sool, Bari, Sanaag
         Every regional command also gets Guuto (brigade) and Urur (battalion) units: one Guuto per command and one Urur per Guuto by
         default, raised later with `apply_army_structure --apply --guuto-per-command N --urur-per-guuto M` (additive: it only ever
@@ -43,7 +43,7 @@ COMMANDS = [
     ("SANAAG", "Qaybta Sanaag", "Sanaag Regional Command"),
 ]
 # Regions that get Guuto (brigade) and Urur (battalion) units from this tool. Everything here stays editable data.
-FIELD_FORCE_REGIONS = tuple(c for c, _, _ in COMMANDS)  # all four Police regional commands
+FIELD_FORCE_REGIONS = tuple(c for c, _, _ in COMMANDS)  # all four Army regional commands
 DEFAULT_GUUTO_PER_COMMAND = 1
 DEFAULT_URUR_PER_GUUTO = 1
 MAX_PER_PARENT = 20  # a sanity ceiling for the command-line options, not a rule of the army
@@ -82,7 +82,7 @@ def apply(OU, UnitType, ServiceBranch, Personnel, dry_run=True, guuto_per_comman
     army = ServiceBranch.objects.filter(code="ARMY").first()
     sys_hq = OU.objects.filter(level="headquarters").first()
     if army is None or sys_hq is None:
-        return [("blocked", "Police branch or system headquarters is missing; run seed_reference_data first.")]
+        return [("blocked", "Army branch or system headquarters is missing; run seed_reference_data first.")]
     types = {t.code: t for t in UnitType.objects.all()}
     if any(t not in types for t in ("TALISKA_GUUD", "QAYB", "GUUTO", "URUR")):
         return [("blocked", "The organizational template is missing; run seed_reference_data first.")]
@@ -101,7 +101,7 @@ def apply(OU, UnitType, ServiceBranch, Personnel, dry_run=True, guuto_per_comman
                 unit = OU.objects.create(code=code, **kw)
         return unit
 
-    hq = ensure(ARMY_HQ_CODE, name_so="Taliska Guud", name_en="Police Headquarters (Taliska Guud)", level="branch_command",
+    hq = ensure(ARMY_HQ_CODE, name_so="Taliska Guud", name_en="Army Headquarters (Taliska Guud)", level="branch_command",
                 parent=sys_hq, branch=army, unit_type=types["TALISKA_GUUD"])
     for suffix, so, en in DIRECTORATES:
         dcode = f"{ARMY_HQ_CODE}-{suffix}"
@@ -135,7 +135,7 @@ def apply(OU, UnitType, ServiceBranch, Personnel, dry_run=True, guuto_per_comman
             if not dry_run:
                 _bump(OU, cmd.pk, **changes)
 
-    # Guuto (brigade) and Urur (battalion) for every Police regional command. Created only when missing, so a larger number later just adds more.
+    # Guuto (brigade) and Urur (battalion) for every Army regional command. Created only when missing, so a larger number later just adds more.
     for region_code in FIELD_FORCE_REGIONS:
         cmd = OU.objects.filter(code=f"{region_code}-ARMY", branch=army).first()
         place = region_code.title()

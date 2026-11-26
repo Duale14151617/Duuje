@@ -1,12 +1,13 @@
-"""What a unit (a police station above all) is actually doing: Occurrence Book, custody, attendance, vehicles and its jail.
+"""What a unit (an Urur guardroom above all) is actually doing: Occurrence Book, custody, attendance, vehicles and its jail.
 
 READ-ONLY and built from the records the other apps already keep; nothing is stored or invented here. Each block is only returned
 to a caller who holds the permission of the module it comes from (a block they may not see is `None`, never zero), and every
-count covers the unit and everything below it (a station's Kooxo, a district's stations ...), by the unit path.
+count covers the unit and everything below it (an Urur's sections, a Guuto's Ururs ...), by the unit path.
 """
 from collections import Counter
 from datetime import timedelta
 
+from django.conf import settings
 from django.db.models import Count
 from django.utils import timezone
 
@@ -22,6 +23,8 @@ def _may(user, code, unit):
 
 def facilities_of(unit):
     """Custody facilities that belong to the unit's subtree (a station's jail center), with how many people are held now."""
+    if not settings.CUSTODY_ENABLED:  # custody is switched off
+        return []
     from apps.detention.models import CustodyFacility, DetentionRecord
 
     facs = list(CustodyFacility.objects.filter(org_unit__path__startswith=unit.path, active=True).select_related("org_unit").order_by("kind", "name_en"))
@@ -87,7 +90,7 @@ def _vehicles(unit):
 def unit_activity(user, unit):
     """Activity of one unit and its subtree. Blocks the caller may not see are None."""
     since = timezone.now() - timedelta(days=WINDOW_DAYS)
-    see_ob_custody = _may(user, "detention.view", unit)
+    see_ob_custody = settings.CUSTODY_ENABLED and _may(user, "detention.view", unit)
     return {
         "window_days": WINDOW_DAYS,
         "occurrence": _occurrence(unit, since) if see_ob_custody else None,

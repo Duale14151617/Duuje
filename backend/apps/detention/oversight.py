@@ -48,7 +48,7 @@ def build(user, unit=None, days=30, since=None, until=None):
     if unit is not None:
         units = units.filter(path__startswith=unit.path)
     has_jail = CustodyFacility.objects.filter(kind="jail_center").values("org_unit_id")
-    stations = list(units.filter(Q(unit_type__code="POLICE_STATION") | Q(pk__in=has_jail)).order_by("path"))
+    stations = list(units.filter(Q(unit_type__code=hierarchy.CUSTODY_UNIT_TYPE) | Q(pk__in=has_jail)).order_by("path"))
     ids = [s.pk for s in stations]
     by_id = hierarchy.index()
     facs = list(CustodyFacility.objects.filter(kind="jail_center", org_unit_id__in=ids).order_by("name_en"))

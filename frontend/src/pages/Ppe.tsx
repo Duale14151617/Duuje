@@ -7,7 +7,6 @@ import { Chip, ErrorNotice, Field, Notice, PageHeader, Tabs } from "../component
 import { DataTable, type Column } from "../components/DataTable";
 import { FilterBar } from "../components/FilterBar";
 import { useI18n, type Key } from "../i18n";
-import { formatDateTime, formatNumber } from "../lib/format";
 
 interface Named { code: string; name_en: string; name_so: string }
 interface UnitB extends Named { id: string }
@@ -39,14 +38,14 @@ export function Ppe() {
   const ledger = useFetch<Page<Move>>(tab === "history" ? "/ppe/ledger/" : null, { q, kind, page, page_size: pageSize === 25 ? undefined : pageSize });
   const reset = <T,>(set: (v: T) => void) => (v: T) => { set(v); setPage(1); };
   const resetAll = () => { setQ(""); setLow(false); setKind(""); setPage(1); };
-  const fmt = (iso: string) => formatDateTime(iso, lang);
+  const fmt = (iso: string) => new Date(iso).toLocaleString(lang === "so" ? "so-SO" : "en-GB");
 
   const stockCols: Column<LineRow>[] = [
     { id: "category", header: t("veh.category"), width: 220, locked: true, sort: (r) => name(r.category), cell: (r) => name(r.category) },
     { id: "unit", header: t("veh.unit"), width: 220, sort: (r) => name(r.org_unit), cell: (r) => name(r.org_unit) },
-    { id: "store", header: t("ppe.inStore"), width: 120, align: "right", sort: (r) => r.in_store, cell: (r) => <>{formatNumber(r.in_store)} {r.below_reorder && <Chip tone="bad">{t("log.belowReorder")}</Chip>}</> },
-    { id: "held", header: t("ppe.withPersonnel"), width: 150, align: "right", sort: (r) => r.held, cell: (r) => formatNumber(r.held) },
-    { id: "total", header: t("ppe.accountable"), width: 140, align: "right", sort: (r) => r.in_store + r.held, cell: (r) => formatNumber(r.in_store + r.held) },
+    { id: "store", header: t("ppe.inStore"), width: 120, align: "right", sort: (r) => r.in_store, cell: (r) => <>{r.in_store.toLocaleString()} {r.below_reorder && <Chip tone="bad">{t("log.belowReorder")}</Chip>}</> },
+    { id: "held", header: t("ppe.withPersonnel"), width: 150, align: "right", sort: (r) => r.held, cell: (r) => r.held.toLocaleString() },
+    { id: "total", header: t("ppe.accountable"), width: 140, align: "right", sort: (r) => r.in_store + r.held, cell: (r) => (r.in_store + r.held).toLocaleString() },
     ...(can("logistics.manage") ? [{ id: "act", header: "", width: 110, locked: true, cell: (r: LineRow) => <button type="button" className="secondary" onClick={() => setSelected(r)}>{t("ppe.manage")}</button> }] : []),
   ];
   const moveCols: Column<Move>[] = [
@@ -123,7 +122,7 @@ function LineActions({ line, onClose, onDone }: { line: LineRow; onClose: () => 
   return (
     <section className="card">
       <h3>{name(line.category)} · {name(line.org_unit)}</h3>
-      <p className="muted">{t("ppe.inStore")}: <b>{formatNumber(line.in_store)}</b> · {t("ppe.withPersonnel")}: <b>{formatNumber(line.held)}</b></p>
+      <p className="muted">{t("ppe.inStore")}: <b>{line.in_store.toLocaleString()}</b> · {t("ppe.withPersonnel")}: <b>{line.held.toLocaleString()}</b></p>
       <form onSubmit={submit}>
         <Field label={t("ppe.action")}>
           <select value={mode} onChange={(e) => setMode(e.target.value as Mode)}>

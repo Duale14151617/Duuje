@@ -103,7 +103,7 @@ class UnitSerializer(serializers.ModelSerializer):
         if utype is not None:
             if not utype.active and (inst is None or inst.unit_type_id != utype.pk):
                 raise self._fail("unit_type", "unit_type_inactive")
-            # Taliska Guud (Police headquarters) and Qayb (regional command) are commands at branch-command level; Qayb may
+            # Taliska Guud (Army headquarters) and Qayb (regional command) are commands at branch-command level; Qayb may
             # also be a nested unit (older structures). Every other level of the template is a unit.
             on_branch = level == OrganizationalUnit.Level.BRANCH
             if on_branch and utype.code not in BRANCH_LEVEL_TYPES or not on_branch and utype.code == "TALISKA_GUUD":

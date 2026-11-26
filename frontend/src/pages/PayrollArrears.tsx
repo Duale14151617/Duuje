@@ -7,7 +7,6 @@ import { Chip, ErrorNotice, Field, Notice, Loading, EmptyState } from "../compon
 import { useI18n, type Key } from "../i18n";
 import { PayForm } from "./PayrollPayments";
 import { tone, type CaseLite, type Claim } from "./payrollShared";
-import { formatMoney } from "../lib/format";
 
 interface Person { id: string; full_name: string; service_number: string | null; status: string }
 interface Picture { unpaid_approved_lines: { line: string; period: string; outstanding: string }[] }
@@ -51,7 +50,7 @@ function ClaimItem({ c, onChanged }: { c: Claim; onChanged: () => void }) {
   return (
     <li className="item">
       <b>{c.personnel_name}</b> ({c.service_number ?? "—"})
-      <div className="stat"><span>{c.periods.join(", ")}</span><b>{formatMoney(c.amount, c.currency)}</b></div>
+      <div className="stat"><span>{c.periods.join(", ")}</span><b>{c.amount} {c.currency}</b></div>
       <div className="row"><Chip tone={tone(c.status)}>{t(`arr.status.${c.status}` as Key)}</Chip>
         {c.status === "approved" && <span className="muted">{t("pay.paid")} {c.paid} · {t("arr.outstanding")} {c.outstanding}</span>}</div>
       <p className="muted">{t("arr.evidence")}: {c.evidence_ref}{c.note ? ` · ${c.note}` : ""}</p>
@@ -67,7 +66,7 @@ function ClaimItem({ c, onChanged }: { c: Claim; onChanged: () => void }) {
           <Act title={t("surv.reject")} path={`${base}/approve/`} extra={{ approve: false }} fields={required} onDone={onChanged} submitLabel={t("surv.reject")} /></>}
         {open && can("payment.prepare") && !pay && <button type="button" className="secondary" onClick={() => { setPrepared(false); setPay(true); }}>{t("arr.pay")}</button>}
       </div>
-      {pay && <PayForm startOpen preset={{ kind: "arrears", claim: c.id, personnel: c.personnel, amount: c.outstanding ?? "", label: `${c.personnel_name} · ${t("payx.kind.arrears")} · ${formatMoney(c.outstanding, c.currency)}` }}
+      {pay && <PayForm startOpen preset={{ kind: "arrears", claim: c.id, personnel: c.personnel, amount: c.outstanding ?? "", label: `${c.personnel_name} · ${t("payx.kind.arrears")} · ${c.outstanding} ${c.currency}` }}
                        onDone={() => { setPay(false); setPrepared(true); onChanged(); }} onCancel={() => setPay(false)} />}
     </li>
   );

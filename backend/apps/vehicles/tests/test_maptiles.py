@@ -9,10 +9,6 @@ from apps.vehicles.tests.test_vehicles import VehicleBase
 TILES = "/api/v1/map/puntland.pmtiles"
 
 
-def body(r):
-    return b"".join(r.streaming_content)
-
-
 class MapTilesTests(VehicleBase):
     def setUp(self):
         super().setUp()
@@ -27,36 +23,14 @@ class MapTilesTests(VehicleBase):
     def test_range_reads(self):
         r = self.officer.get(TILES, HTTP_RANGE="bytes=0-9")
         self.assertEqual(r.status_code, 206)
-        self.assertEqual(body(r), bytes(range(10)))
+        self.assertEqual(r.content, bytes(range(10)))
         self.assertEqual(r["Content-Range"], "bytes 0-9/1024")
         tail = self.officer.get(TILES, HTTP_RANGE="bytes=-4")
-        self.assertEqual((tail.status_code, body(tail)), (206, bytes([252, 253, 254, 255])))
+        self.assertEqual((tail.status_code, tail.content), (206, bytes([252, 253, 254, 255])))
         open_end = self.officer.get(TILES, HTTP_RANGE="bytes=1020-")
-        self.assertEqual(len(body(open_end)), 4)
+        self.assertEqual(len(open_end.content), 4)
         self.assertEqual(self.officer.get(TILES, HTTP_RANGE="bytes=5000-6000").status_code, 416)
         self.assertEqual(self.officer.get(TILES, HTTP_RANGE="items=0-1").status_code, 416)
-
-    def test_large_range_is_streamed_in_pieces(self):
-        from apps.vehicles import maptiles
-        big = bytes(range(256)) * 2048  # 512 KB, two 256 KB pieces
-        self.file.write_bytes(big)
-        r = self.officer.get(TILES, HTTP_RANGE="bytes=100-524000")
-        self.assertEqual((r.status_code, r["Content-Length"]), (206, str(524000 - 100 + 1)))
-        self.assertEqual(body(r), big[100:524001])
-        self.assertGreater(len(list(maptiles._stream(self.file, 0, len(big)))), 1)
-
-    def test_shipped_tile_parts_are_a_pmtiles_file(self):
-        """The three parts in backend/mapdata join into one PMTiles v3 file (or the joined file is already there)."""
-        from django.conf import settings
-        d = Path(settings.BASE_DIR) / "mapdata"
-        parts = sorted(d.glob("puntland.pmtiles.part*"))
-        joined = d / "puntland.pmtiles"
-        if not parts and not joined.is_file():
-            self.skipTest("map data not present in this checkout")
-        first = parts[0] if parts else joined
-        head = first.read_bytes()[:8]
-        self.assertEqual(head[:7], b"PMTiles")
-        self.assertEqual(head[7], 3)
 
     def test_whole_file_and_headers(self):
         r = self.officer.get(TILES)

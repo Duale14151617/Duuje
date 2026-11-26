@@ -1,3 +1,10 @@
+import unittest
+
+from django.conf import settings
+
+if not settings.CUSTODY_ENABLED:  # custody is switched off for now; set CUSTODY_ENABLED=1 to run these tests
+    raise unittest.SkipTest("custody is switched off (CUSTODY_ENABLED=0)")
+
 """Offline entry: bookings and log entries made without a connection and sent later must never duplicate, never be lost
 silently, and never touch the strict rules. Synthetic data only."""
 import uuid

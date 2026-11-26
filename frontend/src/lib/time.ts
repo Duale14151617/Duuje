@@ -5,10 +5,12 @@ export function greetingKey(date = new Date()): "dash.greet.morning" | "dash.gre
   return h < 12 ? "dash.greet.morning" : h < 18 ? "dash.greet.afternoon" : "dash.greet.evening";
 }
 
-import { dateLocale, formatLongDate } from "./format";
+const localeOf = (lang: string) => (lang === "so" ? "so-SO" : "en-GB");
 
-export { formatLongDate };
-const localeOf = dateLocale;
+export function formatLongDate(date: Date, lang: string): string {
+  try { return date.toLocaleDateString(localeOf(lang), { weekday: "long", day: "numeric", month: "long", year: "numeric" }); }
+  catch { return date.toDateString(); }
+}
 
 /** "2 hours ago" in the interface language; falls back to English if the browser lacks Somali data. */
 export function timeAgo(iso: string, lang: string, now = Date.now()): string {

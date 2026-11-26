@@ -5,7 +5,6 @@ import { useAuth } from "../auth/AuthContext";
 import { useFetch } from "../api/useFetch";
 import { Chip, ErrorNotice, Notice, Loading, EmptyState } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
-import { formatMoney } from "../lib/format";
 
 interface Decision { id: string; allocation: string; kind: string; state: string; reason: string; effective_date: string; supporting_ref: string; previous_amount: string | null; new_amount: string | null; proposed_by: string; decided_by: string }
 interface Allocation { id: string; amount: string; currency: string; status: string; basis_ref: string; basis_kind: string; effective_from: string | null; held_from: string | null; ended_on: string | null; paid_total: string; decisions: Decision[] }
@@ -98,7 +97,7 @@ function CaseDetail({ id, onChanged }: { id: string; onChanged: () => void }) {
             {b.decision_note && <p className="muted">{b.decision_note}</p>}
             {b.allocations.map((a) => (
               <div key={a.id} className="card">
-                <div className="stat"><span>{t(a.basis_kind === "lump_sum" ? "surv.lumpSum" : "surv.perPeriod")}</span><b>{formatMoney(a.amount, a.currency)}</b></div>
+                <div className="stat"><span>{t(a.basis_kind === "lump_sum" ? "surv.lumpSum" : "surv.perPeriod")}</span><b>{a.amount} {a.currency}</b></div>
                 <div className="row"><Chip tone={tone(a.status)}>{t(`surv.astatus.${a.status}` as Key)}</Chip>
                   <span className="muted">{a.effective_from ? `${t("surv.effectiveFrom")} ${a.effective_from}` : ""}{a.held_from ? ` · ${t("surv.heldFrom")} ${a.held_from}` : ""}{a.ended_on ? ` · ${t("surv.endedOn")} ${a.ended_on}` : ""}</span></div>
                 <p className="muted">{a.basis_ref} · {t("surv.paid")} {a.paid_total}</p>
@@ -128,7 +127,7 @@ function CaseDetail({ id, onChanged }: { id: string; onChanged: () => void }) {
                    { key: "basis_kind", label: t("surv.basisKind"), options: [["per_period", t("surv.perPeriod")], ["lump_sum", t("surv.lumpSum")]] },
                    { key: "basis_ref", label: t("surv.basisRef") }, { key: "effective_from", label: t("surv.effectiveFrom"), type: "date", required: false }]} />}
         {manage && allAllocs.some(({ a }) => a.status === "authorized" || a.status === "suspended") && <Act title={t("surv.proposeDecision")} path={`${base}/decision/`} onDone={done} submitLabel={t("surv.proposeDecision")}
-          fields={[{ key: "allocation", label: t("surv.allocation"), options: allAllocs.filter(({ a }) => a.status === "authorized" || a.status === "suspended").map(({ b, a }) => [a.id, `${b.full_name}: ${formatMoney(a.amount, a.currency)}`] as [string, string]) },
+          fields={[{ key: "allocation", label: t("surv.allocation"), options: allAllocs.filter(({ a }) => a.status === "authorized" || a.status === "suspended").map(({ b, a }) => [a.id, `${b.full_name}: ${a.amount} ${a.currency}`] as [string, string]) },
                    { key: "kind", label: t("surv.decision"), options: (["change_amount", "suspend", "resume", "terminate"] as const).map((k) => [k, t(`surv.dkind.${k}` as Key)] as [string, string]) },
                    { key: "new_amount", label: t("surv.newAmount"), type: "number", required: false }, { key: "reason", label: t("surv.reason") },
                    { key: "effective_date", label: t("surv.effectiveDate"), type: "date" }, { key: "supporting_ref", label: t("surv.supportingRef") }]} />}

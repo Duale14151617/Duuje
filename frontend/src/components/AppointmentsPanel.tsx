@@ -4,7 +4,7 @@ import type { AppointmentOut, AppointmentTypeOut, Person, UnitDepartmentRow } fr
 import { useAuth } from "../auth/AuthContext";
 import { useFetch } from "../api/useFetch";
 import { useI18n } from "../i18n";
-import { EmptyState, Chip, ErrorNotice, Field, Notice } from "./ui";
+import { Chip, ErrorNotice, Field, Notice } from "./ui";
 import { UnitPicker } from "./UnitPicker";
 
 /**
@@ -56,7 +56,7 @@ export function AppointmentsPanel({ person }: { person: Person }) {
     <section className="card">
       <h2>{t("appt.title")}</h2>
       <ErrorNotice error={error ?? list.error} />
-      {rows.length === 0 && <EmptyState compact icon="users" title={t("appt.none")} hint={t("common.emptyHint")} />}
+      {rows.length === 0 && <p className="muted">{t("appt.none")}</p>}
       {rows.map((a) => (
         <div key={a.id} className="item">
           <div className="row">

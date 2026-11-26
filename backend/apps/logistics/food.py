@@ -2,7 +2,7 @@
 
 Food is an ordinary stock category (its code starts with "food"), so every movement is an entry in the same append-only stock
 ledger and the balance can never go negative. This module adds what food needs on top: who supplied it, when it expires, which
-Police order allowed a movement, and proof that it arrived. HQ administrators act directly here (every action is audited and
+Army order allowed a movement, and proof that it arrived. HQ administrators act directly here (every action is audited and
 carries its order or delivery note reference); the quantities cannot be changed afterwards, only corrected by a further entry.
 """
 from datetime import date, timedelta

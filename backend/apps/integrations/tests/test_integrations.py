@@ -27,10 +27,6 @@ class IntegrationBase(BaseApiTest):
         # These tests exercise the feature itself, so the test database lets hq_admin manage clients. The permission check for
         # roles that must not manage them is covered by test_only_permitted_users_can_list and test_nobody_can_grant_access_they_do_not_hold.
         Role.objects.get(code="hq_admin").permissions.add(*Permission.objects.filter(code__in=["integrations.view", "integrations.manage"]))
-        # These tests assume an administrator who holds NO data access of their own (so a key can only be granted what they were given
-        # through a separate reporting role). The seeded hq_admin now also carries everyday data permissions, so take the ones the
-        # analytics sections depend on away from it in the test database.
-        Role.objects.get(code="hq_admin").permissions.remove(*Permission.objects.filter(code__in=["personnel.view", "reports.summary", "logistics.report", "training.report", "reports.view"]))
         Rank.objects.filter(branch__code="ARMY", code="PA-03").update(approval_status="approved", name_so="x")
         self.rank = Rank.objects.get(branch__code="ARMY", code="PA-03")
         self.bari = OU.objects.create(code="BARI-ARMY-A", name_en="Bari A", level="unit", parent=self.unit("BARI-ARMY"))

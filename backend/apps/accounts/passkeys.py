@@ -57,7 +57,7 @@ def registration_options(request, user):
     ch = _issue(user, "register")
     return {"challenge_id": str(ch.pk), "options": {
         "challenge": ch.challenge,
-        "rp": {"id": rp_id(request), "name": getattr(settings, "WEBAUTHN_RP_NAME", "Police HQ")},
+        "rp": {"id": rp_id(request), "name": getattr(settings, "WEBAUTHN_RP_NAME", "Army HQ")},
         "user": {"id": webauthn.b64e(user.pk.bytes), "name": user.username, "displayName": user.full_name or user.username},
         "pubKeyCredParams": [{"type": "public-key", "alg": -7}, {"type": "public-key", "alg": -257}],
         "excludeCredentials": [{"type": "public-key", "id": c.credential_id} for c in PasskeyCredential.objects.filter(user=user)],

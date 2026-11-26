@@ -11,7 +11,7 @@ class Rank(models.Model):
         ENLISTED = "enlisted"
         WARRANT = "warrant"
         OFFICER = "officer"
-        UNSPECIFIED = "unspecified"  # the official Puntland Police list is not split into these classes
+        UNSPECIFIED = "unspecified"  # the official Puntland Army list is not split into these classes
 
     class Approval(models.TextChoices):
         DRAFT = "draft"

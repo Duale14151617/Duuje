@@ -13,7 +13,6 @@ import { AttendanceTab, HistoryTimeline, ServiceRecordTab, TrainingTab } from ".
 import { statusTone } from "../components/status";
 import { ExportPdfButton } from "../components/ExportPdfButton";
 import { PersonnelProfile } from "../components/PersonnelProfile";
-import { IdCardButton } from "../components/IdCardButton";
 import { AppointmentsPanel } from "../components/AppointmentsPanel";
 import { DeathPanel } from "../components/DeathPanel";
 import { ReportingLine } from "../components/ReportingLine";
@@ -378,7 +377,6 @@ export function PersonnelDetail() {
               </dl>
             </section>
             <PersonnelProfile personId={p.id} canManage={can("personnel.manage")} onPhotoChanged={() => { setPhotoBroken(false); setPhotoV((v) => v + 1); }} />
-            <IdCardButton personId={p.id} />
           </TabPanel>
           <TabPanel id="service" idPrefix="pf" active={tab === "service"}>
             <ErrorNotice error={history.error} />

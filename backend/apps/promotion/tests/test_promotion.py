@@ -144,7 +144,7 @@ class NextRankTests(PromotionBase):
 
 
 class ProposalTests(PromotionBase):
-    """Eligible people become rank-change requests in the normal approval queue, with the Police order that authorizes them."""
+    """Eligible people become rank-change requests in the normal approval queue, with the Army order that authorizes them."""
 
     ORDER = {"order_ref": "PO-2026/14", "issuing_officer": "Commissioner", "order_date": "2026-11-01"}
 

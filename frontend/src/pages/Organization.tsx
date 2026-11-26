@@ -16,7 +16,7 @@ const PARENT_LEVELS: Record<string, string[]> = {
 function TypeField({ level, types, value, onChange }: {
   level: string; types: UnitType[]; value: string; onChange: (v: string) => void }) {
   const { t, name } = useI18n();
-  // Taliska Guud (Police headquarters) and Qayb (regional command) sit at branch-command level; Qayb may also be nested.
+  // Taliska Guud (Army headquarters) and Qayb (regional command) sit at branch-command level; Qayb may also be nested.
   // Every other template level is a unit. The server enforces this; the list only offers sensible choices.
   const COMMAND_TYPES = ["TALISKA_GUUD", "QAYB"];
   const fits = types.filter((x) => x.active && (level === "branch_command" ? COMMAND_TYPES.includes(x.code) : x.code !== "TALISKA_GUUD"));

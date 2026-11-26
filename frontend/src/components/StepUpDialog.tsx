@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ApiError, api, setStepUpHandler } from "../api/client";
-import { useAuth } from "../auth/AuthContext";
 import { useI18n } from "../i18n";
-import { getPasskey, passkeysSupported, wasCancelled } from "../lib/webauthn";
 import { ErrorNotice, Field } from "./ui";
 
 /**
@@ -11,7 +9,6 @@ import { ErrorNotice, Field } from "./ui";
  */
 export function StepUpDialog() {
   const { t } = useI18n();
-  const { me } = useAuth();
   const [open, setOpen] = useState(false);
   const [code, setCode] = useState("");
   const [error, setError] = useState<unknown>(null);
@@ -57,38 +54,18 @@ export function StepUpDialog() {
     }
   };
 
-  const withPasskey = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const opts = await api<{ challenge_id: string; options: Record<string, unknown> }>("/auth/step-up/passkey/", { method: "POST" });
-      const credential = await getPasskey(opts.options);
-      await api("/auth/step-up/", { method: "POST", body: { passkey: { challenge_id: opts.challenge_id, credential } } });
-      finish(true);
-    } catch (err) {
-      if (!wasCancelled(err)) setError(err instanceof ApiError ? err : new ApiError(0, { code: "network" }));
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <dialog ref={dialog} className="stepup" aria-labelledby="stepup-title" onCancel={(e) => { e.preventDefault(); finish(false); }}>
       <form onSubmit={submit}>
         <h2 id="stepup-title">{t("stepup.title")}</h2>
         <p className="muted">{t("stepup.hint")}</p>
         <Field label={t("login.otp")}>
-          <input value={code} onChange={(e) => setCode(e.target.value)} autoComplete="one-time-code" autoCapitalize="characters" spellCheck={false}
-                 maxLength={16}
-                 // eslint-disable-next-line jsx-a11y/no-autofocus -- the dialog asks for exactly one code
-                 autoFocus required />
+          <input value={code} onChange={(e) => setCode(e.target.value)} inputMode="numeric" autoComplete="one-time-code"
+                 maxLength={8} autoFocus required />
         </Field>
         {error ? <ErrorNotice error={error} /> : null}
         <div className="row" style={{ gap: ".5rem", marginTop: ".75rem" }}>
           <button type="submit" disabled={busy || code.trim().length < 6}>{t("stepup.confirm")}</button>
-          {(me?.passkey_count ?? 0) > 0 && passkeysSupported() && (
-            <button type="button" className="secondary" disabled={busy} onClick={() => void withPasskey()}>{t("login.usePasskey")}</button>
-          )}
           <button type="button" className="secondary" onClick={() => finish(false)}>{t("common.cancel")}</button>
         </div>
       </form>

@@ -6,7 +6,6 @@ import { useFetch } from "../api/useFetch";
 import { Chip, ErrorNotice, Field, Notice, Loading, EmptyState } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
 import { left, tone, type CaseLite, type Claim, type PaySummary } from "./payrollShared";
-import { formatDateTime, formatMoney } from "../lib/format";
 
 interface Payment {
   id: string; kind: "salary" | "arrears" | "survivor"; line: string | null; claim: string | null; allocation: string | null; personnel: string; personnel_name: string;
@@ -83,7 +82,7 @@ function PaymentItem({ p, onChanged }: { p: Payment; onChanged: () => void }) {
       <button type="button" className="secondary" onClick={() => setOpen(!open)}>
         <b>{p.personnel_name}</b> ({p.service_number ?? "—"}) · {t(`payx.kind.${p.kind}` as Key)} · {p.period}
       </button>
-      <div className="stat"><span>{t(`payx.method.${p.method}` as Key)} · {p.recipient_name} · {p.recipient_display}</span><b>{formatMoney(p.amount, p.currency)}</b></div>
+      <div className="stat"><span>{t(`payx.method.${p.method}` as Key)} · {p.recipient_name} · {p.recipient_display}</span><b>{p.amount} {p.currency}</b></div>
       <div className="row">
         <Chip tone={tone(p.status)}>{t(`payx.status.${p.status}` as Key)}</Chip>
         {p.status === "paid" && <Chip tone={tone(p.reconciliation_status)}>{t(`payx.recon.${p.reconciliation_status}` as Key)}</Chip>}
@@ -113,7 +112,7 @@ function PaymentItem({ p, onChanged }: { p: Payment; onChanged: () => void }) {
 }
 
 function PaymentDetail({ id }: { id: string }) {
-  const { t, tr, lang } = useI18n();
+  const { t, tr } = useI18n();
   const { can } = useAuth();
   const d = useFetch<PaymentFull>(`/payroll/payments/${id}/`);
   const [shown, setShown] = useState<Record<string, string> | null>(null);
@@ -134,7 +133,7 @@ function PaymentDetail({ id }: { id: string }) {
       {d.data.note && <p className="muted">{d.data.note}</p>}
       <h3>{t("pay.history")}</h3>
       <ul className="list">{d.data.events.map((e, i) => (
-        <li key={i} className="muted">{formatDateTime(e.at, lang)} · {tr(`payx.act.${e.action}`) ?? e.action} · {e.actor}{e.comment ? ` · ${e.comment}` : ""}</li>
+        <li key={i} className="muted">{new Date(e.at).toLocaleString()} · {tr(`payx.act.${e.action}`) ?? e.action} · {e.actor}{e.comment ? ` · ${e.comment}` : ""}</li>
       ))}</ul>
     </div>
   );
@@ -223,17 +222,17 @@ export function PayForm({ preset, startOpen, onDone, onCancel }: { preset?: PayP
         {runId && run.data && lines.length === 0 && <p className="muted">{t("payx.noLines")}</p>}
         {lines.length > 0 && <Field label={t("payx.line")}>
           <select value={line} required onChange={(e) => { setLine(e.target.value); const l = lines.find((x) => x.id === e.target.value); setAmount(l ? left(l.approved_net, l.paid) : ""); setBen(""); }}><option value="">—</option>
-            {lines.map((l) => <option key={l.id} value={l.id}>{l.service_number ?? l.id.slice(0, 8)} · {formatMoney(left(l.approved_net, l.paid), l.currency)} {t("payx.left")}{l.death_month ? ` · ${t("pay.deathMonth")}` : ""}</option>)}</select></Field>}</>}
+            {lines.map((l) => <option key={l.id} value={l.id}>{l.service_number ?? l.id.slice(0, 8)} · {left(l.approved_net, l.paid)} {l.currency} {t("payx.left")}{l.death_month ? ` · ${t("pay.deathMonth")}` : ""}</option>)}</select></Field>}</>}
       {!locked && kind === "arrears" && <Field label={t("payx.claim")}>
         <select value={claim} required onChange={(e) => { setClaim(e.target.value); const c = approvedClaims.find((x) => x.id === e.target.value); setAmount(c?.outstanding ?? ""); setBen(""); }}><option value="">—</option>
-          {approvedClaims.map((c) => <option key={c.id} value={c.id}>{c.personnel_name} · {formatMoney(c.outstanding, c.currency)} {t("payx.left")}</option>)}</select></Field>}
+          {approvedClaims.map((c) => <option key={c.id} value={c.id}>{c.personnel_name} · {c.outstanding} {c.currency} {t("payx.left")}</option>)}</select></Field>}
       {!locked && kind === "survivor" && <>
         <Field label={t("payx.case")}>
           <select value={caseId} onChange={(e) => { setCaseId(e.target.value); setAlloc(""); setAmount(""); }}><option value="">—</option>
             {liveCases.map((c) => <option key={c.id} value={c.id}>{c.personnel_name} ({c.service_number ?? "—"})</option>)}</select></Field>
         {caseId && <Field label={t("payx.allocation")}>
           <select value={alloc} required onChange={(e) => { setAlloc(e.target.value); setAmount(allocs.find(({ a }) => a.id === e.target.value)?.a.amount ?? ""); }}><option value="">—</option>
-            {allocs.map(({ b, a }) => <option key={a.id} value={a.id}>{b.full_name} · {formatMoney(a.amount, a.currency)}</option>)}</select></Field>}</>}
+            {allocs.map(({ b, a }) => <option key={a.id} value={a.id}>{b.full_name} · {a.amount} {a.currency}</option>)}</select></Field>}</>}
       {perPeriod && <div className="row">
         <Field label={t("pay.year")}><input type="number" min={2000} max={2100} required value={year} onChange={(e) => setYear(e.target.value)} /></Field>
         <Field label={t("pay.month")}><input type="number" min={1} max={12} required value={month} onChange={(e) => setMonth(e.target.value)} /></Field></div>}

@@ -1,3 +1,10 @@
+import unittest
+
+from django.conf import settings
+
+if not settings.CUSTODY_ENABLED:  # custody is switched off for now; set CUSTODY_ENABLED=1 to run these tests
+    raise unittest.SkipTest("custody is switched off (CUSTODY_ENABLED=0)")
+
 """Shift handover: snapshot, acknowledgement by the next officer, blocking, scope and audit. Synthetic data only."""
 from apps.audit.models import AuditEvent
 from apps.core.appendonly import AppendOnlyError

@@ -1,6 +1,5 @@
 """Confirmed payroll and survivor policy: month of death, arrears, suspended/jailed flags, indefinite survivor benefits,
 Sahal / bank payments with separated duties and reconciliation. Synthetic data only."""
-from decimal import Decimal
 from datetime import date
 
 from apps.audit.models import AuditEvent
@@ -194,7 +193,7 @@ class MonthOfDeathTests(PolicyBase):
         inst = self.prep(line, beneficiary=wife, method="bank_transfer")
         self.assertEqual(inst.status_code, 201, inst.content)
         self.run_to_paid(inst.json()["id"])
-        self.assertEqual(Decimal(self.officer.get(f"{P}runs/{run['id']}/").json()["lines"][0]["paid"]), Decimal("115.00"))
+        self.assertEqual(self.officer.get(f"{P}runs/{run['id']}/").json()["lines"][0]["paid"], "115.00")
 
     def test_4_the_month_after_death_is_not_paid_through_payroll(self):
         self.approved_profile()

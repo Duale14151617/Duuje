@@ -11,7 +11,7 @@ interface Profile {
 }
 
 /** Phone photos are huge; shrink to <=1600px JPEG in the browser so uploads stay small and fast. Falls back to the original. */
-export async function shrink(file: File): Promise<File> {
+async function shrink(file: File): Promise<File> {
   if (file.size < 1_000_000 && file.type === "image/jpeg") return file;
   try {
     const bmp = await createImageBitmap(file);

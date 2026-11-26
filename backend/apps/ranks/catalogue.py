@@ -1,4 +1,4 @@
-"""Official Puntland Police rank catalogue (Addendum to 1.3, version 1.3.1).
+"""Official Puntland Army rank catalogue (Addendum to 1.3, version 1.3.1).
 
 The first 16 names and their order were supplied by the institution and are stored exactly as supplied. They are stored
 in the database (table `ranks`), so authorised administrators can edit them without touching code; this module is only
@@ -14,7 +14,7 @@ OFFICIAL_ARMY_RANKS = [
     "Commander of the Puntland Defense Forces",  # senior military command appointment
     "President / Commander-in-Chief",  # highest constitutional authority
 ]
-CODE_PREFIX = "PA-"  # internal identifier (Puntland Police, position in the order); editable, not an official code
+CODE_PREFIX = "PA-"  # internal identifier (Puntland Army, position in the order); editable, not an official code
 PROVISIONAL_CODE = re.compile(r"^[EWO]-\d{1,2}$")  # the provisional US-style codes seeded in 1.0-1.3
 
 

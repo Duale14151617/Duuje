@@ -3,12 +3,9 @@ import { Link } from "react-router-dom";
 import { ApiError, uploadForm } from "../api/client";
 import type { BulkUsersReport, Role } from "../api/types";
 import { useFetch } from "../api/useFetch";
-import { useAuth } from "../auth/AuthContext";
-import { ExportPdfButton } from "../components/ExportPdfButton";
 import { ErrorNotice, Field, formatDate, Notice, useErrorText } from "../components/ui";
 import { useI18n } from "../i18n";
 import { downloadText, inspectCsv, toCsv, type CsvInspection } from "../lib/csv";
-import { checklistDoc, signInSheetDoc } from "./onboardingDocs";
 
 const COLUMNS = ["full_name", "username", "email", "role", "unit", "branch", "service_number", "language"];
 const LIMITS = { columns: COLUMNS, required: ["full_name", "role", "unit"], maxBytes: 200_000, maxRows: 50 };
@@ -16,7 +13,6 @@ const LIMITS = { columns: COLUMNS, required: ["full_name", "role", "unit"], maxB
 /** Create several login accounts from one CSV. Check first, then create; the temporary passwords are shown once. */
 export function UsersBulk() {
   const { t, tr, lang, name } = useI18n();
-  const { me } = useAuth();
   const errText = useErrorText();
   const roles = useFetch<Role[]>("/roles/");
   const [file, setFile] = useState<File | null>(null);
@@ -79,9 +75,6 @@ export function UsersBulk() {
           <Notice kind="error">{t("users.bulk.once", { days: created[0]?.expires_at ? formatDate(created[0].expires_at, lang) : "" })}</Notice>
           <div className="row">
             <button type="button" onClick={credentials}>{t("users.bulk.download")}</button>
-            <ExportPdfButton className="" label={t("onb.sheetBtn")} filename="sign-in-sheet"
-              build={() => signInSheetDoc(created, t, me?.full_name ?? "", (iso) => formatDate(iso, lang))} />
-            <ExportPdfButton label={t("onb.checklistBtn")} filename="first-login-checklist" build={() => checklistDoc(t)} />
             <button type="button" className="secondary" onClick={() => setCreated(null)}>{t("imp.another")}</button>
           </div>
           <ul className="list">
@@ -102,7 +95,6 @@ export function UsersBulk() {
           <div className="row">
             <button type="button" onClick={() => void send(true)} disabled={busy || !file || !!local?.problem}>{t("imp.preview")}</button>
             <button type="button" className="secondary" onClick={template}>{t("imp.template")}</button>
-            <ExportPdfButton label={t("onb.checklistBtn")} filename="first-login-checklist" build={() => checklistDoc(t)} />
           </div>
           {roles.data && (
             <details className="mt-1">

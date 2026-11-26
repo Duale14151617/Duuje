@@ -82,13 +82,6 @@ class CategoryTests(LogisticsBase):
         self.assertEqual((r.status_code, r.data["code"]), (403, "self_approval_not_allowed"))
         self.assertTrue(AuditEvent.objects.filter(action="category.approve", outcome="denied", metadata__reason="self_approval").exists())
 
-    def test_only_the_super_administrator_may_approve_their_own_category(self):
-        boss = self.client_for(self.make_user("boss_sa", "super_admin"))
-        cat = boss.post(L + "categories/", {"code": "sa1", "kind": "stock", "name_en": "S", "name_so": "S"}, format="json").data
-        r = boss.post(f"{L}categories/{cat['id']}/approve/", {"version": 1}, format="json")
-        self.assertEqual((r.status_code, r.data["approval_status"]), (200, "approved"), r.data)
-        self.assertTrue(AuditEvent.objects.filter(action="self_approval.used", metadata__check="inventory_category").exists())
-
     def test_restricted_categories_are_hidden_from_ordinary_users(self):
         codes = lambda r: {c["code"] for c in r.data}
         self.assertNotIn("restricted_equipment", codes(self.cust().get(L + "categories/")))

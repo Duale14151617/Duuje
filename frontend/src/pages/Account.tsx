@@ -1,16 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { api } from "../api/client";
-import { MySessions } from "../components/MySessions";
-import { SecurityKeys } from "../components/SecurityKeys";
 import { useAuth } from "../auth/AuthContext";
-import { Avatar } from "../components/Avatar";
-import { AvatarEditor } from "../components/AvatarEditor";
 import { Chip, ErrorNotice, Field, Notice } from "../components/ui";
 import { useI18n } from "../i18n";
 
 /** The signed-in user's own account. For now: confirm the email address with a code, which is what unlocks "Forgot your password?". */
 export function Account() {
-  const { me, reload, can } = useAuth();
+  const { me, reload } = useAuth();
   const { t } = useI18n();
   const current = me?.email ?? "";
   const verified = me?.email_verified === true;
@@ -42,35 +38,11 @@ export function Account() {
     await reload();
   }); };
   const startOver = () => { setSentTo(null); setCode(""); setError(null); };
-  const alertsOn = me?.notify_email === true;
-  const toggleAlerts = () => run(async () => { await api("/auth/me/", { method: "PATCH", body: { notify_email: !alertsOn } }); await reload(); });
 
   return (
     <>
-      <div className="account-head">
-        <Avatar size={72} />
-        <div>
-          <h1>{t("account.title")}</h1>
-          <p className="muted" style={{ margin: 0 }}>{me?.full_name} · {me?.username}</p>
-        </div>
-      </div>
-      {can("users.manage") && me ? (
-        <section className="card">
-          <h2>{t("avatar.title")}</h2>
-          <AvatarEditor userId={me.id} onChanged={() => void reload()} />
-        </section>
-      ) : me?.personnel_id && <p className="muted">{t("account.photoNote")}</p>}
-      <SecurityKeys />
-      <MySessions />
-      {me?.features.notification_email === true && (
-        <section className="card">
-          <label className="row" style={{ alignItems: "center", gap: ".6rem" }}>
-            <input type="checkbox" checked={alertsOn} disabled={busy || (!verified && !alertsOn)} onChange={() => void toggleAlerts()} />
-            <b>{t("acct.emailAlerts")}</b>
-          </label>
-          <p className="muted" style={{ marginBottom: 0 }}>{verified || alertsOn ? t("acct.emailAlertsHint") : t("acct.emailAlertsNeedsVerified")}</p>
-        </section>
-      )}
+      <h1>{t("account.title")}</h1>
+      <p className="muted">{me?.full_name} · {me?.username}</p>
       <section className="card">
         <h2>{t("account.email")}</h2>
         {done && <Notice>{t("account.verifiedDone")}</Notice>}

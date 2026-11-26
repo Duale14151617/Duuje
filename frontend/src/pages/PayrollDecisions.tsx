@@ -6,7 +6,6 @@ import { useFetch } from "../api/useFetch";
 import { Chip, ErrorNotice, Field, Notice, Loading, EmptyState } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
 import { tone, type Claim } from "./payrollShared";
-import { formatMoney } from "../lib/format";
 
 interface Decision {
   id: string; status_at_decision: string; kind: string; decision_text: string; deduction_percent: number; reason: string; effective_date: string; supporting_ref: string;
@@ -63,7 +62,7 @@ function Person({ id, onChanged }: { id: string; onChanged: () => void }) {
   return (
     <div className="card">
       <ErrorNotice error={p.error} />
-      <div className="stat"><span>{t("pdec.profile")}</span><b>{d.salary_profile ? formatMoney(d.salary_profile.base_amount, d.salary_profile.currency) : t("pdec.noProfile")}</b></div>
+      <div className="stat"><span>{t("pdec.profile")}</span><b>{d.salary_profile ? `${d.salary_profile.base_amount} ${d.salary_profile.currency}` : t("pdec.noProfile")}</b></div>
       {d.salary_profile && <p className="muted">{t("pay.effectiveFrom")} {d.salary_profile.effective_from}</p>}
       {can("payroll.review") && <RecordDecision base={base} onDone={done} />}
       <h3>{t("pdec.decisions")}</h3>
@@ -91,7 +90,7 @@ function Person({ id, onChanged }: { id: string; onChanged: () => void }) {
         <p className="muted">{t("pdec.unpaidNote")}</p></>}
       {d.arrears_claims.length > 0 && <>
         <h3>{t("arr.title")}</h3>
-        <ul className="list">{d.arrears_claims.map((c) => <li key={c.id} className="muted">{c.periods.join(", ")} · {formatMoney(c.amount, c.currency)} · {t(`arr.status.${c.status}` as Key)}</li>)}</ul></>}
+        <ul className="list">{d.arrears_claims.map((c) => <li key={c.id} className="muted">{c.periods.join(", ")} · {c.amount} {c.currency} · {t(`arr.status.${c.status}` as Key)}</li>)}</ul></>}
     </div>
   );
 }

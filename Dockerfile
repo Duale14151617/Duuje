@@ -3,7 +3,9 @@
 FROM node:20-alpine AS frontend-build
 WORKDIR /src/frontend
 COPY frontend/package*.json ./
-RUN npm ci
+# `npm ci` needs package-lock.json to match package.json. When it does not (a dependency was added without updating the lock file),
+# fall back to `npm install`, which resolves it. Run `npm install` in frontend/ once and commit the lock file to make builds exact again.
+RUN npm ci || npm install --no-audit --no-fund
 COPY frontend/ ./
 RUN npm run build
 
@@ -13,7 +15,7 @@ WORKDIR /app
 COPY backend/requirements.txt ./requirements.txt
 RUN pip install -r requirements.txt
 COPY backend/ ./
-# The Puntland map ships as three <25 MB parts (upload limit of GitHub and chat tools); join them into one file and drop the parts.
+# The Puntland map ships as three <25 MB parts (GitHub upload limit); join them into one file and drop the parts.
 RUN if ls mapdata/puntland.pmtiles.part* >/dev/null 2>&1; then cat mapdata/puntland.pmtiles.part* > mapdata/puntland.pmtiles && rm mapdata/puntland.pmtiles.part*; fi
 COPY --from=frontend-build /src/frontend/dist ./frontend_dist
 # The web process and the start-up commands need no write access to the image: run them as an unprivileged user.
@@ -23,4 +25,4 @@ EXPOSE 10000
 # Fast wake-up: only migrate runs before the web server starts. The idempotent seed/cleanup
 # commands run in the background right after gunicorn begins listening, so the port opens in
 # seconds instead of minutes. A failed migrate still stops the container (as before).
-CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py createcachetable && { [ -z \"$RESET_MFA_USERNAME\" ] || python manage.py reset_mfa --username \"$RESET_MFA_USERNAME\" || true; } && { ( python manage.py seed_reference_data && { [ ${POLICEHQ_ADMIN_PASSWORD:+x}${ARMYHQ_ADMIN_PASSWORD:+x} ] && python manage.py create_hq_admin --username superadmin --full-name 'System Administrator' --role super_admin || true; } && { case ${POLICEHQ_PROFILE:-${ARMYHQ_PROFILE:-army}} in police) python manage.py apply_police_structure --apply && python manage.py apply_custody_facilities && python manage.py apply_police_fleet --apply;; *) python manage.py apply_army_structure --apply && python manage.py remove_legacy_structure --apply --purge;; esac; } && python manage.py rename_sample_data --apply && { case $(printf %s ${POLICEHQ_SAMPLE_MODE:-${ARMYHQ_SAMPLE_MODE:-${ARMYHQ_DEMO_MODE:-0}}} | tr A-Z a-z) in 1|true|yes|on) python manage.py seed_sample_data && python manage.py seed_test_personnel --from-env && { [ ${POLICEHQ_PROFILE:-${ARMYHQ_PROFILE:-army}} = police ] && python manage.py seed_police_sample || true; };; *) echo 'Sample mode is off: skipping sample data.';; esac; } && python manage.py report_duplicate_identities || echo 'Background seeding stopped early - see messages above' ) & exec python -m gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-10000} --workers 2 --timeout 60 --access-logfile -; }"]
+CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py createcachetable && { [ -z \"$RESET_MFA_USERNAME\" ] || python manage.py reset_mfa --username \"$RESET_MFA_USERNAME\" || true; } && { ( python manage.py seed_reference_data && python manage.py apply_army_structure --apply && python manage.py apply_custody_facilities && python manage.py remove_legacy_structure --apply --purge && python manage.py rename_sample_data --apply && { case $(printf %s ${ARMYHQ_SAMPLE_MODE:-${ARMYHQ_DEMO_MODE:-0}} | tr A-Z a-z) in 1|true|yes|on) python manage.py seed_sample_data && python manage.py seed_test_personnel --from-env;; *) echo 'Sample mode is off: skipping sample data.';; esac; } && python manage.py report_duplicate_identities || echo 'Background seeding stopped early - see messages above' ) & exec python -m gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-10000} --workers 2 --timeout 60 --access-logfile -; }"]

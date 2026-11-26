@@ -1,5 +1,5 @@
 """Promotion eligibility by rank and time in rank. The list is advisory; a proposal only creates rank-change requests in the
-normal approval queue (Police order, super administrator decision), it never changes a rank itself."""
+normal approval queue (Army order, super administrator decision), it never changes a rank itself."""
 import uuid
 
 from django.db import transaction
@@ -112,7 +112,7 @@ class PromotionViewSet(viewsets.ViewSet):
     @action(detail=False, methods=["post"])
     def propose(self, request):
         """{items: [{personnel}], order_ref, issuing_officer, order_date, effective_date?}. Turns eligible people into rank-change
-        requests in the normal approval queue, each carrying the Police order that authorizes it. Eligibility is worked out again
+        requests in the normal approval queue, each carrying the Army order that authorizes it. Eligibility is worked out again
         here, so a proposal cannot be made for someone the list would not show as eligible. All rows are checked first: if any
         is wrong nothing is created. As everywhere in the queue, a super administrator's own proposal is applied at once."""
         d = json_body(request)

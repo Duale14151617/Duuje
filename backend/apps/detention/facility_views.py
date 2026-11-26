@@ -1,4 +1,4 @@
-"""Custody facilities API: jail centers (police lock-ups, one or more per station) and prisons (outside the Police).
+"""Custody facilities API: jail centers (army lock-ups, one or more per station) and prisons (outside the Army).
 
 Read: detention.view. A jail center is shown to callers whose scope covers its station; prisons belong to no station and are shown to
 everyone who can read the register. Write: detention.manage. A jail center needs that permission for its station; a prison, which sits
@@ -126,7 +126,7 @@ class CustodyFacilityViewSet(viewsets.GenericViewSet):
             with transaction.atomic():
                 f = F.objects.create(code=code, kind=kind, org_unit=unit, name_en=_text(d, "name_en", 150, required=True), name_so=_text(d, "name_so", 150),
                                      location=_text(d, "location", 200), capacity=_capacity(d),
-                                     operated_by=_text(d, "operated_by", 150) or ("Police" if kind == "jail_center" else ""),
+                                     operated_by=_text(d, "operated_by", 150) or ("Army" if kind == "jail_center" else ""),
                                      last_edited_by_username=request.user.username)
         except IntegrityError:
             raise field_error("code", "duplicate", "This code is already used.")

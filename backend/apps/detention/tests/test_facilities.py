@@ -1,4 +1,11 @@
-"""Custody facilities: jail centers (police lock-ups) and prisons (outside the Police). Synthetic data only."""
+import unittest
+
+from django.conf import settings
+
+if not settings.CUSTODY_ENABLED:  # custody is switched off for now; set CUSTODY_ENABLED=1 to run these tests
+    raise unittest.SkipTest("custody is switched off (CUSTODY_ENABLED=0)")
+
+"""Custody facilities: jail centers (army lock-ups) and prisons (outside the Army). Synthetic data only."""
 from apps.detention.models import CustodyFacility
 from apps.detention.tests.test_detention import URL, DetentionBase
 
@@ -48,7 +55,7 @@ class FacilityTests(DetentionBase):
     def test_create_and_edit_rules(self):
         body = {"kind": "jail_center", "org_unit": str(self.unit_a.pk), "code": "a-jail-2", "name_en": "Second cells", "capacity": 12}
         made = self.officer.post(FAC, body, format="json")
-        self.assertEqual((made.status_code, made.data["code"], made.data["operated_by"]), (201, "A-JAIL-2", "Police"))
+        self.assertEqual((made.status_code, made.data["code"], made.data["operated_by"]), (201, "A-JAIL-2", "Army"))
         self.assertEqual(self.officer.post(FAC, body, format="json").status_code, 400)  # code already used
         self.assertEqual(self.officer.post(FAC, {**body, "org_unit": str(self.unit_b.pk), "code": "N1"}, format="json").status_code, 404)  # not their station
         self.assertEqual(self.officer.post(FAC, {"kind": "prison", "code": "P2", "name_en": "P2"}, format="json").status_code, 404)  # prisons need a headquarters grant

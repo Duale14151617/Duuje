@@ -6,14 +6,14 @@ from apps.core.db_triggers import no_delete_trigger
 
 # Before: vehicle_positions_no_delete() refused every delete. After: it still refuses, except for rows that an archive in the ledger
 # (vehicle_position_archives, status 'archived') covers, that are older than 30 days, and only in a transaction that names that archive
-# (SET LOCAL policehq.purge_archive = '<batch id>'). `purge_positions` is the only code that does this.
+# (SET LOCAL armyhq.purge_archive = '<batch id>'). `purge_positions` is the only code that does this.
 OLD_FN = """CREATE OR REPLACE FUNCTION vehicle_positions_no_delete() RETURNS trigger AS $$
         BEGIN RAISE EXCEPTION 'vehicle_positions rows cannot be deleted'; END; $$ LANGUAGE plpgsql"""
 
 NEW_FN = """CREATE OR REPLACE FUNCTION vehicle_positions_no_delete() RETURNS trigger AS $$
         DECLARE aid text;
         BEGIN
-            aid := current_setting('policehq.purge_archive', true);
+            aid := current_setting('armyhq.purge_archive', true);
             IF aid IS NOT NULL AND aid <> ''
                AND OLD.recorded_at < now() - interval '30 days'
                AND EXISTS (SELECT 1 FROM vehicle_position_archives a

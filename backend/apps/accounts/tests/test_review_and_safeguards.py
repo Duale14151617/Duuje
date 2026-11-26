@@ -155,19 +155,3 @@ class AccessReviewTests(PersonnelBase):
         self.assertIn("norole", out.getvalue())
         self.assertEqual([m.to for m in mail.outbox], [["other@example.org"]])
         self.assertTrue(AuditEvent.objects.filter(action="access.review", metadata__via="management_command").exists())
-
-
-class AccessReviewBackupCodeTests(PersonnelBase):
-    def test_flags_authenticator_users_who_are_nearly_out_of_backup_codes(self):
-        from apps.accounts import backup_codes
-        adm = self.make_user("adm", "hq_admin")
-        low = self.make_user("lowcodes", "auditor", mfa=True)
-        fine = self.make_user("fine", "auditor", mfa=True)
-        backup_codes.generate(fine)
-        for code in backup_codes.generate(low)[:8]:
-            backup_codes.consume(low, code)  # 2 left
-        data = self.client_for(adm).get(f"{U}access-review/").json()
-        names = data["findings"]["backup_codes_low"]["items"]
-        self.assertIn("lowcodes: 2", names)
-        self.assertFalse(any(n.startswith("fine:") for n in names))
-        self.assertGreaterEqual(data["security"]["mfa_users"], 2)

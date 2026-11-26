@@ -1,17 +1,21 @@
-"""Hierarchy and custody-setup verification (read-only). Answers: does every active police station sit in the right place of the
-chart (under a district or a regional command, inside a region), have its departments, and have a consistent custody setup?
+"""Hierarchy and custody-setup verification (read-only). Answers: does every active custody unit (an Urur, i.e. a battalion) sit in the
+right place of the chart (under a Guuto or a regional command, inside a region), and have a consistent custody setup?
 
-Nothing is created or changed here and nothing is invented: a station with no district is reported as "no district assigned" for the
-administration to decide, not given one. Used by `manage.py verify_station_hierarchy`, the oversight dashboard and the tests."""
+Nothing is created or changed here and nothing is invented: a unit with no Guuto is reported as "no Guuto assigned" for the
+administration to decide, not given one. Used by `manage.py verify_station_hierarchy`, the oversight dashboard and the tests.
+In this deployment the custody unit is the Urur (CUSTODY_UNIT_TYPE) and the level above it is the Guuto (CUSTODY_PARENT_TYPE);
+the Army's own structure is not changed by anything in this app."""
 from django.db.models import F
 
-from apps.organization import profiles
-from apps.organization.models import OrganizationalUnit as OU, UnitDepartment
+from apps.organization.models import OrganizationalUnit as OU
 
 from .models import CustodyCell, CustodyFacility, DetentionRecord
 
 ERROR, WARNING, INFO = "error", "warning", "info"
-VALID_PARENTS = ("POLICE_DISTRICT", "POLICE_REGION")  # a station sits under a district, or directly under its regional command
+CUSTODY_UNIT_TYPE = "URUR"      # the Army unit that holds people: the Urur (battalion) guardroom
+CUSTODY_PARENT_TYPE = "GUUTO"   # the level above it (called "district" in the API and the report columns)
+REGION_COMMAND_TYPE = "QAYB"
+VALID_PARENTS = (CUSTODY_PARENT_TYPE, REGION_COMMAND_TYPE)  # a custody unit sits under a Guuto, or directly under its regional command
 
 
 def index():
@@ -27,14 +31,14 @@ def lineage(unit, by_id):
         seen.add(cur.pk)
         chain.append(cur)
     code = lambda u: u.unit_type.code if u.unit_type_id else ""
-    region = next((u for u in chain if code(u) == "POLICE_REGION"), None) or next((u for u in chain if u.level == OU.Level.REGION), None)
-    district = next((u for u in chain if code(u) == "POLICE_DISTRICT"), None)
+    region = next((u for u in chain if code(u) == REGION_COMMAND_TYPE), None) or next((u for u in chain if u.level == OU.Level.REGION), None)
+    district = next((u for u in chain if code(u) == CUSTODY_PARENT_TYPE), None)
     return region, district, chain
 
 
 def stations():
-    """Active units that are police stations."""
-    return list(OU.objects.filter(unit_type__code="POLICE_STATION", active=True).select_related("unit_type", "parent", "parent__unit_type").order_by("path"))
+    """Active custody units (Urur)."""
+    return list(OU.objects.filter(unit_type__code=CUSTODY_UNIT_TYPE, active=True).select_related("unit_type", "parent", "parent__unit_type").order_by("path"))
 
 
 def check():
@@ -49,10 +53,6 @@ def check():
     by_station = {}
     for f in facs:
         by_station.setdefault(f.org_unit_id, []).append(f)
-    wanted = set(profiles.STATION_DEPARTMENTS)
-    have = {}
-    for unit_id, code in UnitDepartment.objects.filter(active=True, unit__unit_type__code="POLICE_STATION").values_list("unit_id", "department__code"):
-        have.setdefault(unit_id, set()).add(code)
     names = {}
     for st in sts:
         region, district, chain = lineage(st, by_id)
@@ -62,7 +62,7 @@ def check():
         else:
             ptype = parent.unit_type.code if parent.unit_type_id else ""
             if ptype not in VALID_PARENTS:
-                add(ERROR, "wrong_parent_type", st, f"The parent is {parent.code}, which is not a district or a regional command.")
+                add(ERROR, "wrong_parent_type", st, f"The parent is {parent.code}, which is not a Guuto or a regional command.")
             if not st.path.startswith(parent.path):
                 add(ERROR, "path_mismatch", st, "The stored hierarchy path does not follow the parent: the unit tree needs repair.")
         if region is None:
@@ -70,13 +70,10 @@ def check():
         if any(not u.active for u in chain):
             add(ERROR, "inactive_ancestor", st, "An office above this active station is switched off.")
         if district is None:
-            add(INFO, "no_district", st, "No district is assigned. The station sits directly under its regional command; assign one only when the real district is known.")
+            add(INFO, "no_district", st, "No Guuto is assigned. The unit sits directly under its regional command; assign one only when the real Guuto is known.")
         elif region is not None and district.pk not in {u.pk for u in chain}:
-            add(ERROR, "district_outside_region", st, "The district is not part of the station's region.")
+            add(ERROR, "district_outside_region", st, "The Guuto is not part of the unit's region.")
         names.setdefault((st.parent_id, st.name_en.strip().lower()), []).append(st)
-        missing = wanted - have.get(st.pk, set())
-        if missing:
-            add(WARNING, "missing_departments", st, "Station departments not yet set up: " + ", ".join(sorted(missing)) + ".")
         mine = by_station.get(st.pk, [])
         if not mine:
             add(ERROR, "no_jail_center", st, "No jail center record exists for this station. Run apply_custody_facilities.")
@@ -91,8 +88,8 @@ def check():
             add(WARNING, "duplicate_station_name", group[0], f"{len(group)} active stations share this name under the same parent.")
     for f in facs:
         u = f.org_unit
-        if not (u.unit_type_id and u.unit_type.code == "POLICE_STATION"):
-            add(WARNING, "facility_unit_not_station", u, f"Jail center {f.code} belongs to a unit that is not a police station.")
+        if not (u.unit_type_id and u.unit_type.code == CUSTODY_UNIT_TYPE):
+            add(WARNING, "facility_unit_not_station", u, f"Jail center {f.code} belongs to a unit that is not an Urur (custody unit).")
         elif not u.active and f.active:
             add(WARNING, "facility_of_inactive_station", u, f"Jail center {f.code} is switched on but its station is not active.")
     # in-custody consistency

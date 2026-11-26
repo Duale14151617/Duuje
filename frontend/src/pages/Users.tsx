@@ -4,7 +4,6 @@ import { api } from "../api/client";
 import type { Assignment, Branch, Page, Person, Role, Unit, UserRow } from "../api/types";
 import { useFetch } from "../api/useFetch";
 import { useAuth } from "../auth/AuthContext";
-import { AvatarEditor } from "../components/AvatarEditor";
 import { DataTable, type Column } from "../components/DataTable";
 import { FilterBar } from "../components/FilterBar";
 import { Chip, ErrorNotice, Field, formatDate, Loading, Notice, PageHeader, EmptyState } from "../components/ui";
@@ -286,8 +285,6 @@ export function UserDetail() {
             </div>
             {tempShown && <Notice>{t("users.tempResult", { user: u.username, password: tempShown.password, date: tempShown.expires ? formatDate(tempShown.expires, lang) : "" })}</Notice>}
             {issued && <Notice>{t("users.resetCodeShown", { minutes: issued.valid_minutes, code: issued.code })}</Notice>}
-            <h2 className="mt-1">{t("avatar.title")}</h2>
-            <AvatarEditor userId={u.id} />
             </>
           )}
         </section>

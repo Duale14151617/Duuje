@@ -105,7 +105,7 @@ def render(s, data, today_lines=()):
     base = (getattr(settings, "SITE_URL", "") or "").rstrip("/")
     lines += ["Counts only. No names or service numbers are included in this email.",
               f"Full report: {base}/personnel-report" if base else "", "",
-              "You receive this because a Police HQ administrator added you to this schedule."]
+              "You receive this because an Army HQ administrator added you to this schedule."]
     return "\n".join(lines).strip() + "\n"
 
 

@@ -7,6 +7,8 @@ import { I18nProvider } from "../i18n";
 import { VehicleDetail, Vehicles } from "./Vehicles";
 
 vi.mock("../auth/AuthContext", () => ({ useAuth: () => ({ can: () => true, reload: vi.fn(), me: null, loading: false, offline: false }) }));
+// the map library needs a real browser (WebGL, workers): the page logic is tested against a stand-in
+vi.mock("../components/VehicleMap", () => ({ default: () => <div>map-stub</div> }));
 vi.mock("../components/UnitPicker", () => ({ UnitPicker: ({ label }: { label: string }) => <div>{label}</div> }));
 
 const cat = { id: "c1", code: "hilux_4x4", name_en: "Hilux 4x4", name_so: "Hilux 4x4" };
@@ -33,9 +35,12 @@ beforeEach(() => {
     const path = url.split("?")[0];
     const body: unknown =
       path.endsWith("/auth/csrf/") ? { csrf_token: "t" } :
+      path.endsWith("/map/config/") ? { available: true, url: "/api/v1/map/puntland.pmtiles", bounds: [46.2, 6.5, 51.6, 13.6], attribution: "OSM", centre: [48.5, 8.4], zoom: 7, max_zoom: 14 } :
+      path.endsWith("/vehicle-tracking/silent/") ? { hours: 24, vehicles: [], trackers: [] } :
+      path.endsWith("/vehicle-tracking/trail/") ? { points: [], count: 0, truncated: false, distance_km: 0 } :
+      path.endsWith("/vehicle-tracking/geofences/") || path.endsWith("/vehicle-tracking/geofence-events/") ? { results: [] } :
       path.endsWith("/vehicles/categories/") ? { results: [cat] } :
       path.endsWith("/vehicles/statuses/") ? { results: statuses } :
-      path.endsWith("/vehicles/analytics/") ? { total: 0, decommissioned: 0, by_group: [], by_category: [], by_condition: {}, by_status: {}, expenditure: { visible: false, by_currency: [] } } :
       path.endsWith("/vehicles/summary/") ? { unit, total: 2, direct: tally, subordinate: { ...tally, total: 0 }, combined: tally, decommissioned: 0, by_child_unit: [{ unit, total: 2, direct: 2 }] } :
       path.endsWith("/vehicles/") ? { count: 1, next: null, previous: null, results: [row] } :
       path.endsWith("/history/") || path.endsWith("/maintenance/") || path.endsWith("/documents/") ? { results: [], cost_visible: true } :
@@ -71,5 +76,15 @@ describe("vehicle screens", () => {
     await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/status/"))).toBe(true));
     const post = calls.find((c) => c.method === "POST" && c.url.endsWith("/status/"))!;
     expect(post.body).toMatchObject({ version: 3, status: "on_loan", reason: "Lent to Battalion 2" });
+  });
+
+  it("shows tracking inside the vehicle pages, not as a page of its own", async () => {
+    app("/vehicles?view=tracking");
+    expect(await screen.findByText("Last known positions")).toBeTruthy();
+    expect(await screen.findByText("map-stub")).toBeTruthy();  // the self-hosted map, inside the Vehicles page
+    cleanup();
+    app("/vehicles/11111111-1111-1111-1111-111111111111");
+    expect(await screen.findByText("Position history")).toBeTruthy();
+    expect(calls.some((c) => c.url.includes("/vehicle-tracking/history/") && c.url.includes("vehicle=1111"))).toBe(true);
   });
 });

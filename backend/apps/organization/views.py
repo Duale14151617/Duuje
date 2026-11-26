@@ -467,7 +467,7 @@ def _change_request_out(obj):
 
 
 class ChangeRequestViewSet(viewsets.GenericViewSet):
-    """Hierarchy-affecting actions: HQ administrators propose (with the Police order), the super administrator decides.
+    """Hierarchy-affecting actions: HQ administrators propose (with the Army order), the super administrator decides.
     Nothing is live before approval. Permissions are enforced here on the server; the user interface only mirrors them."""
 
     permission_classes = [ScopedPermission]
@@ -564,7 +564,7 @@ class ChangeRequestViewSet(viewsets.GenericViewSet):
 
     @action(detail=False, methods=["post"], url_path="bulk-transfer")
     def bulk_transfer(self, request):
-        """One Police order moving many people. All rows are checked first; if any is wrong nothing is created and every
+        """One Army order moving many people. All rows are checked first; if any is wrong nothing is created and every
         problem row is reported. `items` is a list of {service_number | personnel, org_unit?}; `org_unit` is the default
         destination. The requests are decided together (see `batch`)."""
         d = request.data

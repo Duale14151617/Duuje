@@ -133,7 +133,7 @@ function Card({ c, onChanged }: { c: StructureChange; onChanged: () => void }) {
       <p className="muted">{c.operations.map((o) => `${o.op} ${o.code}`).join(", ")}</p>
       {c.impact.affected_units !== undefined && <p className="muted">{t("sc.affected", { n: c.impact.affected_units })}</p>}
       {problems.length > 0 && (
-        <Notice kind="warn"><strong>{t("sc.problems")}</strong><ul>{problems.map((p, i) => <li key={i}>{problemText(p, tr, t)}</li>)}</ul></Notice>
+        <Notice kind="error"><strong>{t("sc.problems")}</strong><ul>{problems.map((p, i) => <li key={i}>{problemText(p, tr, t)}</li>)}</ul></Notice>
       )}
       {c.decided_by_username && <p className="muted">{t("sc.decidedBy", { name: c.decided_by_username })}{c.decision_note ? ` — ${c.decision_note}` : ""}</p>}
       <ErrorNotice error={error} />
@@ -145,9 +145,6 @@ function Card({ c, onChanged }: { c: StructureChange; onChanged: () => void }) {
             <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t("sc.rejectReason")} aria-label={t("sc.rejectReason")} maxLength={500} />
             <button className="secondary" onClick={() => void post("reject", { note: reason })}>{t("sc.reject")}</button>
           </>
-        )}
-        {(c.status === "rejected" || c.status === "draft") && (can("org.structure_approve") || can("org.structure_propose")) && (
-          <button className="secondary" onClick={() => { if (window.confirm(t("sc.confirmRemove"))) void post("remove"); }}>{t("sc.remove")}</button>
         )}
       </div>
     </li>

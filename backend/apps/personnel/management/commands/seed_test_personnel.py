@@ -5,7 +5,7 @@
   python manage.py seed_test_personnel --from-env      used at container start, see below
 
 On Render (no shell on the free plan) the start command runs `--from-env`, driven by ONE environment variable:
-  POLICEHQ_TEST_PERSONNEL=150   -> make sure 150 test Army people exist
+  ARMYHQ_TEST_PERSONNEL=150   -> make sure 150 test Army people exist
   unset / 0                   -> delete all test people
 
 Test people are identified ONLY by the service-number prefix "TST-", so real records are never touched.
@@ -14,6 +14,7 @@ Names are common Somali given names with father/grandfather names; no two test p
 Each person also gets a complete identity profile (blood type, gender, date of birth, enlistment date, home district,
 emergency contact, a weapon ID for about 3 in 4, and a neutral placeholder portrait).
 """
+import os
 import random
 from datetime import date, timedelta
 from io import BytesIO
@@ -22,7 +23,6 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import connection, transaction
 from PIL import Image, ImageDraw
 
-from apps.core import env as hqenv
 from apps.organization.models import OrganizationalUnit as OU
 from apps.personnel import profile as profile_svc
 from apps.personnel import services as svc
@@ -130,7 +130,7 @@ def add_test_personnel(count):
     ranks = list(Rank.objects.filter(branch__code="ARMY", approval_status=Rank.Approval.APPROVED, active=True)
                  .order_by("sort_order")[:16])
     if not units or not ranks:
-        raise CommandError("Reference data missing (regional Police commands or approved ranks). Run seed_reference_data first.")
+        raise CommandError("Reference data missing (regional Army commands or approved ranks). Run seed_reference_data first.")
     have = set(Personnel.objects.filter(service_number__startswith=PREFIX).values_list("service_number", flat=True))
     taken = set(Personnel.objects.values_list("name_key", flat=True))
     names = _candidates(count + 400)  # spare names in case a real person already has one
@@ -198,11 +198,11 @@ class Command(BaseCommand):
         g = parser.add_mutually_exclusive_group()
         g.add_argument("--count", type=int, help="make sure this many Army test people exist (max 1000)")
         g.add_argument("--delete", action="store_true", help="delete ALL test people")
-        g.add_argument("--from-env", action="store_true", help="use POLICEHQ_TEST_PERSONNEL (0/unset = delete all)")
+        g.add_argument("--from-env", action="store_true", help="use ARMYHQ_TEST_PERSONNEL (0/unset = delete all)")
 
     def handle(self, *args, **opts):
         if opts["from_env"]:
-            raw = hqenv.get("TEST_PERSONNEL", "0").strip()
+            raw = os.environ.get("ARMYHQ_TEST_PERSONNEL", "0").strip()
             try:  # start-up must never fail because of test data
                 n = max(0, min(int(raw or 0), 1000))
                 if n:

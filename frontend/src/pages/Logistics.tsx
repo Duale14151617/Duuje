@@ -10,7 +10,6 @@ import { FilterBar } from "../components/FilterBar";
 import { statusTone } from "../components/status";
 import { Chip, ErrorNotice, Field, formatDate, Loading, Notice, Pager, Tabs, EmptyState } from "../components/ui";
 import { useI18n, type Key } from "../i18n";
-import { formatMoney } from "../lib/format";
 
 type Tab = "stock" | "assets" | "recon" | "categories" | "summary";
 const ASSET_FROM: Record<string, string[]> = {
@@ -327,7 +326,7 @@ export function AssetDetail() {
           <div className="stat"><span>{t("veh.condition")}</span><b>{t(`cond.${a.condition}` as Key)}</b></div>
           {(a.manufacturer || a.model) && <div className="stat"><span>{t("veh.col.model")}</span><b>{`${a.manufacturer} ${a.model}`.trim()}</b></div>}
           <div className="stat"><span>{t("equip.acquiredOn")}</span><b>{a.acquired_on ?? "—"}{a.procurement_ref ? ` · ${a.procurement_ref}` : ""}</b></div>
-          {a.acquisition_cost !== null && <div className="stat"><span>{t("equip.cost")}</span><b>{formatMoney(a.acquisition_cost, a.currency)}</b></div>}
+          {a.acquisition_cost !== null && <div className="stat"><span>{t("equip.cost")}</span><b>{a.currency} {Number(a.acquisition_cost).toLocaleString(undefined, { minimumFractionDigits: 2 })}</b></div>}
           <div className="stat"><span>{t("equip.lastInspected")}</span><b>{a.last_inspected_on ?? "—"}</b></div>
           <div className="stat"><span>{t("equip.nextInspection")}</span><b>{a.next_inspection_due ?? "—"}</b></div>
           {a.replaced_by && <p className="muted">{t("equip.replacedBy")}: <Link to={`/logistics/assets/${a.replaced_by}`}>{t("equip.openReplacement")}</Link></p>}

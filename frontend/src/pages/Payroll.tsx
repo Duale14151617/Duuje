@@ -8,7 +8,6 @@ import { useI18n, type Key } from "../i18n";
 import { Arrears } from "./PayrollArrears";
 import { Decisions } from "./PayrollDecisions";
 import { Payments } from "./PayrollPayments";
-import { formatDateTime, formatMoney, formatNumber } from "../lib/format";
 
 interface Summary { awaiting_approval: number; profiles_pending: number; serving_total: number; serving_with_approved_profile: number; serving_missing_profile: number; arrears_awaiting_decision?: number; pay_decisions_awaiting_approval?: number; runs_by_status: Record<string, number> }
 interface RunRow { id: string; year: number; month: number; kind: string; status: string; prepared_by: string; exceptions: Exception[] }
@@ -79,7 +78,7 @@ function Runs({ onChanged }: { onChanged: () => void }) {
 }
 
 function RunDetail({ id, onChanged }: { id: string; onChanged: () => void }) {
-  const { t, tr, lang } = useI18n();
+  const { t, tr } = useI18n();
   const { can } = useAuth();
   const r = useFetch<RunFull>(`/payroll/runs/${id}/`);
   const d = r.data;
@@ -93,7 +92,7 @@ function RunDetail({ id, onChanged }: { id: string; onChanged: () => void }) {
     <div className="card">
       <ErrorNotice error={r.error} />
       <div className="stat"><span>{t("pay.lines")}</span><b>{d.lines.length}</b></div>
-      <div className="stat"><span>{t("pay.total")}</span><b>{formatNumber(total, 2)}</b></div>
+      <div className="stat"><span>{t("pay.total")}</span><b>{total.toFixed(2)}</b></div>
       {excluded.length > 0 && <Notice kind="error">{t("pay.excluded", { n: excluded.length })}</Notice>}
       <ul className="list">
         {d.exceptions.map((x, i) => <li key={i} className="muted">{x.service_number || x.personnel.slice(0, 8)}: {tr(`pay.exc.${x.code}`) ?? x.code}</li>)}
@@ -102,8 +101,8 @@ function RunDetail({ id, onChanged }: { id: string; onChanged: () => void }) {
       <ul className="list">
         {d.lines.slice(0, 300).map((l) => (
           <li key={l.id} className="item">
-            <div className="stat"><span>{l.service_number ?? "—"} {l.kind !== "regular" ? `· ${t(`pay.lkind.${l.kind}` as Key)}` : ""}</span><b>{formatMoney(l.approved_net ?? l.calculated_net, l.currency)}</b></div>
-            <p className="muted">{t("pay.gross")} {formatMoney(l.gross)} · {t("pay.deductions")} {formatMoney(l.deductions)} · {t("pay.paid")} {formatMoney(l.paid)}{l.death_month ? ` · ${t("pay.deathMonth")}` : ""}{l.reason ? ` · ${l.reason}` : ""}</p>
+            <div className="stat"><span>{l.service_number ?? "—"} {l.kind !== "regular" ? `· ${t(`pay.lkind.${l.kind}` as Key)}` : ""}</span><b>{l.approved_net ?? l.calculated_net} {l.currency}</b></div>
+            <p className="muted">{t("pay.gross")} {l.gross} · {t("pay.deductions")} {l.deductions} · {t("pay.paid")} {l.paid}{l.death_month ? ` · ${t("pay.deathMonth")}` : ""}{l.reason ? ` · ${l.reason}` : ""}</p>
             {l.status_flag && <p className="muted">{l.status_flag_note}</p>}
             {manage && l.kind === "regular" && ["approved", "paid"].includes(d.status) && <Act title={t("pay.adjust")} path="/payroll/runs/adjust/" extra={{ line: l.id }} onDone={done} submitLabel={t("pay.adjust")}
               fields={[{ key: "kind", label: t("pay.adjustKind"), options: [["reversal", t("pay.reversal")], ["adjustment", t("pay.adjustment")]] }, { key: "amount", label: t("pay.adjustAmount"), type: "number", required: false }, { key: "reason", label: t("surv.reason") }]} />}
@@ -120,7 +119,7 @@ function RunDetail({ id, onChanged }: { id: string; onChanged: () => void }) {
           <Act title={t("pay.return")} path={`${base}/return/`} fields={[{ key: "comment", label: t("surv.comment") }]} onDone={done} submitLabel={t("pay.return")} /></>}
       </div>
       <h3>{t("pay.history")}</h3>
-      <ul className="list">{d.actions.map((a, i) => <li key={i} className="muted">{formatDateTime(a.at, lang)} · {t(`pay.act.${a.action}` as Key)} · {a.actor}{a.comment ? ` · ${a.comment}` : ""}</li>)}</ul>
+      <ul className="list">{d.actions.map((a, i) => <li key={i} className="muted">{new Date(a.at).toLocaleString()} · {t(`pay.act.${a.action}` as Key)} · {a.actor}{a.comment ? ` · ${a.comment}` : ""}</li>)}</ul>
     </div>
   );
 }
@@ -146,7 +145,7 @@ function Profiles({ onChanged }: { onChanged: () => void }) {
         {(list.data?.results ?? []).map((p) => (
           <li key={p.id} className="item">
             <b>{p.personnel_name}</b> ({p.service_number ?? "—"})
-            <div className="stat"><span>{t("pay.effectiveFrom")} {p.effective_from}</span><b>{formatMoney(p.base_amount, p.currency)}</b></div>
+            <div className="stat"><span>{t("pay.effectiveFrom")} {p.effective_from}</span><b>{p.base_amount} {p.currency}</b></div>
             <div className="row"><Chip tone={tone(p.status)}>{t(`pay.pstatus.${p.status}` as Key)}</Chip><span className="muted">{p.authority_ref} · {p.created_by}{p.decided_by ? ` → ${p.decided_by}` : ""}</span></div>
             {p.decision_note && <p className="muted">{p.decision_note}</p>}
             {can("payroll.approve") && p.status === "pending" && <div className="row">
@@ -191,7 +190,7 @@ function ProposeProfile({ onDone }: { onDone: () => void }) {
           <ul className="list">{(found.data?.results ?? []).map((p) => <li key={p.id} className="item"><button type="button" className="secondary" onClick={() => setPerson(p)}>{p.full_name} ({p.service_number ?? "—"})</button></li>)}</ul></>}
       <Field label={t("pay.scale")}>
         <select value={scale} onChange={(e) => setScale(e.target.value)}><option value="">{t("pay.typeAmount")}</option>
-          {(scales.data?.results ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}: {formatMoney(s.base_amount, s.currency)}</option>)}</select>
+          {(scales.data?.results ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}: {s.base_amount} {s.currency}</option>)}</select>
       </Field>
       {!scale && <>
         <Field label={t("pay.baseAmount")}><input type="number" step="0.01" min="0" required value={base} onChange={(e) => setBase(e.target.value)} /></Field>

@@ -9,7 +9,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 
 from apps.accounts import webauthn as w
 
-RP, ORIGIN = "police.example.so", "https://police.example.so"
+RP, ORIGIN = "army.example.so", "https://army.example.so"
 
 
 def cb(v):  # tiny CBOR encoder for the shapes the tests need

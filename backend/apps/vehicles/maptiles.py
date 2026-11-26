@@ -10,7 +10,7 @@ import re
 from pathlib import Path
 
 from django.conf import settings
-from django.http import FileResponse, HttpResponse, StreamingHttpResponse
+from django.http import FileResponse, HttpResponse
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -29,19 +29,6 @@ def tiles_path():
 
 def _allowed(user):
     return scope.unit_scope_q(user, "vehicles.view", "org_unit__") is not None
-
-
-def _stream(path, start, length, chunk=256 * 1024):
-    """Yield exactly `length` bytes from `start`, a chunk at a time, so a large range never sits in memory."""
-    with open(path, "rb") as fh:
-        fh.seek(start)
-        left = length
-        while left > 0:
-            data = fh.read(min(chunk, left))
-            if not data:
-                break
-            yield data
-            left -= len(data)
 
 
 class MapConfigView(APIView):
@@ -94,9 +81,12 @@ class MapTilesView(APIView):
         if start >= size or start > end:
             return HttpResponse(status=416, headers={"Content-Range": f"bytes */{size}"})
         length = end - start + 1
-        r = StreamingHttpResponse(_stream(p, start, length), status=206, content_type="application/octet-stream")
+        with open(p, "rb") as fh:
+            fh.seek(start)
+            data = fh.read(length)
+        r = HttpResponse(data, status=206, content_type="application/octet-stream")
         for k, v in base.items():
             r[k] = v
         r["Content-Range"] = f"bytes {start}-{end}/{size}"
-        r["Content-Length"] = str(length)
+        r["Content-Length"] = str(len(data))
         return r
