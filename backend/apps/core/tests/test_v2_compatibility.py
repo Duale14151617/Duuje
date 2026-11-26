@@ -64,7 +64,7 @@ V14_MIGRATIONS = {
 NEW_PERMISSIONS = {"analytics.view", "integrations.view", "integrations.manage", "org.structure_propose", "org.structure_approve", "food.view", "food.manage", "changes.propose", "changes.approve", "tasks.view", "tasks.manage"}
 ROLES_GAINING_ANALYTICS = {"hq_reporting", "regional_chief", "branch_admin"}
 NEW_ROLES = {"structure_approver", "super_admin", "command_authority", "member", "unit_commander", "weapons_custodian", "regional_commander", "transport_officer", "vehicle_disposal_approver",
-             "payroll_officer", "payroll_approver", "survivor_officer", "payment_officer", "payment_reconciler", "medical_officer", "custody_officer", "custody_commander", "ministry_viewer"}  # command: command authority; member: own record + direct subordinates
+             "payroll_officer", "payroll_approver", "survivor_officer", "payment_officer", "payment_reconciler", "medical_officer", "ministry_viewer"}  # command: command authority; member: own record + direct subordinates
 # branch_admin holds the sensitive personnel-file records (disciplinary history, service documents).
 BRANCH_ADMIN_RECORDS = {"disciplinary.view", "disciplinary.manage", "documents.view", "documents.manage"}
 # hq_admin receives every non-sensitive permission automatically, so it gains the integration and structure-proposal ones.
@@ -140,7 +140,7 @@ class RouteCompatibilityTests(BaseApiTest):
                                  ("ammo-control", "ammo-control"),
                                  # modules added after 2.0: protective equipment, equipment/vehicle models, inventory catalogue
                                  ("ppe", "ppe"), ("equipment", "equipment"), ("inventories", "inventory"),
-                                 # Army modules: vehicle log and tracking (custody and the occurrence book are switched off: CUSTODY_ENABLED)
+                                 # Army modules: vehicle log and tracking
                                  ("vehicle-tracking", "vehicle-tracking"), ("vehicle-log", "vehicle-log"),
                                  # leave and roster, promotion eligibility, fitness for duty
                                  ("leave", "leave"), ("roster", "roster"), ("promotion", "promotion"), ("fitness", "fitness")})  # attendance, weapons, ammunition and payroll modules

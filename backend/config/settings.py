@@ -80,8 +80,6 @@ INSTALLED_APPS = [
     "apps.leave",
     "apps.promotion",
     "apps.medical",
-    "apps.detention",
-    "apps.occurrence",
     "apps.issuance",
     "apps.schedules",
 ]
@@ -229,21 +227,6 @@ ENABLE_API_DOCS = env_bool("ENABLE_API_DOCS", DEBUG)
 
 # Self-hosted Puntland map (PMTiles). Default: backend/mapdata/puntland.pmtiles. Set MAP_TILES_FILE to use a file elsewhere (e.g. a Render disk).
 MAP_TILES_FILE = os.environ.get("MAP_TILES_FILE", "").strip()
-
-# Custody (detention register, facilities, incidents, handover, oversight, offline desk) and the Occurrence Book are SWITCHED OFF for now
-# (not enough information yet). Nothing is deleted: the code, tables and permissions stay, and setting CUSTODY_ENABLED=1 turns it all back on.
-CUSTODY_ENABLED = env_bool("CUSTODY_ENABLED", False)
-
-# ---- Custody (detention register), Occurrence Book --------------------------------------------------------
-# In this Army deployment the unit that holds people is the Urur (battalion) guardroom; the level above it is the Guuto (apps/detention/hierarchy.py).
-DETENTION_REVIEW_HOURS = int(os.environ.get("DETENTION_REVIEW_HOURS", "48"))  # review alert interval, set by the administration; not a legal limit
-# Court-date reminder window (days) and the age below which a person counts as a juvenile for the cell warnings. Both are decided by the
-# institution: the juvenile age is EMPTY (rule off) until you set it.
-DETENTION_COURT_REMINDER_DAYS = int(os.environ.get("DETENTION_COURT_REMINDER_DAYS", "2"))
-DETENTION_JUVENILE_UNDER_AGE = os.environ.get("DETENTION_JUVENILE_UNDER_AGE", "")
-# 1 = refuse a booking at a unit that has no verified, operational jail center (default: record the arrest and flag it on the dashboard)
-DETENTION_REQUIRE_OPERATIONAL_FACILITY = os.environ.get("DETENTION_REQUIRE_OPERATIONAL_FACILITY", "0") == "1"
-DETENTION_HANDOVER_ACK_HOURS = int(os.environ.get("DETENTION_HANDOVER_ACK_HOURS", "12"))  # a shift-handover note unacknowledged this long shows as overdue
 
 # ---- Sign-in security and system health ------------------------------------------------------------------------------------------------
 SAMPLE_DATA_ON = env_bool("ARMYHQ_SAMPLE_MODE", False)  # shown by the health check: sample data must be off in production

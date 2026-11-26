@@ -19,7 +19,7 @@ interface Data { from: string; to: string; totals: Counts; regions: RegionRow[];
 
 const KEYS = ["on_file", "serving", "active", "on_leave", "suspended", "jailed", "retired", "discharged", "died", "joined", "left", "promoted"] as const;
 
-/** Personnel strength and movement for a period, by region, unit and rank. Counts only; exported like the custody report (CSV for spreadsheets, PDF for commanders). */
+/** Personnel strength and movement for a period, by region, unit and rank. Counts only; exported as CSV for spreadsheets and PDF for commanders. */
 export function PersonnelReport() {
   const { t, name, lang } = useI18n();
   const [unit, setUnit] = useState("");

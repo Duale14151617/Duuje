@@ -1,6 +1,6 @@
 # Build the existing React frontend, then serve it and the Django API from one
 # origin so session cookies and CSRF protections work without cross-site cookies.
-FROM node:20-alpine AS frontend-build
+FROM node:22-alpine AS frontend-build
 WORKDIR /src/frontend
 COPY frontend/package*.json ./
 # `npm ci` needs package-lock.json to match package.json. When it does not (a dependency was added without updating the lock file),

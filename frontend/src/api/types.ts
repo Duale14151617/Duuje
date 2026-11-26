@@ -9,11 +9,19 @@ export interface Assignment {
 }
 export interface Me {
   id: string; username: string; full_name: string; preferred_language: Lang; mfa_enabled: boolean;
-  email?: string; email_verified?: boolean;
+  email?: string; email_verified?: boolean; notify_email?: boolean;
+  /** Unused backup codes and registered passkeys (0 unless the authenticator app is on). */
+  backup_codes_remaining?: number; passkey_count?: number;
+  /** Idle limit, how long before it the screen warns, and how long this sign-in can last in all (seconds). */
+  session?: { idle_seconds: number; warn_seconds: number; absolute_remaining: number };
+  /** The sign-in before this session and failed attempts since; null on a first-ever sign-in. */
+  sign_in?: { previous_at: string; previous_ip: string | null; failed_since: number } | null;
   requires_mfa: boolean; restrictions: string[]; permissions: string[]; assignments: Assignment[];
-  features: { personnel_export: boolean; report_export: boolean; integrations: boolean; email_verification?: boolean };
+  features: { personnel_export: boolean; report_export: boolean; integrations: boolean; email_verification?: boolean; notification_email?: boolean };
   /** The personnel record this login belongs to, if one is linked. */
   personnel_id?: string | null;
+  /** When the official photo was last set (seconds), used as a cache-buster; null when there is no photo. */
+  photo_v?: number | null;
 }
 export interface Page<T> { count: number; next: string | null; previous: string | null; results: T[] }
 export interface Unit extends Named {
@@ -72,7 +80,8 @@ export interface Dashboard {
   ranks?: { draft: number; approved: number };
   accounts?: { active: number; disabled: number; privileged_without_mfa: number };
   audit?: { events_24h: number; failed_logins_24h: number; denied_24h: number; daily?: DayActivity[] };
-  personnel?: { total: number; active: number; by_region?: RegionHeadcount[] };
+  personnel?: { total: number; active: number; by_region?: RegionHeadcount[]; new_30d?: number; new_prev_30d?: number };
+  leave?: { pending_approval: number; requests_7d: number; requests_prev_7d: number };
   reports?: { my_open: number; awaiting_review?: number };
   logistics?: { low_stock: number; assets_attention: number };
   training?: { in_progress: number; enrolled: number };
@@ -162,6 +171,7 @@ export interface Summary {
 export interface NotificationItem {
   id: string; kind: string; created_at: string; read_at: string | null;
   submission: { id: string; title: string; status: string } | null;
+  leave?: { id: string; title: string; status: string } | null;
 }
 
 export interface InvCategory extends Named {
@@ -368,6 +378,7 @@ export interface UnitProfile {
   unassigned_department: OrgBucket & { by_status: Record<string, number> };
   medical: OrgFunction; finance: OrgFunction;
   children: (OrgUnitBrief & OrgBucket & { direct: number })[];
+  activity: UnitActivity;
   stats: OrgBucket & { direct: number; by_status: Record<string, number> };
   by_rank: OrgRankRow[];
   can: { name: boolean; manage: boolean; appoint: boolean; restricted: boolean };
@@ -380,6 +391,11 @@ export interface DepartmentProfile {
   can: { name: boolean; manage: boolean; appoint: boolean };
 }
 export interface ChartNode extends OrgUnitBrief, OrgBucket { children: ChartNode[] }
+export interface UnitActivity {
+  window_days: number;
+  attendance: { date: string; present: number; absent: number; on_leave: number; reported: number } | null;
+  vehicles: { total: number; by_status: { status: string; count: number }[] } | null;
+}
 export interface OrgAnalytics {
   totals: OrgBucket & { by_status: Record<string, number> };
   by_formation: Record<string, (OrgUnitBrief & OrgBucket & { parent_id: string | null })[]>;
@@ -399,5 +415,6 @@ export interface BulkUsersReport {
 export interface ReviewFinding { count: number; items: string[] }
 export interface AccessReviewData {
   generated_at: string; users: number; active_users: number; needs_attention: number;
+  security?: { mfa_users: number; passkey_users: number };
   findings: Record<string, ReviewFinding>;
 }

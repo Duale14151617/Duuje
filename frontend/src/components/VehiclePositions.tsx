@@ -82,7 +82,8 @@ function Trail({ data }: { data: TrailData }) {
 }
 
 /** Where military vehicles are. Lives inside the Vehicles page (fleet-wide) and the vehicle detail (one vehicle); it has no page or menu item of its own. */
-export function VehiclePositions({ vehicleId }: { vehicleId?: string }) {
+/** `heading={false}` hides the title when the page already has one. */
+export function VehiclePositions({ vehicleId, heading = true }: { vehicleId?: string; heading?: boolean }) {
   const { t, lang } = useI18n();
   const { can } = useAuth();
   const canReport = can("vehicles.position");
@@ -222,8 +223,7 @@ export function VehiclePositions({ vehicleId }: { vehicleId?: string }) {
   const feedUrl = `${window.location.origin}/api/v1/tracker/feed/`;
   return (
     <>
-      <h2>{t("trk.title")}</h2>
-      <p className="muted">{t("trk.subtitle")}</p>
+      {heading && <><h2>{t("trk.title")}</h2><p className="muted">{t("trk.subtitle")}</p></>}
       {error != null && <ErrorNotice error={error} />}
       {!vehicleId && silent.data?.vehicles && (
         <section className="card" role="status" aria-live="polite">

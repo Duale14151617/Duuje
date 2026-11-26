@@ -24,13 +24,7 @@ from apps.vehicles.views import VehicleViewSet
 from apps.vehicles.logbook import VehicleLogViewSet
 from apps.vehicles.maptiles import MapConfigView, MapTilesView
 from apps.vehicles.tracking import TrackerFeedView, VehicleTrackingViewSet
-from apps.detention.facility_views import CustodyFacilityViewSet
-from apps.detention.incidents import CustodyIncidentViewSet
-from apps.detention.handover import ShiftHandoverViewSet
-from apps.detention.oversight import DetentionOversightViewSet
-from apps.detention.views import DetentionViewSet
 from apps.personnel.report import PersonnelReportViewSet
-from apps.occurrence.views import OccurrenceViewSet
 from apps.equipment.views import EquipmentViewSet
 from apps.payroll.views import PayrollRunViewSet, SalaryProfileViewSet, SurvivorCaseViewSet
 from apps.payroll.views_ext import ArrearsViewSet, PayrollPersonnelViewSet, PaymentViewSet, PolicyViewSet
@@ -95,14 +89,6 @@ router.register("vehicle-log", VehicleLogViewSet, basename="vehicle-log")
 router.register("vehicle-tracking", VehicleTrackingViewSet, basename="vehicle-tracking")
 router.register("personnel-report", PersonnelReportViewSet, basename="personnel-report")
 
-# Custody and the Occurrence Book are switched off unless CUSTODY_ENABLED=1 (their URLs then answer 404; nothing is deleted).
-if settings.CUSTODY_ENABLED:
-    router.register("detention", DetentionViewSet, basename="detention")
-    router.register("detention-oversight", DetentionOversightViewSet, basename="detention-oversight")
-    router.register("shift-handovers", ShiftHandoverViewSet, basename="shift-handover")
-    router.register("custody-incidents", CustodyIncidentViewSet, basename="custody-incident")
-    router.register("custody-facilities", CustodyFacilityViewSet, basename="custody-facility")
-    router.register("occurrence-book", OccurrenceViewSet, basename="occurrence-book")
 router.register("vehicles", VehicleViewSet, basename="vehicle")
 router.register("equipment", EquipmentViewSet, basename="equipment")
 router.register("payroll/profiles", SalaryProfileViewSet, basename="payroll-profile")

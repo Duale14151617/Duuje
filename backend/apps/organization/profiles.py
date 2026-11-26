@@ -13,7 +13,6 @@ suspended, jailed, retired, discharged, died); the status breakdown is always re
 """
 from collections import Counter, defaultdict
 
-from django.conf import settings
 from django.db.models import Count, Q
 from django.utils import timezone
 
@@ -253,7 +252,6 @@ def unit_profile(user, unit):
         "children": children,
         "stats": stats,
         "by_rank": by_rank,
-        "facilities": station_activity.facilities_of(unit),
         "activity": station_activity.unit_activity(user, unit),
         "can": {"name": names_ok, "manage": scope.can(user, "org.manage", unit=unit),
                 "appoint": scope.can(user, "personnel.appointments_manage", unit=unit),
@@ -299,32 +297,6 @@ def department_profile(user, unit, department):
     }
 
 
-def _jails_by_unit(user, units):
-    """{unit pk: [jail center with the number held now]} for the chart units the caller may see (jails hang on an Urur)."""
-    if not units or not settings.CUSTODY_ENABLED:
-        return {}
-    from apps.detention.models import CustodyFacility, DetentionRecord
-
-    facs = list(CustodyFacility.objects.filter(org_unit__in=[u.pk for u in units], active=True).order_by("name_en"))
-    held = dict(DetentionRecord.objects.filter(facility__in=facs, status=DetentionRecord.Status.IN_CUSTODY)
-                .values_list("facility_id").annotate(n=Count("id")))
-    out = defaultdict(list)
-    for f in facs:
-        out[f.org_unit_id].append({"id": str(f.pk), "code": f.code, "kind": f.kind, "name_en": f.name_en, "name_so": f.name_so,
-                                   "capacity": f.capacity, "in_custody": held.get(f.pk, 0)})
-    return out
-
-
-def _prisons(user):
-    """The prisons the Army hands people over to. They belong to the prison authority, not to a unit, so they are listed beside the chart."""
-    if not settings.CUSTODY_ENABLED:
-        return []
-    from apps.detention.models import CustodyFacility
-
-    return [{"id": str(f.pk), "code": f.code, "name_en": f.name_en, "name_so": f.name_so, "operated_by": f.operated_by}
-            for f in CustodyFacility.objects.filter(kind="prison", active=True).order_by("name_en")]
-
-
 # ----------------------------------------------------------------------------------------------------- organization chart
 def chart(user, include_inactive=False):
     """Expandable chart: General Headquarters > regional commands > brigades > battalions, each with its strength. Units below a
@@ -336,11 +308,9 @@ def chart(user, include_inactive=False):
     counter = _by_unit_status(_personnel(user, "count"))
     nodes, roots = {}, []
     chart_units = [u for u in units if u.unit_type_id and u.unit_type.formation_role in CHART_ROLES]
-    jails = _jails_by_unit(user, [u for u in chart_units if u.unit_type.formation_role == "battalion"]) if scope.unit_scope_q(user, "detention.view") is not None else {}
     for u in chart_units:
         b = _rollup(counter, u.path)
-        nodes[u.pk] = {**_brief_unit(u), "total": b["total"], "active": b["active"], "inactive": b["inactive"], "children": [],
-                       "facilities": jails.get(u.pk, [])}
+        nodes[u.pk] = {**_brief_unit(u), "total": b["total"], "active": b["active"], "inactive": b["inactive"], "children": []}
     by_path = {u.path: u for u in chart_units}
     for u in chart_units:  # path order: parents first; a unit whose nearest formation ancestor is out of scope becomes a root
         parent = None
@@ -367,7 +337,7 @@ def chart(user, include_inactive=False):
         for n in ns:
             sort(n["children"])
     sort(roots)
-    return {"count": len(nodes), "roots": roots, "prisons": _prisons(user) if scope.unit_scope_q(user, "detention.view") is not None else [], "counts_complete": counting_q(user) is not None}
+    return {"count": len(nodes), "roots": roots, "counts_complete": counting_q(user) is not None}
 
 
 # ------------------------------------------------------------------------------------------------------------ analytics

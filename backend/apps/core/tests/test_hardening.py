@@ -222,7 +222,7 @@ class MfaReplayTests(BaseApiTest):
                                       "payroll_officer", "payroll_approver", "survivor_officer", "payment_officer", "payment_reconciler",
                                       "weapons_custodian", "regional_commander", "transport_officer", "vehicle_disposal_approver",
                                       "hq_reporting", "unit_admin",
-                                      "custody_officer", "custody_commander", "ministry_viewer"})  # roles that can export or manage personnel need MFA too
+                                      "ministry_viewer"})  # roles that can export or manage personnel need MFA too
         unit_for = {"headquarters": "HQ", "region": "BARI", "branch_command": "BARI-ARMY", "unit": "BARI-ARMY"}
         for code in sorted(privileged):
             role = Role.objects.get(code=code)

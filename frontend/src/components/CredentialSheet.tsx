@@ -13,13 +13,13 @@ export interface CredentialDoc {
 const T = {
   en: {
     card: "OFFICER IDENTITY CARD", name: "Name", rank: "Rank", number: "Service no.", unit: "Unit", valid: "Valid until",
-    scan: "Scan to verify this card", code: "Code", found: "If found, return to the nearest police station.", sign: "Holder's signature",
+    scan: "Scan to verify this card", code: "Code", found: "If found, return to the nearest military unit.", sign: "Holder's signature",
     qrAlt: "QR code to verify this document", ref: "Ref", date: "Date", to: "To", verifyAt: "Verify this letter at", fingerprint: "Text fingerprint",
     revoked: "REVOKED", expired: "EXPIRED", not_serving: "NO LONGER SERVING",
   },
   so: {
     card: "KAARKA AQOONSIGA SARKAALKA", name: "Magac", rank: "Darajo", number: "Lambarka shaqada", unit: "Cutub", valid: "Ansax ilaa",
-    scan: "Sawir ka qaad si aad u hubiso kaarkan", code: "Koodh", found: "Haddii la helo, la geeyo saldhigga booliska ugu dhow.", sign: "Saxiixa qofka haysta",
+    scan: "Sawir ka qaad si aad u hubiso kaarkan", code: "Koodh", found: "Haddii la helo, la geeyo cutubka ciidanka ugu dhow.", sign: "Saxiixa qofka haysta",
     qrAlt: "QR si loo hubiyo dukumeentigan", ref: "Tixraac", date: "Taariikh", to: "Loogu talagalay", verifyAt: "Warqaddan ka hubi", fingerprint: "Faraha qoraalka",
     revoked: "LA BURBURIYAY", expired: "WAA DHACAY", not_serving: "MA SHAQEYSO HADDA",
   },

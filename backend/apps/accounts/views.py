@@ -78,8 +78,7 @@ def me_payload(user):
                      "report_export": settings.REPORT_EXPORT_ENABLED,
                      "integrations": settings.INTEGRATIONS_ENABLED,
                      "email_verification": settings.EMAIL_VERIFICATION_ENABLED,
-                     "notification_email": settings.NOTIFICATION_EMAILS_ENABLED,
-                     "custody": settings.CUSTODY_ENABLED},
+                     "notification_email": settings.NOTIFICATION_EMAILS_ENABLED},
         "assignments": AssignmentSerializer(scope.assignments(user), many=True).data,
         # The personnel record this login belongs to (null when none is linked); drives the "My record" shortcut.
         "personnel_id": str(person_id) if person_id else None,

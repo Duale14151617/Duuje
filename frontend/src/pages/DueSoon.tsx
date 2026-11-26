@@ -8,7 +8,7 @@ interface Item { id: string; label: string; due_on: string; overdue: boolean; no
 interface Group { kind: string; count: number; items: Item[]; link: string }
 interface Due { groups: Group[]; total: number }
 
-/** Dated items that are close or already past: ID cards, vehicle services, court dates and remand orders. */
+/** Dated items that are close or already past: ID cards and vehicle services. */
 export function DueSoon() {
   const { t, lang } = useI18n();
   const due = useFetch<Due>("/due-soon/");

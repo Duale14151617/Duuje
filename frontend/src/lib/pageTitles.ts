@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import type { Key } from "../i18n";
 
 /**
- * What the browser tab says on each screen: "Personnel · Puntland Police HQ". Matching is by longest path prefix, so a detail screen
+ * What the browser tab says on each screen: "Personnel · ARMY HQ". Matching is by longest path prefix, so a detail screen
  * (/personnel/123) inherits its list's title and only the rare exception needs its own line. A route that is not listed here keeps
  * the plain application name rather than showing something wrong.
  */
@@ -50,15 +50,6 @@ const TITLES: [string, Key][] = [
   ["/vehicle-log", "vlog.title"],
   ["/vehicle-tracking", "nav.tracking"],
   ["/food", "nav.food"],
-  ["/detention", "nav.detention"],
-  ["/occurrence-book", "nav.occurrence"],
-  ["/shift-handover", "nav.handover"],
-  ["/custody-facilities", "nav.facilities"],
-  ["/custody-oversight", "nav.oversight"],
-  ["/custody-incidents", "nav.incidents"],
-  ["/offline-desk", "off.nav"],
-  ["/tax", "nav.tax"],
-  ["/tax-oversight", "nav.taxOversight"],
   ["/users", "nav.users"],
   ["/integrations", "nav.integrations"],
   ["/audit", "nav.audit"],

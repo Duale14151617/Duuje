@@ -1,24 +1,21 @@
 """Due soon: things with a date that is close or already past, limited to what the person may see.
 
-Three kinds: ID cards about to expire, vehicles due for service, and court dates or remand orders for people in custody. Nothing
+Two kinds: ID cards about to expire and vehicles due for service. Nothing
 here invents a deadline: each date comes from a record somebody entered. A list never shows more than CAP rows per kind (the true
 count is always given). The same figures feed the daily digest notification, which says only HOW MANY items are waiting.
 """
-from django.conf import settings
 from datetime import timedelta
 
 from django.db.models import Exists, OuterRef, Q
 from django.utils import timezone
 
 from apps.accounts import scope
-from apps.detention.models import CourtHearing, DetentionRecord
 from apps.issuance.models import IssuedDocument
 from apps.vehicles.models import MaintenanceRecord, Vehicle
 
 CAP = 50
 ID_CARD_DAYS = 30
 SERVICE_DAYS = 14
-COURT_DAYS = 2
 
 
 def _limit(q, unit, prefix):
@@ -58,31 +55,8 @@ def _vehicle_service(user, today, unit=None):
                                        "unit_en": m.vehicle.org_unit.name_en, "unit_so": m.vehicle.org_unit.name_so} for m in qs), "/vehicles")
 
 
-def _court(user, now, unit=None):
-    if not settings.CUSTODY_ENABLED:  # custody is switched off
-        return None
-    q = scope.unit_scope_q(user, "detention.view", "org_unit__")
-    if q is None:
-        return None
-    q = _limit(q, unit, "org_unit__")
-    today = timezone.localdate(now)
-    held = DetentionRecord.objects.filter(q, status=DetentionRecord.Status.IN_CUSTODY).select_related("org_unit").prefetch_related("hearings")
-    rows = []
-    for r in held:
-        hearings = [h for h in r.hearings.all() if h.status != "cancelled"]
-        soon = [h.hearing_at for h in hearings if h.status == "scheduled" and h.hearing_at and now <= h.hearing_at <= now + timedelta(days=COURT_DAYS)]
-        remands = [h.remand_until for h in hearings if h.remand_until]
-        expired = bool(remands and max(remands) < today)
-        if soon or expired:
-            due = min(soon) if soon else None
-            rows.append({"id": str(r.pk), "label": r.register_no, "due_on": (due.date() if due else max(remands)).isoformat(),
-                         "overdue": expired, "note": "remand" if expired else "hearing", "unit_en": r.org_unit.name_en, "unit_so": r.org_unit.name_so})
-    rows.sort(key=lambda x: x["due_on"])
-    return _group("court", rows, "/detention")
-
-
 def due_soon(user, now=None, unit=None):
     now = now or timezone.now()
     today = timezone.localdate(now)
-    groups = [g for g in (_id_cards(user, today, unit), _vehicle_service(user, today, unit), _court(user, now, unit)) if g is not None]
+    groups = [g for g in (_id_cards(user, today, unit), _vehicle_service(user, today, unit)) if g is not None]
     return {"groups": groups, "total": sum(g["count"] for g in groups), "as_of": now.isoformat()}

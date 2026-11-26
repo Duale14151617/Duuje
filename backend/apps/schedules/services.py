@@ -54,9 +54,8 @@ def eligible_recipients(unit):
 
 
 
-GROUP_PERMS = {"id_cards": "credentials.view", "vehicle_service": "vehicles.view", "court": "detention.view"}
-GROUP_TITLES = {"id_cards": "ID cards expiring within 30 days", "vehicle_service": "Vehicles due for service within 14 days",
-                "court": "Court dates / ended remand orders within 2 days"}
+GROUP_PERMS = {"id_cards": "credentials.view", "vehicle_service": "vehicles.view"}
+GROUP_TITLES = {"id_cards": "ID cards expiring within 30 days", "vehicle_service": "Vehicles due for service within 14 days"}
 
 
 def today_section(s, creator, recipients):

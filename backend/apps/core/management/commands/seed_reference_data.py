@@ -63,10 +63,6 @@ PERMISSIONS = {
     "vehicles.cost": "See and record maintenance costs on vehicles in scope",
     "vehicles.configure": "Create and edit vehicle categories (headquarters)",
     "vehicles.position": "Record a vehicle's position (phone location or typed in) for vehicles in scope; reading positions needs vehicles.view",
-    "detention.view": "View the detention register (who is held, why, since when, custody log) for units in scope; every view is audited",
-    "detention.manage": "Book people into the detention register, log welfare checks and events, release or transfer them and void wrong entries for units in scope",
-    "detention.incident_review": "Review reports of deaths, injuries and use of force in custody for units in scope (not your own report)",
-    "detention.verify": "Mark a custody facility (jail center) verified as operational, temporarily out of use or closed, for units in scope; run the hierarchy check at headquarters",
     "equipment.manage": "Add and edit Equipment Reference Catalogue entries, specifications, photographs and mounted-weapon categories (headquarters)",
     "equipment.verify": "Mark a catalogue entry verified or needs-review; cannot verify an entry one entered oneself (super administrator)",
     "attendance.view": "View attendance and absence records and summaries for personnel in scope",
@@ -218,11 +214,11 @@ ROLES = {
     # personnel status, ammunition issued and remaining). Assigned per unit; link it to the command appointment so that it ends with it.
     "unit_commander": ("Unit commander (Taliye Guuto / Taliye Urur)", "Taliyaha cutubka (Taliye Guuto / Taliye Urur)", False, False,
                        ["unit"], BASIC + ["personnel.view", "attendance.view", "attendance.record", "reports.view", "reports.submit",
-                                          "logistics.view", "logistics.restricted", "weapons.view", "vehicles.view", "vehicles.position", "detention.view", "detention.manage"]),
+                                          "logistics.view", "logistics.restricted", "weapons.view", "vehicles.view", "vehicles.position"]),
     # Taliye Qaybeed: sees what the heads of the Guuto and Urur in the region have posted (reports, attendance, personnel). Assigned at the
     # regional command (a Qayb). View only: reviewing or approving the reports is a separate authority.
     "regional_commander": ("Regional commander (Taliye Qaybeed)", "Taliyaha Qaybta (Taliye Qaybeed)", True, False, ["branch_command"],
-                           BASIC + ["personnel.view", "attendance.view", "reports.view", "detention.view", "detention.verify", "detention.incident_review"]),
+                           BASIC + ["personnel.view", "attendance.view", "reports.view"]),
     # Armourer / weapons custodian: runs the weapon register. Holds the restricted-asset rights it needs to issue and return, and no
     # personnel permission (the issue screen uses a minimal lookup). Privileged: requires MFA like the other restricted roles.
     "weapons_custodian": ("Weapons custodian", "Ilaaliyaha hubka", True, False, ["branch_command", "unit"],
@@ -233,17 +229,10 @@ ROLES = {
                           BASIC + ["vehicles.view", "vehicles.create", "vehicles.edit", "vehicles.transfer", "vehicles.dispose", "vehicles.cost", "vehicles.position"]),
     "vehicle_disposal_approver": ("Vehicle disposal approver", "Ansixiyaha ka saarista gaadiidka", True, False, ["headquarters", "region", "branch_command"],
                                   BASIC + ["vehicles.view", "vehicles.approve"]),
-    # Custody officer: keeps the detention register for the stations in the assignment. Privileged (MFA): the register holds personal data
-    # about people held. Station commanders (unit_commander) and this role manage their own station's register; district and regional commanders read it for their jurisdiction.
     # Heads of a work area, working at headquarters or a region. They run or oversee ONE area and nothing else.
-    # Custody lead: runs the custody work above station level (verifies jails, reviews incidents, reads the oversight dashboard).
-    "custody_commander": ("Custody lead", "Madaxa xabsiga ilaalada", True, False, ["headquarters", "region", "branch_command"],
-                          BASIC + ["detention.view", "detention.manage", "detention.verify", "detention.incident_review", "reports.view"]),
-    # Ministry viewer: oversight for the ministry. Reads custody and approved summaries; changes nothing.
+    # Ministry viewer: oversight for the ministry. Reads approved summaries; changes nothing.
     "ministry_viewer": ("Ministry viewer", "Daawadaha wasaaradda", True, False, ["headquarters"],
-                        BASIC + ["detention.view", "reports.view", "reports.summary", "analytics.view"]),
-    "custody_officer": ("Custody officer", "Sarkaalka xabsiga ilaalada", True, False, ["region", "branch_command", "unit"],
-                        BASIC + ["detention.view", "detention.manage"]),
+                        BASIC + ["reports.view", "reports.summary", "analytics.view"]),
     # Finance duties are split four ways: the payroll officer PREPARES (runs, payment instructions, arrears), the approver AUTHORISES,
     # the payment officer EXECUTES (sends the payment outside the system and records it), the reconciler CHECKS it against the
     # statement; the auditor only reads the audit log. The service layer also refuses self-approval, so one person holding two
