@@ -2,6 +2,7 @@ import { useRef, type KeyboardEvent, type ReactNode } from "react";
 import { ApiError } from "../api/client";
 import { useI18n } from "../i18n";
 import { pageRange, pageWindow } from "../lib/tableUtils";
+import { formatDateTime } from "../lib/format";
 import { Icon, type IconName } from "./Icon";
 
 export function Notice({ kind = "info", children }: { kind?: "error" | "warn" | "info"; children: ReactNode }) {
@@ -25,13 +26,19 @@ export function ErrorNotice({ error }: { error: unknown }) {
   return <Notice kind="error">{text(error)}</Notice>;
 }
 
-export function Loading() {
+/** Placeholder shown while data loads: shimmering lines shaped like the content, so the page does not jump when it arrives.
+ *  `variant` picks the shape ("lines" for text, "cards" for a row of tiles, "table" for a list). The words are kept for screen readers. */
+export function Loading({ variant = "lines" }: { variant?: "lines" | "cards" | "table" }) {
   const { t } = useI18n();
+  const widths = ["92%", "78%", "86%", "64%"];
   return (
-    <div className="loading-skel" role="status" aria-label={t("common.loading")}>
-      <span className="skeleton-line" style={{ width: "35%", height: "1.2rem" }} />
-      {[92, 78, 85, 60, 70].map((w, i) => <span key={i} className="skeleton-line" style={{ width: `${w}%` }} />)}
+    <div className={`loading loading-${variant}`} role="status" aria-busy="true">
       <span className="sr-only">{t("common.loading")}</span>
+      {variant === "cards"
+        ? <div className="loading-cards" aria-hidden="true">{[0, 1, 2, 3].map((i) => <span key={i} className="skeleton" />)}</div>
+        : <div className="loading-rows" aria-hidden="true">
+            {(variant === "table" ? [0, 1, 2, 3, 4, 5] : [0, 1, 2, 3]).map((i) => <span key={i} className="skeleton-line" style={{ width: variant === "table" ? "100%" : widths[i] }} />)}
+          </div>}
     </div>
   );
 }
@@ -67,9 +74,9 @@ export function PageHeader({ title, subtitle, actions }: { title: ReactNode; sub
 }
 
 /** What a list shows when there is nothing to list: says why, and offers the next step. */
-export function EmptyState({ icon = "inbox", title, hint, action }: { icon?: IconName; title: string; hint?: string; action?: ReactNode }) {
+export function EmptyState({ icon = "inbox", title, hint, action, compact }: { icon?: IconName; title: string; hint?: string; action?: ReactNode; compact?: boolean }) {
   return (
-    <div className="empty-state" role="status">
+    <div className={compact ? "empty-state compact" : "empty-state"} role="status">
       <span className="empty-ico" aria-hidden="true"><Icon name={icon} size={28} /></span>
       <h3>{title}</h3>
       {hint ? <p className="muted">{hint}</p> : null}
@@ -104,7 +111,7 @@ export function Pager({ page, count, pageSize, onPage }: { page: number; count: 
 
 export function formatDate(iso: string | null, lang: string): string {
   if (!iso) return "";
-  return new Date(iso).toLocaleString(lang === "so" ? "so-SO" : "en-GB", { dateStyle: "medium", timeStyle: "short" });
+  return formatDateTime(iso, lang);
 }
 
 /**
