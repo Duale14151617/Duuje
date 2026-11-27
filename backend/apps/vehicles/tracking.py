@@ -151,6 +151,7 @@ class VehicleTrackingViewSet(viewsets.GenericViewSet):
     permission_classes = [ScopedPermission]
     pagination_class = _Page
     parser_classes = [JSONParser]
+    throttle_scope = None  # set per action for the daily-report export
     lookup_value_regex = r"[0-9a-f\-]{36}"
     permission_map = {"latest": ("vehicles.view", "any"), "history": ("vehicles.view", "any"), "report": ("vehicles.position", "any"),
                       "void": ("vehicles.position", "any"), "trackers": ("vehicles.view", "any"), "tracker_add": ("vehicles.edit", "any"),
