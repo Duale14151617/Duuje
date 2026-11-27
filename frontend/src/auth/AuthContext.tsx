@@ -11,6 +11,8 @@ interface Auth {
   login: (username: string, password: string, otp?: string) => Promise<void>;
   logout: () => Promise<void>;
   reload: () => Promise<void>;
+  /** Tells the server the person is still working (any request renews its idle timer) and refreshes the session countdown. */
+  keepAlive: () => Promise<void>;
   can: (permission: string) => boolean;
 }
 
@@ -39,6 +41,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { void reload(); }, [reload]);
 
+  const keepAlive = useCallback(async () => {
+    try {
+      setMe(await api<Me>("/auth/me/"));
+    } catch (e) {
+      // Signed out on the server (idle or 12-hour cap): show the sign-in page. A network blip changes nothing.
+      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) setMe(null);
+    }
+  }, []);
+
   const login = useCallback(async (username: string, password: string, otp?: string) => {
     const m = await api<Me>("/auth/login/", { method: "POST", body: { username, password, otp } });
     await refreshCsrf(); // Django rotates the CSRF token on login
@@ -55,9 +66,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<Auth>(() => ({
-    me, loading, offline, login, logout, reload,
+    me, loading, offline, login, logout, reload, keepAlive,
     can: (p) => !!me && me.restrictions.length === 0 && me.permissions.includes(p),
-  }), [me, loading, offline, login, logout, reload]);
+  }), [me, loading, offline, login, logout, reload, keepAlive]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
