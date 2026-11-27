@@ -17,6 +17,17 @@ import { Inventories } from "./pages/Inventories";
 import { Ppe } from "./pages/Ppe";
 import { VehicleDetail, Vehicles } from "./pages/Vehicles";
 import { Equipment, EquipmentDetail } from "./pages/Equipment";
+import { VehicleLog } from "./pages/VehicleLog";
+import { Leave } from "./pages/Leave";
+import { Promotion } from "./pages/Promotion";
+import { Fitness } from "./pages/Fitness";
+import { Credentials } from "./pages/Credentials";
+import { CredentialView } from "./pages/CredentialView";
+import { Schedules } from "./pages/Schedules";
+import { DueSoon } from "./pages/DueSoon";
+import { SystemHealth } from "./pages/SystemHealth";
+import { PersonnelReport } from "./pages/PersonnelReport";
+import { Verify } from "./pages/Verify";
 import { Holdings } from "./pages/Holdings";
 import { AmmoAccountability } from "./pages/AmmoAccountability";
 import { AmmoControl } from "./pages/AmmoControl";
@@ -52,6 +63,8 @@ import { UserDetail, Users } from "./pages/Users";
 export default function App() {
   const { me, loading } = useAuth();
   const location = useLocation();
+  // the public check that a scanned QR code opens: no sign-in, so it comes before every sign-in step
+  if (location.pathname.startsWith("/verify/")) return <Routes><Route path="verify/:code" element={<Verify />} /></Routes>;
   if (loading) return <main><Loading /></main>;
   if (!me) {
     if (location.pathname === "/reset") return <ResetPassword />;
@@ -88,6 +101,16 @@ export default function App() {
         <Route path="inventories" element={<Inventories />} />
         <Route path="vehicles" element={<Vehicles />} />
         <Route path="vehicles/:id" element={<VehicleDetail />} />
+        <Route path="vehicle-log" element={<VehicleLog />} />
+        <Route path="leave" element={<Leave />} />
+        <Route path="promotion" element={<Promotion />} />
+        <Route path="fitness" element={<Fitness />} />
+        <Route path="credentials" element={<Credentials />} />
+        <Route path="credentials/:id" element={<CredentialView />} />
+        <Route path="schedules" element={<Schedules />} />
+        <Route path="due-soon" element={<DueSoon />} />
+        <Route path="system-health" element={<SystemHealth />} />
+        <Route path="personnel-report" element={<PersonnelReport />} />
         <Route path="equipment" element={<Equipment />} />
         <Route path="equipment/:id" element={<EquipmentDetail />} />
         <Route path="holdings" element={<Holdings />} />
