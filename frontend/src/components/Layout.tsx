@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { api } from "../api/client";
 import { useFetch } from "../api/useFetch";
 import { useAuth } from "../auth/AuthContext";
+import { Avatar } from "./Avatar";
 import { useI18n, type Key } from "../i18n";
 import { GlobalSearch } from "./GlobalSearch";
 import { StepUpDialog } from "./StepUpDialog";
@@ -20,7 +21,7 @@ type NavItem = { to: string; label: Key; icon: IconName; show: boolean; match?: 
 const HUBS: { id: string; tabs: string[] }[] = [
   { id: "ammunition", tabs: ["/ammunition", "/accountability", "/ammo-control"] },
   { id: "weapons", tabs: ["/weapons", "/inventories", "/holdings"] },
-  { id: "vehicles", tabs: ["/vehicles", "/equipment"] },
+  { id: "vehicles", tabs: ["/vehicles", "/vehicle-log", "/equipment"] },
 ];
 const TAB_PATHS = HUBS.flatMap((h) => h.tabs);
 
@@ -28,11 +29,11 @@ const TAB_PATHS = HUBS.flatMap((h) => h.tabs);
 const NAV_SECTIONS: { key: string; title?: Key; to: string[] }[] = [
   { key: "top", to: ["/", "/notifications"] },
   { key: "units", title: "nav.group.units", to: ["/organization", "/structure", "/structure-changes", "/units"] },
-  { key: "people", title: "nav.group.people", to: ["/my-record", "/personnel", "/search", "/change-requests", "/attendance", "/training", "/ranks"] },
+  { key: "people", title: "nav.group.people", to: ["/my-record", "/personnel", "/search", "/change-requests", "/attendance", "/leave", "/promotion", "/fitness", "/credentials", "/personnel-report", "/training", "/ranks"] },
   { key: "pay", title: "nav.group.pay", to: ["/payroll", "/survivors"] },
-  { key: "reporting", title: "nav.group.reporting", to: ["/reports", "/summary", "/analytics", "/tasks"] },
+  { key: "reporting", title: "nav.group.reporting", to: ["/reports", "/summary", "/schedules", "/due-soon", "/analytics", "/tasks"] },
   { key: "logistics", title: "nav.group.logistics", to: ["/logistics", "/ammunition", "/ppe", "/weapons", "/vehicles", "/food"] },
-  { key: "admin", title: "nav.group.admin", to: ["/users", "/integrations", "/audit"] },
+  { key: "admin", title: "nav.group.admin", to: ["/users", "/integrations", "/system-health", "/audit"] },
 ];
 
 export function Layout() {
@@ -56,10 +57,18 @@ export function Layout() {
     { to: "/ammunition", go: can("logistics.restricted") ? "/ammunition" : "/accountability", icon: "box", label: "nav.hub.ammunition", show: can("logistics.restricted") || can("weapons.view"), match: ["/ammunition", "/accountability", "/ammo-control"] },
     { to: "/ppe", icon: "lock", label: "nav.ppe", show: can("logistics.view") },
     { to: "/weapons", icon: "lock", label: "nav.hub.weapons", show: can("weapons.view"), match: ["/weapons", "/inventories", "/holdings"] },
-    { to: "/vehicles", go: can("vehicles.view") ? "/vehicles" : "/equipment", icon: "box", label: "nav.vehicles", show: ["vehicles.view", "weapons.view", "equipment.manage"].some(can), match: ["/vehicles", "/equipment"] },
+    { to: "/vehicles", go: can("vehicles.view") ? "/vehicles" : "/equipment", icon: "box", label: "nav.vehicles", show: ["vehicles.view", "weapons.view", "equipment.manage"].some(can), match: ["/vehicles", "/vehicle-log", "/equipment"] },
     { to: "/payroll", icon: "list", label: "nav.payroll", show: can("payroll.view") },
     { to: "/survivors", icon: "users", label: "nav.survivors", show: can("survivor.view") },
     { to: "/attendance", icon: "check", label: "nav.attendance", show: can("attendance.view") },
+    { to: "/leave", icon: "calendar", label: "nav.leave", show: ["leave.view", "leave.own", "leave.request", "roster.view"].some(can) },
+    { to: "/promotion", icon: "award", label: "nav.promotion", show: can("promotion.view") },
+    { to: "/fitness", icon: "activity", label: "nav.fitness", show: can("fitness.view") },
+    { to: "/credentials", icon: "file", label: "nav.credentials", show: can("credentials.view") },
+    { to: "/personnel-report", icon: "list", label: "nav.personnelReport", show: can("personnel.view") },
+    { to: "/schedules", icon: "clock", label: "nav.schedules", show: can("schedules.manage") },
+    { to: "/due-soon", icon: "alert", label: "nav.dueSoon", show: true },
+    { to: "/system-health", icon: "check", label: "nav.systemHealth", show: can("users.view") },
     { to: "/units", icon: "building", label: "nav.units", show: can("org.view") },
     { to: "/change-requests", icon: "swap", label: "nav.changeRequests", show: can("changes.propose") || can("changes.approve") },
     { to: "/tasks", icon: "check", label: "nav.tasks", show: can("tasks.view") },
@@ -82,6 +91,7 @@ export function Layout() {
     { to: "/inventories", label: "nav.inventories", show: can("weapons.view") },
     { to: "/holdings", label: "nav.holdings", show: can("weapons.view") },
     { to: "/vehicles", label: "nav.vehicles", show: can("vehicles.view") },
+    { to: "/vehicle-log", label: "vlog.title", show: can("vehicles.view") },
     { to: "/equipment", label: "nav.equipment", show: ["vehicles.view", "weapons.view", "equipment.manage"].some(can) },
   ];
 
@@ -189,6 +199,7 @@ export function Layout() {
           <ThemeToggle />
           <button onClick={() => void switchLang()} lang={lang === "en" ? "so" : "en"}>{t("lang.other")}</button>
           <Link className="icon-btn" to="/account" aria-label={t("nav.account")} title={t("nav.account")}><Icon name="users" size={18} /></Link>
+          <Avatar size={28} />
           <button className="icon-btn" onClick={() => void logout()} aria-label={t("common.signOut")} title={t("common.signOut")}><Icon name="logout" size={18} /></button>
         </div>
       </header>

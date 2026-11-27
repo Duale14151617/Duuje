@@ -90,6 +90,13 @@ class AdminAvatarTests(BaseApiTest):
         self.assertEqual(self.adm_c.post(f"/api/v1/users/{self.sa.pk}/avatar/remove/").status_code, 403)
         self.assertFalse(UserAvatar.objects.filter(pk=self.sa.pk).exists())
 
+    def test_hq_admin_cannot_change_another_hq_admins_picture(self):
+        other = self.make_user("adm2", "hq_admin")
+        self.assertEqual(self.up(self.adm_c, other).status_code, 403)
+        self.assertEqual(self.up(self.sa_c, other).status_code, 200)
+        self.assertTrue(self.adm_c.get(f"/api/v1/users/{other.pk}/").json()["can_set_avatar"] is False)
+        self.assertTrue(self.adm_c.get(f"/api/v1/users/{self.reader.pk}/").json()["can_set_avatar"])
+
     def test_ordinary_users_cannot_set_pictures(self):
         self.assertEqual(self.up(self.reader_c, self.reader).status_code, 403)
         self.assertEqual(self.up(self.reader_c, self.adm).status_code, 403)

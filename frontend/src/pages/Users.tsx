@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import type { Assignment, Branch, Page, Person, Role, Unit, UserRow } from "../api/types";
 import { useFetch } from "../api/useFetch";
 import { useAuth } from "../auth/AuthContext";
+import { AvatarEditor } from "../components/AvatarEditor";
 import { DataTable, type Column } from "../components/DataTable";
 import { FilterBar } from "../components/FilterBar";
 import { Chip, ErrorNotice, Field, formatDate, Loading, Notice, PageHeader, EmptyState } from "../components/ui";
@@ -272,6 +273,12 @@ export function UserDetail() {
             {u.must_change_password && u.temp_password_expires_at && <Chip tone="warn">{t("users.tempExpires", { date: formatDate(u.temp_password_expires_at, lang) })}</Chip>}
             {u.email && (u.email_verified ? <Chip tone="ok">{t("account.verified")}</Chip> : <Chip tone="warn">{t("account.notVerified")}</Chip>)}
           </div>
+          {u.can_set_avatar && (
+            <div className="mt-1">
+              <h2>{t("account.picture")}</h2>
+              <AvatarEditor userId={u.id} />
+            </div>
+          )}
           {manage && (
             <>
             <div className="row mt-1">

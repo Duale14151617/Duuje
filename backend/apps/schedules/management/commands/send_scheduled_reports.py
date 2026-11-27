@@ -11,3 +11,5 @@ class Command(BaseCommand):
         for name, status, detail in done:
             self.stdout.write(f"{name}: {status} - {detail}")
         self.stdout.write(f"{len(done)} scheduled report(s) processed.")
+        from apps.schedules.alerts import check_silent_trackers
+        self.stdout.write(f"{check_silent_trackers()} silent-tracker alert(s) sent.")

@@ -8,17 +8,18 @@ import { formatDateTime } from "../lib/format";
 
 interface Person { id: string; full_name: string; username: string }
 interface Sched {
-  id: string; name: string; enabled: boolean; version: number; org_unit: { id: string; code: string; name_en: string; name_so: string };
+  id: string; name: string; report: "strength" | "unit"; enabled: boolean; version: number; org_unit: { id: string; code: string; name_en: string; name_so: string };
   frequency: "daily" | "weekly" | "monthly"; weekday: number; day_of_month: number; send_hour: number; period_days: number;
   recipients: Person[]; next_run_at: string | null; last_run_at: string | null; last_status: string; last_detail: string; timezone: string;
 }
-interface Form { id: string | null; version: number; name: string; unit: string; frequency: "daily" | "weekly" | "monthly"; weekday: number; day: number; hour: number; period: number; recipients: string[] }
+interface Form { id: string | null; version: number; report: "strength" | "unit"; name: string; unit: string; frequency: "daily" | "weekly" | "monthly"; weekday: number; day: number; hour: number; period: number; recipients: string[] }
 
-const BLANK: Form = { id: null, version: 1, name: "", unit: "", frequency: "weekly", weekday: 0, day: 1, hour: 7, period: 7, recipients: [] };
+const BLANK: Form = { id: null, version: 1, report: "strength", name: "", unit: "", frequency: "weekly", weekday: 0, day: 1, hour: 7, period: 7, recipients: [] };
 
 const L = {
   en: {
-    title: "Scheduled reports", subtitle: "Email the personnel strength report to commanders on a timetable. Counts only: no names or service numbers.",
+    title: "Scheduled reports", subtitle: "Email a report to commanders on a timetable. Counts only: no names or service numbers.",
+    report: "What to send", repStrength: "Strength summary (text email)", repUnit: "Unit report: strength, leave, weapons, vehicles and fuel (PDF attached)",
     off: "Scheduled reports are switched off on this server.", new: "New schedule", edit: "Edit schedule", name: "Name", unit: "Area (this unit and everything below it)",
     freq: "How often", daily: "Every day", weekly: "Every week", monthly: "Every month", on: "On", at: "At (hour)", period: "Movement window (days): joined, left, promoted",
     recipients: "Recipients", noRecipients: "Choose an area first. Only people with a verified email who can view this area's personnel report are listed.",
@@ -28,7 +29,8 @@ const L = {
     st: { sent: "Sent", partial: "Partly sent", failed: "Failed", no_access: "Creator lost access", no_recipients: "No eligible recipient", email_not_configured: "Email not set up", disabled: "Switched off" } as Record<string, string>,
   },
   so: {
-    title: "Warbixinno la jadwaleeyay", subtitle: "U dir warbixinta xooggga shaqaalaha taliyayaasha iimayl si joogto ah. Tiro kaliya: magac ama lambarka shaqada lagama dirayo.",
+    title: "Warbixinno la jadwaleeyay", subtitle: "U dir warbixin taliyayaasha iimayl si joogto ah. Tiro kaliya: magac ama lambarka shaqada lagama dirayo.",
+    report: "Maxaa la diraa", repStrength: "Soo koobid xoog (iimayl qoraal ah)", repUnit: "Warbixinta cutubka: xoog, fasax, hub, gaari iyo shidaal (PDF ku lifaaqan)",
     off: "Warbixinnada la jadwaleeyay waa xiran yihiin server-kan.", new: "Jadwal cusub", edit: "Wax ka beddel jadwalka", name: "Magac", unit: "Aagga (cutubkan iyo wax kasta oo ka hooseeya)",
     freq: "Inta jeer", daily: "Maalin walba", weekly: "Toddobaad walba", monthly: "Bil walba", on: "Maalinta", at: "Saacadda", period: "Muddada dhaqdhaqaaqa (maalmo): ku biiray, ka baxay, kor loo qaaday",
     recipients: "Helayaasha", noRecipients: "Marka hore dooro aag. Waxaa la tusayaa kaliya dadka iimayl la xaqiijiyay leh oo arki kara warbixinta aagga.",
@@ -70,14 +72,14 @@ export function Schedules() {
 
   function load(x: Sched) {
     setErr(null); setMsg("");
-    setForm({ id: x.id, version: x.version, name: x.name, unit: x.org_unit.id, frequency: x.frequency, weekday: x.weekday, day: x.day_of_month, hour: x.send_hour, period: x.period_days, recipients: x.recipients.map((r) => r.id) });
+    setForm({ id: x.id, version: x.version, report: x.report ?? "strength", name: x.name, unit: x.org_unit.id, frequency: x.frequency, weekday: x.weekday, day: x.day_of_month, hour: x.send_hour, period: x.period_days, recipients: x.recipients.map((r) => r.id) });
   }
 
   async function save(e: FormEvent) {
     e.preventDefault();
     if (!form) return;
     setBusy("save"); setErr(null);
-    const body = { name: form.name, org_unit: form.unit, frequency: form.frequency, weekday: form.weekday, day_of_month: form.day, send_hour: form.hour, period_days: form.period, recipients: form.recipients };
+    const body = { name: form.name, report: form.report, org_unit: form.unit, frequency: form.frequency, weekday: form.weekday, day_of_month: form.day, send_hour: form.hour, period_days: form.period, recipients: form.recipients };
     try {
       if (form.id) await api(`/schedules/${form.id}/`, { method: "PATCH", body: { ...body, version: form.version } });
       else await api("/schedules/", { method: "POST", body });
@@ -112,6 +114,11 @@ export function Schedules() {
         <section className="card">
           <h2>{form.id ? s.edit : s.new}</h2>
           <form onSubmit={(e) => void save(e)}>
+            <Field label={s.report}>
+              <select value={form.report} onChange={(e) => patch({ report: e.target.value as Form["report"] })}>
+                <option value="strength">{s.repStrength}</option><option value="unit">{s.repUnit}</option>
+              </select>
+            </Field>
             <Field label={s.name}><input value={form.name} maxLength={120} required onChange={(e) => patch({ name: e.target.value })} /></Field>
             {form.id ? null : <UnitPicker label={s.unit} value={form.unit} onChange={(id) => patch({ unit: id, recipients: [] })} required />}
             <Field label={s.freq}>

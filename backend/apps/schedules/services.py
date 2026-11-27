@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.db.models import Count
-from django.core.mail import send_mail
+from django.core.mail import EmailMessage, send_mail
 from django.utils import timezone
 
 from apps.accounts import scope
@@ -20,6 +20,7 @@ from apps.audit.services import record
 from apps.personnel import report as strength
 from apps.attendance.models import AttendanceRecord
 
+from . import unitreport
 from .models import ReportSchedule
 
 log = logging.getLogger("armyhq.schedules")
@@ -124,19 +125,37 @@ def deliver(s, *, only_to=None):
         data = strength.build(creator, s.org_unit, today - timedelta(days=max(s.period_days, 1) - 1), today)
         if data is None:
             return "no_access", "The person who created this schedule can no longer view this area."
+        is_pdf = s.report == "unit"
         pool = [only_to] if only_to is not None else list(s.recipients.filter(is_active=True, email_verified_at__isnull=False).exclude(email=""))
         recipients = [u for u in pool if scope.can(u, "personnel.view", unit=s.org_unit)][:MAX_RECIPIENTS]
         if not recipients:
             return "no_recipients", "No recipient with a verified email who can view this area."
         if _console_backend():
             return "email_not_configured", "Outgoing email is not set up on this server, so nothing was sent."
-        body = render(s, data, today_section(s, creator, recipients) if s.frequency == ReportSchedule.Frequency.DAILY else ())
+        attachment = None
+        if is_pdf:
+            d0, d1 = today - timedelta(days=max(s.period_days, 1) - 1), today
+            # built for the creator AND every recipient together, so the PDF never shows anyone more than the app would
+            pdf = unitreport.render_pdf([creator, *recipients], s.org_unit, d0, d1)
+            if pdf is None:
+                return "no_access", "The creator and the recipients share no information that can be shown for this area."
+            attachment = (unitreport.filename(s.org_unit, d0, d1), pdf, "application/pdf")
+            body = (f"{s.name}\nArea: {s.org_unit.name_en}\nPeriod: {d0.isoformat()} to {d1.isoformat()}\n\n"
+                    "The unit report is attached as a PDF. It holds totals only: no names, service numbers or serial numbers.\n\n"
+                    "You receive this because an Army HQ administrator added you to this schedule.\n")
+        else:
+            body = render(s, data, today_section(s, creator, recipients) if s.frequency == ReportSchedule.Frequency.DAILY else ())
         prefix = getattr(settings, "ISSUANCE_REF_PREFIX", "PHQ")
         subject = f"[{prefix}] {s.name} - {today.isoformat()}"
         sent = failed = 0
         for u in recipients:
             try:
-                send_mail(subject, body, None, [u.email], fail_silently=False)
+                if attachment:
+                    msg = EmailMessage(subject, body, None, [u.email])
+                    msg.attach(*attachment)
+                    msg.send(fail_silently=False)
+                else:
+                    send_mail(subject, body, None, [u.email], fail_silently=False)
                 sent += 1
             except Exception:
                 failed += 1

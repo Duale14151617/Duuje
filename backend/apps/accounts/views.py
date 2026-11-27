@@ -973,6 +973,13 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
 
     # --- account profile picture: HQ administrators and super administrators, for their own account and for others ---------
     # get_object() already refuses a non-super-administrator who tries to change a super administrator's account (own account excepted).
+    @staticmethod
+    def _require_avatar_rights(request, target):
+        if not avatar_svc.can_set_avatar(request.user, target):
+            record("access.denied", request=request, outcome="denied", entity_type="user", entity_id=target.pk,
+                   metadata={"reason": "avatar_rank"})
+            raise PermissionDenied("Only a super administrator can change this account's picture; an HQ administrator can change their own and lower roles'.")
+
     @action(detail=True, methods=["get"], content_negotiation_class=IgnoreNegotiation)
     def avatar(self, request, pk=None):
         from apps.personnel import profile as profile_svc
@@ -989,6 +996,7 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
     def avatar_upload(self, request, pk=None):
         from apps.personnel import profile as profile_svc
         target = self.get_object()
+        self._require_avatar_rights(request, target)
         upload = request.FILES.get("photo")
         if upload is None:
             raise field_error("photo", "photo_required", "Choose a photo.")
@@ -1000,6 +1008,7 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
     @action(detail=True, methods=["post"], url_path="avatar/remove")
     def avatar_remove(self, request, pk=None):
         target = self.get_object()
+        self._require_avatar_rights(request, target)
         if avatar_svc.remove_avatar(target):
             record("user.avatar_remove", request=request, entity_type="user", entity_id=target.pk,
                    metadata={"own_account": target.pk == request.user.pk})

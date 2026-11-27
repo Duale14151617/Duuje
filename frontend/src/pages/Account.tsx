@@ -1,12 +1,22 @@
 import { useState, type FormEvent } from "react";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { AlertPreferences } from "../components/AlertPreferences";
+import { EnableMfa } from "../components/EnableMfa";
+import { ChangePassword } from "../components/ChangePassword";
+import { MyAccess } from "../components/MyAccess";
+import { MySessions } from "../components/MySessions";
+import { SecuritySummary } from "../components/SecuritySummary";
+import { SecurityKeys } from "../components/SecurityKeys";
+import { Avatar } from "../components/Avatar";
+import { AvatarEditor } from "../components/AvatarEditor";
 import { Chip, ErrorNotice, Field, Notice } from "../components/ui";
 import { useI18n } from "../i18n";
 
 /** The signed-in user's own account. For now: confirm the email address with a code, which is what unlocks "Forgot your password?". */
 export function Account() {
-  const { me, reload } = useAuth();
+  const { me, reload, can, logout } = useAuth();
+  const canSetPicture = can("users.manage"); // HQ administrators and super administrators; the server enforces who may change whose
   const { t } = useI18n();
   const current = me?.email ?? "";
   const verified = me?.email_verified === true;
@@ -42,14 +52,25 @@ export function Account() {
   return (
     <>
       <h1>{t("account.title")}</h1>
-      <p className="muted">{me?.full_name} · {me?.username}</p>
+      <section className="card">
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+          {!canSetPicture && <Avatar size={72} />}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h2 style={{ margin: 0 }}>{me?.full_name}</h2>
+            <p className="muted" style={{ margin: ".2rem 0" }}>{me?.username}</p>
+            <p style={{ margin: 0 }}>
+              {current || <span className="muted">{t("account.noEmail")}</span>}{" "}
+              {current && (verified ? <Chip tone="ok">{t("account.verified")}</Chip> : <Chip tone="warn">{t("account.notVerified")}</Chip>)}
+            </p>
+          </div>
+          <button type="button" className="secondary" onClick={() => void logout()}>{t("common.signOut")}</button>
+        </div>
+        {canSetPicture && me && <div className="mt-1"><AvatarEditor userId={me.id} onChanged={() => void reload()} /></div>}
+        {!canSetPicture && <p className="muted" style={{ marginBottom: 0 }}>{t("account.pictureAdminOnly")}</p>}
+      </section>
       <section className="card">
         <h2>{t("account.email")}</h2>
         {done && <Notice>{t("account.verifiedDone")}</Notice>}
-        <p>
-          {current || <span className="muted">{t("account.noEmail")}</span>}{" "}
-          {current && (verified ? <Chip tone="ok">{t("account.verified")}</Chip> : <Chip tone="warn">{t("account.notVerified")}</Chip>)}
-        </p>
         {!enabled ? (
           !verified && <Notice>{t("account.unavailable")}</Notice>
         ) : verified && !editing ? (
@@ -88,6 +109,13 @@ export function Account() {
           </>
         )}
       </section>
+      <SecuritySummary />
+      <EnableMfa />
+      <ChangePassword />
+      <SecurityKeys />
+      <MySessions />
+      <MyAccess />
+      <AlertPreferences />
     </>
   );
 }

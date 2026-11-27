@@ -59,6 +59,13 @@ class GmailApiEmailBackend(BaseEmailBackend):
         mime["From"] = formataddr((name, address)) if name else address
         mime["Subject"] = message.subject
         mime.set_content(message.body)
+        for item in message.attachments:
+            if isinstance(item, tuple):  # (filename, content, mimetype) as added by EmailMessage.attach()
+                filename, content, mimetype = item
+                if isinstance(content, str):
+                    content = content.encode()
+                maintype, _, subtype = (mimetype or "application/octet-stream").partition("/")
+                mime.add_attachment(content, maintype=maintype, subtype=subtype or "octet-stream", filename=filename)
         raw = base64.urlsafe_b64encode(mime.as_bytes()).decode()
         request = urllib.request.Request(
             SEND_URL, data=json.dumps({"raw": raw}).encode(), method="POST",

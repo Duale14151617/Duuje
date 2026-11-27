@@ -64,6 +64,8 @@ export interface UserRow {
   personnel_id?: string | null;
   temp_password_expires_at?: string | null;
   role_count?: number | null;
+  /** Whether the signed-in administrator may set this account's profile picture (HQ: own and lower roles; super admin: all). */
+  can_set_avatar?: boolean;
 }
 export interface Role extends Named { id: string; code: string; is_privileged: boolean; requires_branch: boolean;
   allowed_scope_levels: string[]; permissions: string[] }

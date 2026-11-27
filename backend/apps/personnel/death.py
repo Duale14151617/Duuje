@@ -41,9 +41,12 @@ def report(actor, person, day, note=""):
         raise RuleError("future_date", "date_of_death")
     if open_record(person) is not None:
         raise RuleError("death_already_reported", "date_of_death")
-    return DeathRecord.objects.create(
+    rec = DeathRecord.objects.create(
         personnel=person, date_of_death=day, note=(note or "")[:300],
         reported_by_id=actor.pk, reported_by_username=actor.username)
+    from apps.schedules import alerts  # email to people who switched this alert on; never raises, sent after commit
+    alerts.death_reported(person, rec)
+    return rec
 
 
 def confirm(actor, person, rec, expected_version):

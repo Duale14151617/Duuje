@@ -204,6 +204,8 @@ def change_asset(request, asset, action, expected_version, note="", to_unit=None
         _event(user, updated, action, old_status, updated.status, old_unit if action == "transfer" else None,
                to_unit, note)
         weapons.close_custody_on_loss(updated, action, user)
+        from apps.schedules import alerts  # email to people who switched this alert on; never raises, sent after commit
+        alerts.weapon_reported(updated, action)
         record(f"asset.{action}", request=request, entity_type="asset", entity_id=updated.pk,
                metadata={"from": old_status, "to": updated.status, "to_unit": str(to_unit.pk) if to_unit else None})
     return updated

@@ -69,6 +69,8 @@ def evaluate_position(position):
                 made.append(GeofenceEvent.objects.create(
                     geofence=fence, vehicle_id=position.vehicle_id, kind=kind, occurred_at=position.recorded_at,
                     latitude=position.latitude, longitude=position.longitude, position_id=position.pk))
+                from apps.schedules import alerts  # email to people who switched this alert on; never raises, sent after commit
+                alerts.zone_event(made[-1], fence, position.vehicle)
             state.inside = now_in
         state.as_of = position.recorded_at
         state.save(update_fields=["inside", "as_of"])

@@ -139,16 +139,22 @@ class UserSerializer(serializers.ModelSerializer):
     email_verified = serializers.SerializerMethodField()
     personnel_id = serializers.SerializerMethodField()
     role_count = serializers.SerializerMethodField()
+    can_set_avatar = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = ["id", "username", "full_name", "email", "email_verified", "preferred_language", "is_active",
                   "mfa_enabled", "must_change_password", "temp_password_expires_at", "last_login", "created_at", "version",
-                  "personnel_id", "role_count"]
+                  "personnel_id", "role_count", "can_set_avatar"]
         read_only_fields = fields
 
     def get_email_verified(self, obj) -> bool:
         return obj.email_verified_at is not None
+
+    def get_can_set_avatar(self, obj) -> bool:
+        from .avatar import can_set_avatar
+        request = self.context.get("request")
+        return bool(request and request.user.is_authenticated and can_set_avatar(request.user, obj))
 
     def get_role_count(self, obj):
         return getattr(obj, "role_count", None)  # annotated by the user list; roles not revoked (dates are not considered)

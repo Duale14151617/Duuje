@@ -182,12 +182,17 @@ export async function upload<T>(path: string, field: string, file: File, extra: 
 }
 
 export function downloadCsv(path: string, query: Record<string, string>, filename: string): Promise<void> {
-  return withStepUp(() => downloadCsvOnce(path, query, filename));
+  return withStepUp(() => downloadFileOnce(path, query, filename, "text/csv"));
 }
 
-async function downloadCsvOnce(path: string, query: Record<string, string>, filename: string): Promise<void> {
+/** Download a file the server builds (the unit report PDF, for example): same sign-in, step-up and error handling as the CSV exports. */
+export function downloadWithQuery(path: string, query: Record<string, string>, filename: string, accept = "application/pdf"): Promise<void> {
+  return withStepUp(() => downloadFileOnce(path, query, filename, accept));
+}
+
+async function downloadFileOnce(path: string, query: Record<string, string>, filename: string, accept: string): Promise<void> {
   if (import.meta.env.VITE_PREVIEW === "1") {
-    const url = URL.createObjectURL(new Blob(["preview,sample\n"], { type: "text/csv" }));
+    const url = URL.createObjectURL(new Blob(["preview,sample\n"], { type: accept }));
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
@@ -198,7 +203,7 @@ async function downloadCsvOnce(path: string, query: Record<string, string>, file
   const params = new URLSearchParams(Object.entries(query).filter(([, v]) => v !== ""));
   let res: Response;
   try {
-    res = await fetch(`/api/v1${path}?${params}`, { credentials: "same-origin", headers: { Accept: "text/csv" } });
+    res = await fetch(`/api/v1${path}?${params}`, { credentials: "same-origin", headers: { Accept: accept } });
   } catch {
     throw unreachable();
   }

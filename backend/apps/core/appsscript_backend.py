@@ -4,6 +4,7 @@ For a Gmail sender when SMTP is blocked (Render's free web services) and no send
 script (see docs/APPS_SCRIPT_MAILER.md) runs as the Gmail account and calls MailApp.sendEmail. Enabled automatically when
 APPS_SCRIPT_URL and APPS_SCRIPT_TOKEN are set. Standard library only.
 """
+import base64
 import json
 import urllib.request
 
@@ -26,6 +27,11 @@ class AppsScriptEmailBackend(BaseEmailBackend):
     @staticmethod
     def _send(message):
         body = {"token": settings.APPS_SCRIPT_TOKEN, "to": ",".join(message.to), "subject": message.subject, "body": message.body}
+        files = [{"name": a[0], "type": a[2] or "application/octet-stream",
+                  "data": base64.b64encode(a[1] if isinstance(a[1], bytes) else str(a[1]).encode()).decode()}
+                 for a in message.attachments if isinstance(a, tuple)]
+        if files:  # the mail script must be the version that reads this (docs/APPS_SCRIPT_MAILER.md), or it sends the text without the file
+            body["attachments"] = files
         request = urllib.request.Request(
             settings.APPS_SCRIPT_URL, data=json.dumps(body).encode(), method="POST", headers={"Content-Type": "text/plain"})
         # Apps Script answers the POST with a redirect to the result; the mail is sent by then, and the redirect is followed with GET.

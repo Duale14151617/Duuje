@@ -3,7 +3,28 @@ from django.db import transaction
 
 from apps.core import crypto
 
+from . import scope
 from .models import UserAvatar
+
+HQ_ROLE, SUPER_ROLE = "hq_admin", "super_admin"
+
+
+def _role_codes(user) -> set:
+    return {a.role.code for a in scope.assignments(user)}
+
+
+def can_set_avatar(actor, target) -> bool:
+    """Profile pictures are set only by HQ administrators and super administrators.
+    A super administrator may change anyone's. An HQ administrator may change their own and the pictures of lower roles,
+    never another HQ administrator's or a super administrator's."""
+    mine = _role_codes(actor)
+    if SUPER_ROLE in mine or scope.has_full_access(actor):
+        return True
+    if HQ_ROLE not in mine:
+        return False
+    if target.pk == actor.pk:
+        return True
+    return not (_role_codes(target) & {HQ_ROLE, SUPER_ROLE}) and not scope.has_full_access(target)
 
 
 def save_avatar(user, jpeg: bytes, by_username: str = "") -> None:

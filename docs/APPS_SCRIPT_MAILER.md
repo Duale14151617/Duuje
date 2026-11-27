@@ -11,7 +11,13 @@ function doPost(e) {
     var secret = PropertiesService.getScriptProperties().getProperty("SECRET");
     if (!secret || data.token !== secret) return out("forbidden");
     if (!data.to || !data.subject || !data.body) return out("bad request");
-    MailApp.sendEmail({ to: data.to, subject: data.subject, body: data.body, name: "ARMY HQ" });
+    var mail = { to: data.to, subject: data.subject, body: data.body, name: "ARMY HQ" };
+    if (data.attachments && data.attachments.length) {  // the unit report PDF
+      mail.attachments = data.attachments.map(function (a) {
+        return Utilities.newBlob(Utilities.base64Decode(a.data), a.type, a.name);
+      });
+    }
+    MailApp.sendEmail(mail);
     return out("ok");
   } catch (err) { return out("error"); }
 }
@@ -21,6 +27,8 @@ function doPost(e) {
 5. Copy the Web app URL (ends in /exec).
 6. On Render set `APPS_SCRIPT_URL` = that URL and `APPS_SCRIPT_TOKEN` = the same SECRET. Remove `BREVO_API_KEY`.
 7. Set `ARMYHQ_SITE_URL` = https://armyhq-demo.onrender.com so reset emails contain a link.
+
+**Updating an older script:** the unit report is emailed as a PDF attachment. If you set this script up before that feature, replace its code with the version above and deploy a **new version** (Deploy -> Manage deployments -> edit -> New version), or the text arrives without the PDF.
 
 Limits: a consumer Gmail account can send about 100 recipients per day through Apps Script, far above this app's volume.
 Anyone with the URL AND the secret can send as the account, so keep both private and rotate the secret if either leaks.

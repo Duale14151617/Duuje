@@ -3,7 +3,7 @@ import hmac
 
 from django.conf import settings
 from django.db import transaction
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
@@ -12,18 +12,20 @@ from rest_framework.views import APIView
 
 from apps.accounts import scope
 from apps.accounts.permissions import ScopedPermission
-from apps.audit.services import record
+from apps.audit.services import record, record_read
 from apps.core.concurrency import require_version
 from apps.core.errors import field_error
+from apps.core.negotiation import IgnoreNegotiation
 from apps.core.params import json_body
 from apps.organization.models import OrganizationalUnit
 from apps.vehicles.views import _uid
 
-from . import services
+from . import alerts, services, unitreport
 from .models import ReportSchedule
 
 MANAGE = "schedules.manage"
 F = ReportSchedule.Frequency
+REPORT_KINDS = {"strength", "unit"}  # "unit" = the unit report, emailed as a PDF attachment
 
 
 def _int(data, name, lo, hi, default):
@@ -92,7 +94,10 @@ class ReportScheduleViewSet(viewsets.GenericViewSet):
         freq = data.get("frequency", s.frequency)
         if freq not in {f.value for f in F}:
             raise field_error("frequency", "invalid", "Choose daily, weekly or monthly.")
-        s.name, s.frequency, s.org_unit = name, freq, unit
+        report = data.get("report", s.report)
+        if report not in REPORT_KINDS:
+            raise field_error("report", "invalid", "Choose the strength summary or the unit report (PDF).")
+        s.name, s.frequency, s.org_unit, s.report = name, freq, unit, report
         s.weekday = _int(data, "weekday", 0, 6, s.weekday)
         s.day_of_month = _int(data, "day_of_month", 1, 28, s.day_of_month)
         s.send_hour = _int(data, "send_hour", 0, 23, s.send_hour)
@@ -173,4 +178,55 @@ class RunDueView(APIView):
         record_beat("cron")
         from apps.dashboard.digest import send_due_digests
         return Response({"processed": len(done), "results": [{"name": n, "status": st} for n, st, _ in done],
-                         "due_digests": send_due_digests()})
+                         "due_digests": send_due_digests(), "silent_tracker_alerts": alerts.check_silent_trackers()})
+
+
+class UnitReportView(APIView):
+    """GET ?unit=<id>&from=YYYY-MM-DD&to=YYYY-MM-DD: the unit report for that unit and everything below it, as a PDF download.
+    Each section appears only if the caller may see that kind of information for the unit; a unit the caller can see nothing of is a 404."""
+
+    content_negotiation_class = IgnoreNegotiation
+
+    def get(self, request):
+        uid = _uid(request.query_params.get("unit"))
+        unit = OrganizationalUnit.objects.filter(pk=uid).first() if uid else None
+        if unit is None:
+            raise Http404
+        try:
+            d0, d1 = unitreport.period(request.query_params.get("from"), request.query_params.get("to"))
+        except ValueError as e:
+            raise field_error("from", "invalid_period", str(e))
+        pdf = unitreport.render_pdf([request.user], unit, d0, d1)
+        if pdf is None:
+            raise Http404
+        record_read(request, "unit.report_pdf", entity_type="unit_report", org_unit=unit, count=1)
+        resp = HttpResponse(pdf, content_type="application/pdf")
+        resp["Content-Disposition"] = f'attachment; filename="{unitreport.filename(unit, d0, d1)}"'
+        resp["Cache-Control"] = "private, no-store"
+        resp["X-Content-Type-Options"] = "nosniff"
+        return resp
+
+
+class AlertPreferenceView(APIView):
+    """GET: which event alerts this person may choose, and which they have on. PATCH {"kinds": [...]}: set exactly that choice.
+    Only kinds the person's own permissions allow are offered; alerts go to a verified email address only."""
+
+    def _state(self, request):
+        u = request.user
+        on = alerts.wanted_kinds(u)
+        return {"email_ok": bool(u.email and u.email_verified_at), "enabled": alerts.enabled(),
+                "kinds": [{"kind": k, "title": alerts.KINDS[k][1], "on": k in on} for k in alerts.available_kinds(u)]}
+
+    def get(self, request):
+        return Response(self._state(request))
+
+    def patch(self, request):
+        data = json_body(request)
+        raw = data.get("kinds")
+        if not isinstance(raw, list) or any(not isinstance(k, str) for k in raw):
+            raise field_error("kinds", "invalid", "Send the list of alerts you want.")
+        if any(k not in alerts.KINDS for k in raw):
+            raise field_error("kinds", "invalid", "Unknown alert.")
+        chosen = alerts.set_kinds(request.user, raw)
+        record("alerts.preferences", request=request, entity_type="alert_preference", metadata={"kinds": sorted(chosen)})
+        return Response(self._state(request))

@@ -37,7 +37,7 @@ from apps.ranks.views import RankViewSet
 from apps.analytics.views import AnalyticsViewSet
 from apps.inventories.views import InventoryViewSet
 from apps.issuance.views import IssuedDocumentViewSet, VerifyView
-from apps.schedules.views import ReportScheduleViewSet, RunDueView
+from apps.schedules.views import AlertPreferenceView, ReportScheduleViewSet, RunDueView, UnitReportView
 from apps.integrations.views import ExtAnalyticsView, ExtMeView, IntegrationClientViewSet
 
 router = DefaultRouter()
@@ -144,6 +144,8 @@ urlpatterns = [
     path("system/health-check/test-email/", TestEmailView.as_view()),
     path("system/heartbeat/backup/", BackupHeartbeatView.as_view()),
     path("verify/<str:code>/", VerifyView.as_view()),  # public: QR check of an ID card or letter
+    path("alerts/preferences/", AlertPreferenceView.as_view()),  # which event emails a person receives
+    path("unit-report/", UnitReportView.as_view()),  # PDF: strength, leave, weapons, vehicles and fuel for one unit
     path("schedules/run-due/", RunDueView.as_view()),  # token-protected trigger for an outside scheduler
     path("health/live/", LiveView.as_view()),
     path("health/ready/", ReadyView.as_view()),

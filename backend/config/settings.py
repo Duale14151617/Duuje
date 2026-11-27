@@ -241,6 +241,11 @@ WEBAUTHN_RP_NAME = os.environ.get("WEBAUTHN_RP_NAME", "Puntland Defence Forces H
 # and have a verified address. The mail never names anyone or anything: it only says there is something to read. At most one mail per
 # user per NOTIFICATION_EMAIL_MIN_MINUTES, which also protects a Gmail sender's daily limit.
 NOTIFICATION_EMAILS_ENABLED = env_bool("NOTIFICATION_EMAILS_ENABLED", False)
+# Event alert emails (vehicle crosses a zone, weapon lost, tracker silent, death reported). They go only to people who switched the alert on
+# (Account page) and may see the unit. Set to 0 to stop all of them. See docs/EVENT_ALERTS_AND_UNIT_REPORT.md.
+EVENT_ALERTS_ENABLED = env_bool("EVENT_ALERTS_ENABLED", True)
+# Name printed at the top of the unit report PDF.
+ORG_NAME = os.environ.get("ORG_NAME", "Puntland Defence Forces")
 NOTIFICATION_EMAIL_MIN_MINUTES = int(os.environ.get("NOTIFICATION_EMAIL_MIN_MINUTES", "30"))
 # Facts for the status footer, shown to signed-in users only (never on the public endpoints).
 APP_VERSION = os.environ.get("APP_VERSION", "2.1.2")

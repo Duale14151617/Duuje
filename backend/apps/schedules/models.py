@@ -39,3 +39,32 @@ class ReportSchedule(models.Model):
     class Meta:
         db_table = "report_schedules"
         ordering = ["name", "id"]
+
+
+class AlertPreference(models.Model):
+    """One row = this person has chosen to receive emails about this kind of event (see alerts.KINDS). No row, no email. Which events
+    they actually hear about is still limited to the units they may see: the choice never widens access."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    kind = models.CharField(max_length=20)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "alert_preferences"
+        constraints = [models.UniqueConstraint(fields=["user", "kind"], name="alertpref_user_kind_uniq")]
+
+
+class AlertLog(models.Model):
+    """Remembers which alerts were already sent, so a condition that lasts (a tracker that stays silent) is mailed once, not at every check."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    kind = models.CharField(max_length=20)
+    key = models.CharField(max_length=120)
+    sent_at = models.DateTimeField(auto_now_add=True)
+    recipients = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        db_table = "alert_log"
+        ordering = ["-sent_at"]
+        constraints = [models.UniqueConstraint(fields=["kind", "key"], name="alertlog_kind_key_uniq")]

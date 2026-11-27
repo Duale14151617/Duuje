@@ -3,6 +3,7 @@
 Use it where outgoing SMTP is blocked (Render's free web services block 25/465/587). Enabled automatically when BREVO_API_KEY is
 set. DEFAULT_FROM_EMAIL must be a sender address verified in Brevo. Uses only the standard library, so there is nothing to install.
 """
+import base64
 import json
 import urllib.request
 from email.utils import parseaddr
@@ -32,6 +33,10 @@ class BrevoEmailBackend(BaseEmailBackend):
         if name:
             sender["name"] = name
         body = {"sender": sender, "to": [{"email": a} for a in message.to], "subject": message.subject, "textContent": message.body}
+        files = [{"name": a[0], "content": base64.b64encode(a[1] if isinstance(a[1], bytes) else str(a[1]).encode()).decode()}
+                 for a in message.attachments if isinstance(a, tuple)]
+        if files:
+            body["attachment"] = files
         request = urllib.request.Request(
             ENDPOINT, data=json.dumps(body).encode(), method="POST",
             headers={"api-key": settings.BREVO_API_KEY, "content-type": "application/json", "accept": "application/json"})
