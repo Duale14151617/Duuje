@@ -200,8 +200,7 @@ export function Layout() {
           <InstallButton />
           <ThemeToggle />
           <button onClick={() => void switchLang()} lang={lang === "en" ? "so" : "en"}>{t("lang.other")}</button>
-          <Link className="icon-btn" to="/account" aria-label={t("nav.account")} title={t("nav.account")}><Icon name="users" size={18} /></Link>
-          <Avatar size={28} />
+          <Link className="avatar-link" to="/account" aria-label={t("nav.account")} title={t("nav.account")}><Avatar size={36} /></Link>
           <button className="icon-btn" onClick={() => void logout()} aria-label={t("common.signOut")} title={t("common.signOut")}><Icon name="logout" size={18} /></button>
         </div>
       </header>

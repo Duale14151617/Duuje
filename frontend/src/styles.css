@@ -962,3 +962,9 @@ dialog.stepup::backdrop { background: rgba(13, 21, 34, .6); }
 .map-place-0 { font-size: .95rem; font-weight: 700; }
 .map-place-1 { font-size: .85rem; font-weight: 600; }
 .maplibregl-popup-content { color: #14263D; font-size: .85rem; }
+
+/* ---- profile picture: round avatar, header link to the account page, account page heading ---- */
+.avatar { border-radius: 50%; object-fit: cover; flex: none; background: var(--paper); box-shadow: 0 0 0 1px rgba(198,161,91,.7); }
+.topbar .avatar-link { display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; line-height: 0; }
+.topbar .avatar-link:hover .avatar { box-shadow: 0 0 0 2px var(--gold-light); }
+.account-head { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
