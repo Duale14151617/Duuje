@@ -90,7 +90,7 @@ export const en = {
   "dash.range30": "30 days",
   "dash.review": "Review",
   "nav.group.units": "Units and structure",
-  "nav.group.people": "People and training",
+  "nav.group.people": "People and organization",
   "nav.group.pay": "Pay and welfare",
   "nav.group.reporting": "Reports and tasks",
   "nav.group.logistics": "Logistics and equipment",

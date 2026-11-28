@@ -15,7 +15,7 @@ import { InstallButton } from "../pwa/install";
 import { ThemeToggle } from "../theme/ThemeToggle";
 
 const SIDEBAR_KEY = "armyhq.sidebar";
-const GROUPS_KEY = "armyhq.navgroups.v2"; // names of the sidebar sections that are folded; v2: by default only the section you are in is open
+const GROUPS_KEY = "armyhq.navgroups.v3"; // names of the sidebar sections the user has folded away (all open by default)
 
 type NavItem = { to: string; label: Key; icon: IconName; show: boolean; match?: string[]; go?: string };
 
@@ -39,16 +39,11 @@ const TAB_PATHS = HUBS.flatMap((h) => h.tabs);
 /** Which section each page sits in; sections with no visible page are not drawn. `title` is absent for the top block. */
 const NAV_SECTIONS: { key: string; title?: Key; to: string[] }[] = [
   { key: "top", to: ["/", "/notifications"] },
-  { key: "units", title: "nav.group.units", to: ["/organization"] },
-  { key: "people", title: "nav.group.people", to: ["/my-record", "/personnel", "/attendance", "/ranks", "/training"] },
-  { key: "pay", title: "nav.group.pay", to: ["/payroll"] },
+  { key: "people", title: "nav.group.people", to: ["/organization", "/my-record", "/personnel", "/attendance", "/ranks", "/training", "/payroll"] },
   { key: "reporting", title: "nav.group.reporting", to: ["/reports", "/tasks", "/analytics"] },
   { key: "logistics", title: "nav.group.logistics", to: ["/logistics", "/ammunition", "/weapons", "/vehicles"] },
   { key: "admin", title: "nav.group.admin", to: ["/users", "/integrations", "/system-health", "/audit"] },
 ];
-
-/** Every section that has a heading (and so can be folded). */
-const NAV_KEYS = NAV_SECTIONS.filter((sec) => sec.title).map((sec) => sec.key);
 
 export function Layout() {
   const { me, can, logout } = useAuth();
@@ -122,12 +117,7 @@ export function Layout() {
   const collapsed = isTablet || pref === "collapsed"; // below 960px always the icon rail; from 960px the full sidebar unless the user collapsed it
   const [open, setOpen] = useState(false);
   const [folded, setFolded] = useState<string[]>(() => {
-    try {
-      const raw = localStorage.getItem(GROUPS_KEY);
-      if (raw === null) return NAV_KEYS; // first visit: everything folded; the effect below opens the section you are in
-      const v: unknown = JSON.parse(raw);
-      return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : NAV_KEYS;
-    } catch { return NAV_KEYS; }
+    try { const v: unknown = JSON.parse(localStorage.getItem(GROUPS_KEY) ?? "[]"); return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []; } catch { return []; }
   });
   const saveFolded = (next: string[]) => {
     setFolded(next);
@@ -191,9 +181,9 @@ export function Layout() {
   const hereHub = HUBS.find((h) => h.tabs.some(isHere));
   const hubTabs = hereHub ? hereHub.tabs.map((to) => tabDefs.find((d) => d.to === to)).filter((d): d is (typeof tabDefs)[number] => !!d && d.show) : [];
   const hereKey = sections.find((sec) => sec.items.some((i) => (i.match ?? [i.to]).some(isHere)))?.key;
-  // the menu works like an accordion: arriving at a page (link, dashboard card, back button) opens its section and folds the rest
+  // arriving at a page inside a folded section (a dashboard link, the back button) opens that section
   useEffect(() => {
-    if (hereKey) saveFolded(NAV_KEYS.filter((k) => k !== hereKey));
+    if (hereKey && folded.includes(hereKey)) saveFolded(folded.filter((k) => k !== hereKey));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hereKey, location.pathname]);
 
@@ -269,7 +259,7 @@ export function Layout() {
               <div className="nav-group" key={sec.key}>
                 {sec.title && !rail && (
                   <button type="button" className="nav-group-head" aria-expanded={isOpen} aria-controls={`nav-g-${sec.key}`}
-                          onClick={() => saveFolded(isOpen ? [...folded, sec.key] : NAV_KEYS.filter((k) => k !== sec.key))}>
+                          onClick={() => saveFolded(isOpen ? [...folded, sec.key] : folded.filter((k) => k !== sec.key))}>
                     <span>{t(sec.title)}</span>
                     <Icon name="arrow" size={14} />
                   </button>

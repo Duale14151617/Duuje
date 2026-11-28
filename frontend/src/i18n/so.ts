@@ -94,7 +94,7 @@ export const so: Record<keyof typeof en, string> = {
   "dash.range30": "30 maalmood",
   "dash.review": "Dib u eeg",
   "nav.group.units": "Cutubyada iyo qaab-dhismeedka",
-  "nav.group.people": "Dadka iyo tababarka",
+  "nav.group.people": "Dadka iyo qaab-dhismeedka",
   "nav.group.pay": "Mushahar iyo daryeel",
   "nav.group.reporting": "Warbixinno iyo hawlo",
   "nav.group.logistics": "Saadka iyo qalabka",
