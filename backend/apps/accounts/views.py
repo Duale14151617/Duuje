@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone as dt_timezone
 
 import hashlib
+import logging
 import hmac
 import secrets
 from urllib.parse import urlencode
@@ -32,11 +33,11 @@ from apps.core import crypto
 from apps.core.negotiation import IgnoreNegotiation
 from apps.core.mailer import send_background
 
-from . import access_review as review_mod, alerts, backup_codes, bulk, passkeys, scope
+from . import access_review as review_mod, alerts, avatar_bulk, backup_codes, bulk, passkeys, scope
 from .models import (EmailVerificationCode, MfaRecoveryCode, PasskeyCredential, PasswordResetToken, Role, RoleAssignment, User,
                      UserAvatar)
 from .permissions import ScopedPermission
-from .security import clear_second_factors, consume_second_factor, consume_totp, restrictions
+from .security import clear_second_factors, consume_second_factor, consume_totp, password_age, restrictions
 from . import avatar as avatar_svc
 from .stepup import mark_fresh, require_fresh_mfa
 from .serializers import (AssignmentCreateSerializer, AssignmentSerializer, EmailVerifyConfirmSerializer, EmailVerifyRequestSerializer,
@@ -72,6 +73,10 @@ def me_payload(user):
         "backup_codes_remaining": backup_codes.remaining(user) if user.mfa_enabled else 0,
         "passkey_count": PasskeyCredential.objects.filter(user=user).count() if user.mfa_enabled else 0,
         "requires_mfa": scope.requires_mfa(user),
+        # Sensitive access with two-step sign-in still off: the app shows a banner; `mfa_required_from` is set when a deadline exists.
+        **_password_fields(user),
+        "mfa_recommended": (not user.mfa_enabled) and scope.recommends_mfa(user),
+        "mfa_required_from": (scope.mfa_sensitive_deadline().isoformat() if scope.mfa_sensitive_deadline() and scope.holds_sensitive(user) else None),
         "restrictions": restrictions(user),
         "permissions": sorted(scope.permission_codes(user)),
         "features": {"personnel_export": settings.PERSONNEL_EXPORT_ENABLED,
@@ -91,6 +96,14 @@ def session_info(request):
     elapsed = int(time.time()) - int(request.session.get("login_at", 0) or 0)
     return {"idle_seconds": settings.SESSION_COOKIE_AGE, "warn_seconds": settings.SESSION_IDLE_WARNING_SECONDS,
             "absolute_remaining": max(0, settings.SESSION_ABSOLUTE_SECONDS - elapsed)}
+
+
+def _password_fields(user):
+    age = password_age(user)
+    return {"password_changed_at": user.password_changed_at.isoformat() if user.password_changed_at else None,
+            "password_expires_at": age["expires_at"].isoformat() if age else None,
+            "password_days_left": age["days_left"] if age else None,
+            "password_warn": bool(age and age["warn"] and not age["expired"])}
 
 
 def sign_in_info(request, user):
@@ -179,8 +192,10 @@ class LoginView(APIView):
 
         ip = client_ip(request)
         watched = scope.requires_mfa(authed)  # privileged accounts: tell the owner when one signs in from an address never seen before
-        known_address = (not watched) or (ip is not None and AuditEvent.objects.filter(
-            actor_id=authed.pk, action="auth.login", outcome="success", ip_address=ip).exists())
+        earlier = AuditEvent.objects.filter(actor_id=authed.pk, action="auth.login", outcome="success")
+        seen_here = ip is not None and earlier.filter(ip_address=ip).exists()
+        known_address = (not watched) or seen_here
+        tell_user = ip is not None and not seen_here and earlier.exists()  # not the very first sign-in: that address is simply the first
         with transaction.atomic():
             User.objects.filter(pk=authed.pk).update(failed_login_count=0, locked_until=None)
             login(request, authed)
@@ -192,6 +207,8 @@ class LoginView(APIView):
                 mark_fresh(request)  # the code just verified counts as a fresh authenticator check
             record("auth.login", request=request, actor=authed, entity_type="user", entity_id=authed.pk,
                    metadata={"method": method} if method != "password" else None)
+        if tell_user:
+            _tell_user_new_address(authed)
         if not known_address:
             alerts.notify("privileged sign-in from a new address",
                           f"{authed.username} signed in from {ip or 'an unknown address'}, which this account has not used before.",
@@ -220,6 +237,22 @@ class LoginView(APIView):
                               "Someone may be trying to guess its password or authenticator code.", request=request, actor=user)
         record("auth.login", request=request, actor=user, outcome="failure", entity_type="user",
                entity_id=user.pk, metadata={"reason": reason})
+
+
+def _public_row(r):
+    return {"file": r["file"], "username": r["username"], "status": r["status"]}
+
+
+def _tell_user_new_address(user):
+    """Every account, not only privileged ones: the person is told in the app (and by the usual pointer email, if they opted in)
+    that someone signed in from an address this account has not used before. Never blocks the sign-in."""
+    try:
+        from apps.workflows.models import Notification
+        from apps.workflows.notify_email import email_new
+        Notification.objects.create(recipient=user, kind="new_address")
+        email_new([user])
+    except Exception:
+        logging.getLogger(__name__).exception("new-address notification failed")
 
 
 class LogoutView(APIView):
@@ -283,6 +316,25 @@ class MyPhotoView(APIView):
         return resp
 
 
+ACTIVITY_OWN = ("auth.login", "auth.password_change", "auth.password_reset", "auth.email_changed", "auth.email_verified",
+                "auth.backup_code_used", "auth.mfa_recovery")
+ACTIVITY_ON_ME = ("user.avatar_set", "user.avatar_remove", "user.reset_password", "user.reset_mfa", "user.revoke_sessions",
+                  "user.issue_reset_code")
+
+
+class MyActivityView(APIView):
+    """The signed-in user's own recent security activity, read from the audit log: sign-ins (and failed ones), password and email
+    changes, and things an administrator did to this account. Only the person's own rows; no other user's data and no details."""
+
+    def get(self, request):
+        me = request.user
+        rows = (AuditEvent.objects.filter(Q(actor_id=me.pk, action__in=ACTIVITY_OWN) | Q(action__in=ACTIVITY_ON_ME, entity_id=str(me.pk)))
+                .order_by("-occurred_at").values("id", "occurred_at", "action", "outcome", "ip_address", "actor_id")[:30])
+        return Response({"results": [{"id": str(r["id"]), "at": r["occurred_at"], "action": r["action"], "outcome": r["outcome"],
+                                      "ip": r["ip_address"],
+                                      "by_admin": r["action"].startswith("user.") and r["actor_id"] != me.pk} for r in rows]})
+
+
 class PasswordChangeView(APIView):
     allow_restricted = True
     throttle_scope = "login"
@@ -305,7 +357,7 @@ class PasswordChangeView(APIView):
             user.must_change_password = False
             user.temp_password_expires_at = None
             user.auth_epoch += 1  # signs out every other session
-            user.save(update_fields=["password", "must_change_password", "temp_password_expires_at", "auth_epoch", "updated_at"])
+            user.save(update_fields=["password", "password_changed_at", "must_change_password", "temp_password_expires_at", "auth_epoch", "updated_at"])
             update_session_auth_hash(request, user)
             request.session["auth_epoch"] = user.auth_epoch
             record("auth.password_change", request=request, entity_type="user", entity_id=user.pk)
@@ -451,7 +503,7 @@ class PasswordResetView(APIView):
             user.temp_password_expires_at = None
             user.failed_login_count = 0
             user.locked_until = None
-            user.save(update_fields=["password", "must_change_password", "temp_password_expires_at", "failed_login_count",
+            user.save(update_fields=["password", "password_changed_at", "must_change_password", "temp_password_expires_at", "failed_login_count",
                                      "locked_until", "updated_at"])
             # Any other code (an older emailed one, an administrator's) must not survive the change it was meant for.
             now_used = timezone.now()
@@ -767,7 +819,7 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         "reset_password": ("users.manage", "global"), "issue_reset_code": ("users.manage", "global"),
         "assignments": ("users.view", "global"), "suggest_username": ("users.manage", "global"), "bulk_create": ("users.manage", "global"), "access_review": ("users.view", "global"),
         "revoke_assignment": ("roles.assign", "global"),
-        "avatar": ("users.manage", "global"), "avatar_upload": ("users.manage", "global"), "avatar_remove": ("users.manage", "global"),
+        "avatar": ("users.manage", "global"), "avatar_upload": ("users.manage", "global"), "avatar_remove": ("users.manage", "global"), "avatars_bulk": ("users.manage", "global"),
     }
 
     def get_object(self):
@@ -947,7 +999,7 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         user.set_password(password)
         user.must_change_password = True
         user.temp_password_expires_at = temp_password_deadline()
-        user.save(update_fields=["password", "must_change_password", "temp_password_expires_at", "updated_at"])
+        user.save(update_fields=["password", "password_changed_at", "must_change_password", "temp_password_expires_at", "updated_at"])
         revoke_user_sessions(user)
         record("user.reset_password", request=request, entity_type="user", entity_id=user.pk,
                metadata={"generated_password": not typed})
@@ -1004,6 +1056,26 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         record("user.avatar_set", request=request, entity_type="user", entity_id=target.pk,
                metadata={"own_account": target.pk == request.user.pk})
         return Response({"has_avatar": True})
+
+    @action(detail=False, methods=["post"], url_path="avatars/bulk", parser_classes=[MultiPartParser], throttle_scope="bulk")
+    def avatars_bulk(self, request):
+        """A zip of photos named by username (ali.warsame.jpg). dry_run=true (default) only reports what would happen.
+        dry_run=false sets every picture that passes and reports the rest. Each account is checked with the same rank rule as a
+        single upload: HQ administrators cannot touch other HQ administrators or super administrators."""
+        upload = request.FILES.get("file")
+        if upload is None:
+            raise field_error("file", "file_required", "Choose a zip file.")
+        rows = avatar_bulk.read_zip(upload, request.user)
+        ok = [r for r in rows if r["status"] == "ok"]
+        if str(request.data.get("dry_run", "true")).lower() not in ("false", "0", "no"):
+            record("user.avatar_bulk_preview", request=request, entity_type="user", metadata={"files": len(rows), "valid": len(ok)})
+            return Response({"total": len(rows), "valid": len(ok), "applied": None, "rows": [_public_row(r) for r in rows]})
+        for r in ok:
+            avatar_svc.save_avatar(r["user"], r["jpeg"], request.user.username)
+            record("user.avatar_set", request=request, entity_type="user", entity_id=r["user"].pk,
+                   metadata={"own_account": r["user"].pk == request.user.pk, "bulk": True})
+        record("user.avatar_bulk", request=request, entity_type="user", metadata={"files": len(rows), "applied": len(ok)})
+        return Response({"total": len(rows), "valid": len(ok), "applied": len(ok), "rows": [_public_row(r) for r in rows]})
 
     @action(detail=True, methods=["post"], url_path="avatar/remove")
     def avatar_remove(self, request, pk=None):

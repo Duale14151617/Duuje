@@ -4,6 +4,7 @@ import { useAuth } from "../auth/AuthContext";
 import { AlertPreferences } from "../components/AlertPreferences";
 import { EnableMfa } from "../components/EnableMfa";
 import { ChangePassword } from "../components/ChangePassword";
+import { MyActivity } from "../components/MyActivity";
 import { MyAccess } from "../components/MyAccess";
 import { MySessions } from "../components/MySessions";
 import { SecuritySummary } from "../components/SecuritySummary";
@@ -115,6 +116,7 @@ export function Account() {
       <SecurityKeys />
       <MySessions />
       <MyAccess />
+      <MyActivity />
       <AlertPreferences />
     </>
   );

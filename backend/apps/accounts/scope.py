@@ -4,7 +4,9 @@ A RoleAssignment grants a role's permissions over the subtree rooted at
 `org_unit`, optionally limited to units of one service branch. An assignment at
 the HQ node with no branch is "global". Nothing is granted by default.
 """
+from django.conf import settings
 from django.db.models import Q
+from django.utils import timezone
 
 from apps.organization.models import OrganizationalUnit
 
@@ -41,8 +43,39 @@ def permission_codes(user):
 ADMIN_PERMS = frozenset({"users.manage", "roles.assign", "system.full_access"})
 
 
+# Permissions that touch pay, weapons, medical, discipline, restricted records or the personnel register. A role holding any of them is
+# "sensitive": two-step sign-in is strongly recommended, and becomes mandatory on the date in MFA_SENSITIVE_REQUIRED_FROM (if set).
+SENSITIVE_PREFIXES = ("payroll.", "payment.", "arrears.", "survivor.", "disciplinary.", "restricted.", "medical.")
+SENSITIVE_EXACT = frozenset({"weapons.manage", "personnel.manage", "personnel.import", "personnel.export", "personnel.confirm_death",
+                             "credentials.issue", "logistics.approve", "logistics.restricted", "logistics.restricted_approve"})
+
+
+def holds_sensitive(user):
+    return any(c.startswith(SENSITIVE_PREFIXES) or c in SENSITIVE_EXACT for a in assignments(user) for c in a.perm_codes)
+
+
+def mfa_sensitive_deadline():
+    """The date from which sensitive roles must use two-step sign-in, or None while it is only recommended."""
+    raw = (getattr(settings, "MFA_SENSITIVE_REQUIRED_FROM", "") or "").strip()
+    if not raw:
+        return None
+    try:
+        from datetime import date
+        return date.fromisoformat(raw)
+    except ValueError:
+        return None
+
+
 def requires_mfa(user):
-    return any(a.role.is_privileged or (ADMIN_PERMS & a.perm_codes) for a in assignments(user))
+    if any(a.role.is_privileged or (ADMIN_PERMS & a.perm_codes) for a in assignments(user)):
+        return True
+    deadline = mfa_sensitive_deadline()
+    return deadline is not None and timezone.localdate() >= deadline and holds_sensitive(user)
+
+
+def recommends_mfa(user):
+    """Sensitive access without being required (yet) to use two-step sign-in."""
+    return not requires_mfa(user) and holds_sensitive(user)
 
 
 def is_global(a):

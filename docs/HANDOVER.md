@@ -35,9 +35,9 @@ Never keep `BREVO_API_KEY` set unless Brevo is working: the Apps Script sender i
 
 ## 4. Database and backups
 - Neon connection details: take them from the Connect dialog with pooling **off**. If a password is ever pasted anywhere public, reset it in Neon and update `POSTGRES_PASSWORD` in Render.
-- Automated backup: `.github/workflows/backup.yml` dumps the database, proves the dump restores into a scratch database, encrypts it and keeps it as a private artifact for 30 days. It is manual until you add two repository secrets (`BACKUP_DATABASE_URL`, `BACKUP_PASSPHRASE`) and enable the schedule; the steps are at the top of that file and in `docs/BACKUP_AND_RECOVERY.md`.
-- Keep `FIELD_ENCRYPTION_KEY` and the backup passphrase in a password manager, separate from the backups. Without them a backup cannot be used.
-- Neon's pg client version: if the backup fails with a server version mismatch, change both `postgres:17` images in the workflow to the version Neon runs.
+- Automated backup: `.github/workflows/backup.yml` dumps the database, proves the dump restores into a scratch database, encrypts it and keeps it as a private artifact for 30 days. It needs two repository secrets (`BACKUP_DATABASE_URL` and `BACKUP_AGE_RECIPIENT`, the public half of the backup key); the steps are in `docs/BACKUP_AND_RECOVERY.md`.
+- Keep `FIELD_ENCRYPTION_KEY` and the backup private key (`duuje-backup.key`) in a password manager, separate from the backups. Without them a backup cannot be used.
+- PostgreSQL version: if the backup fails with a server version mismatch, change `PG_VERSION` in `.github/workflows/backup.yml` to the version the database runs (the dump client and the scratch restore database both use it).
 
 ## 5. Accounts and first boot
 - A fresh database is empty. With `ARMYHQ_SAMPLE_MODE=1` the first boot creates `superadmin`, `hqadmin` and synthetic data using `ARMYHQ_SAMPLE_PASSWORD`.
@@ -70,4 +70,4 @@ Ask them for: where the system will run, which domain it will use, where data ma
 - System owner and operator: Abdullaahi Ahmed Mohamoud Du'ale, Garowe, Puntland, Somalia (duujesuites@gmail.com, also the account that sends the system's email)
 - Ministry contact: (fill in when approval is granted)
 - Hosting/domain owner: (fill in; the demo uses free Render and Neon accounts held by the operator)
-- Where the passwords and keys are stored: (fill in: the password manager that holds `BACKUP_PASSPHRASE`, `FIELD_ENCRYPTION_KEY`, the Apps Script `SECRET` and the Render/Neon/GitHub logins)
+- Where the passwords and keys are stored: (fill in: the password manager that holds the backup private key (`duuje-backup.key`), `FIELD_ENCRYPTION_KEY`, the Apps Script `SECRET` and the Render/Neon/GitHub logins)

@@ -49,8 +49,8 @@ export function NotificationBell({ count, onChanged }: { count: number; onChange
           {list.data && list.data.results.length === 0 && <p className="muted bell-empty">{t("note.empty")}</p>}
           <ul className="bell-list">
             {list.data?.results.map((n) => {
-              const to = n.submission ? `/reports/${n.submission.id}` : n.kind === "due_digest" ? "/due-soon" : n.kind.startsWith("leave_") && n.leave ? "/leave" : "/notifications";
-              const text = n.submission?.title ?? n.leave?.title ?? t("note.noAccess");
+              const to = n.submission ? `/reports/${n.submission.id}` : n.kind === "new_address" ? "/account#activity" : n.kind === "due_digest" ? "/due-soon" : n.kind.startsWith("leave_") && n.leave ? "/leave" : "/notifications";
+              const text = n.submission?.title ?? n.leave?.title ?? (n.kind === "new_address" ? t("note.newAddress") : n.kind === "due_digest" ? t("note.dueDigest") : t("note.noAccess"));
               return (
                 <li key={n.id} className={n.read_at ? "read" : "unread"}>
                   <Link to={to} onClick={() => { setOpen(false); if (!n.read_at) void markRead(n.id); }}>

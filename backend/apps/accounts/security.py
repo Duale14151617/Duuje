@@ -1,7 +1,11 @@
 import hmac
+import math
 import time
+from datetime import timedelta
 
 import pyotp
+from django.conf import settings
+from django.utils import timezone
 
 from apps.core import crypto
 
@@ -11,11 +15,25 @@ from .models import MfaBackupCode, PasskeyChallenge, PasskeyCredential, User
 TOTP_INTERVAL = 30
 
 
+def password_age(user, now=None):
+    """None when passwords do not expire or the age is unknown; otherwise when this one runs out and how many whole days are left."""
+    limit = settings.PASSWORD_MAX_AGE_DAYS
+    if not limit or user.password_changed_at is None:
+        return None
+    now = now or timezone.now()
+    expires = user.password_changed_at + timedelta(days=limit)
+    left = math.ceil((expires - now).total_seconds() / 86400)
+    return {"expires_at": expires, "days_left": max(left, 0), "expired": now >= expires,
+            "warn": left <= settings.PASSWORD_WARN_DAYS}
+
+
 def restrictions(user):
     """Conditions that confine a session to the self-service screens only."""
     found = []
     if user.must_change_password:
         found.append("password_change")
+    elif (age := password_age(user)) and age["expired"]:
+        found.append("password_change")  # too old: the same forced-change screen as a temporary password
     if scope.requires_mfa(user) and not user.mfa_enabled:
         found.append("mfa_enrollment")
     return found

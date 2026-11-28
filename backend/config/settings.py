@@ -304,10 +304,18 @@ MFA_RECOVERY_CODE_MINUTES = int(os.environ.get("MFA_RECOVERY_CODE_MINUTES", "15"
 #  - PASSWORD_FORGOT_ENABLED: "Forgot your password?" on the sign-in page. Only accounts whose address is VERIFIED can use it,
 #    so an address an administrator typed in by mistake (or maliciously) can never receive a reset code.
 EMAIL_VERIFICATION_ENABLED = env_bool("EMAIL_VERIFICATION_ENABLED", False)
+
+# Two-step sign-in for sensitive roles (pay, weapons, medical, discipline, personnel register...). Always recommended to those users;
+# set this to a date (YYYY-MM-DD) to make it mandatory from that day. Empty = never mandatory, only recommended.
+MFA_SENSITIVE_REQUIRED_FROM = os.environ.get("MFA_SENSITIVE_REQUIRED_FROM", "").strip()
 EMAIL_VERIFY_CODE_MINUTES = int(os.environ.get("EMAIL_VERIFY_CODE_MINUTES", "15"))
 PASSWORD_FORGOT_ENABLED = env_bool("PASSWORD_FORGOT_ENABLED", False)
 # A temporary password (set by an administrator, must be changed at first sign-in) stops working after this many days.
 TEMP_PASSWORD_DAYS = int(os.environ.get("TEMP_PASSWORD_DAYS", "7"))
+# Password age. PASSWORD_MAX_AGE_DAYS=0 (default) means passwords never expire. Above 0, a password older than that many days must be
+# changed at the next sign-in, and people are warned PASSWORD_WARN_DAYS days before it happens.
+PASSWORD_MAX_AGE_DAYS = int(os.environ.get("PASSWORD_MAX_AGE_DAYS", "0"))
+PASSWORD_WARN_DAYS = int(os.environ.get("PASSWORD_WARN_DAYS", "14"))
 PASSWORD_FORGOT_CODE_MINUTES = int(os.environ.get("PASSWORD_FORGOT_CODE_MINUTES", "30"))
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
 # Brevo sends over HTTPS (port 443), for hosts that block outgoing SMTP (Render's free web services do). It wins over SMTP when set.

@@ -38,7 +38,11 @@ export function Notifications() {
             <div>
               {n.submission
                 ? <Link to={`/reports/${n.submission.id}`} onClick={() => void markRead(n.id)}>{n.submission.title}</Link>
-                : <span className="muted">{t("note.noAccess")}</span>}
+                : n.kind === "new_address"
+                  ? <Link to="/account#activity" onClick={() => void markRead(n.id)}>{t("note.newAddress")}</Link>
+                  : n.kind === "due_digest"
+                    ? <Link to="/due-soon" onClick={() => void markRead(n.id)}>{t("note.dueDigest")}</Link>
+                    : <span className="muted">{t("note.noAccess")}</span>}
             </div>
             <div className="muted">{formatDate(n.created_at, lang)}</div>
           </li>

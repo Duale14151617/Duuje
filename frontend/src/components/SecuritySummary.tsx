@@ -27,6 +27,12 @@ export function SecuritySummary() {
             <li className="item">{t("secsum.passkeys")} <Chip tone="draft">{me.passkey_count ?? 0}</Chip></li>
           </>
         )}
+        {me.password_expires_at && (
+          <li className="item">
+            {t("secsum.pwExpires")} <span>{formatDateTime(me.password_expires_at, lang)}</span>{" "}
+            {me.password_warn && <Chip tone="warn">{t("secsum.pwSoon", { n: me.password_days_left ?? 0 })}</Chip>}
+          </li>
+        )}
         <li className="item">
           {t("secsum.last")}{" "}
           {last

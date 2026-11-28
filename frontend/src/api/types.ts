@@ -16,7 +16,16 @@ export interface Me {
   session?: { idle_seconds: number; warn_seconds: number; absolute_remaining: number };
   /** The sign-in before this session and failed attempts since; null on a first-ever sign-in. */
   sign_in?: { previous_at: string; previous_ip: string | null; failed_since: number } | null;
-  requires_mfa: boolean; restrictions: string[]; permissions: string[]; assignments: Assignment[];
+  requires_mfa: boolean;
+  /** Sensitive access (pay, weapons, medical, personnel register) with two-step sign-in still off. */
+  mfa_recommended?: boolean;
+  password_changed_at?: string | null;
+  /** Set only when the server limits password age (PASSWORD_MAX_AGE_DAYS). */
+  password_expires_at?: string | null;
+  password_days_left?: number | null;
+  password_warn?: boolean;
+  /** ISO date from which two-step sign-in becomes mandatory for this person's role, when the server sets one. */
+  mfa_required_from?: string | null; restrictions: string[]; permissions: string[]; assignments: Assignment[];
   features: { personnel_export: boolean; report_export: boolean; integrations: boolean; email_verification?: boolean; notification_email?: boolean };
   /** The personnel record this login belongs to, if one is linked. */
   personnel_id?: string | null;

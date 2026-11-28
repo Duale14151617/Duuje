@@ -1,8 +1,9 @@
-name: Nightly database backup
+name: Nightly database backup and restore test
 
-# Dumps the live Render database every night, encrypts it to a PUBLIC key (this repository never holds the means to read it) and keeps
-# it as a private workflow artifact for 30 days. Optionally also restores it into a Neon database as a second, ready-to-use copy.
-# Setup is in docs/POLICE_DEPLOYMENT.md ("Backups"). The repository MUST be private.
+# Dumps the live Render database every night, PROVES the dump restores into a throwaway database, encrypts it to a PUBLIC key (this
+# repository never holds the means to read it) and keeps it as a private workflow artifact for 30 days. A dump that cannot be restored
+# fails the job (GitHub emails you) and the System health heartbeat is not sent. Optionally also restores it into a Neon database as a
+# second, ready-to-use copy. Setup is in docs/BACKUP_AND_RECOVERY.md. The repository MUST be private.
 
 on:
   schedule:
@@ -50,6 +51,35 @@ jobs:
           (cd out && sha256sum "policehq-${stamp}.dump.age" > "policehq-${stamp}.dump.age.sha256")
           echo "DUMP_RAW=out/dump.raw" >> "$GITHUB_ENV"
           echo "Backup size: $(stat -c %s out/policehq-${stamp}.dump.age) bytes"
+
+      - name: Prove the dump restores into a scratch database
+        run: |
+          set -euo pipefail
+          # A throwaway server of the same PostgreSQL version; it disappears when the job ends. Nothing here touches the live database.
+          docker run -d --name scratch -e POSTGRES_PASSWORD=scratch-only -e POSTGRES_DB=restore_test "postgres:${PG_VERSION}" > /dev/null
+          # The image starts a temporary server (socket only) to create the database, then restarts. Checking over TCP (127.0.0.1)
+          # only succeeds once the real server is up, so the restore never races the restart.
+          for i in $(seq 1 40); do
+            docker exec scratch pg_isready -h 127.0.0.1 -U postgres -d restore_test > /dev/null 2>&1 && break
+            [ "$i" -lt 40 ] || { echo "::error::The scratch database did not start"; exit 1; }
+            sleep 2
+          done
+          docker exec -i scratch pg_restore --no-owner --no-privileges --exit-on-error -U postgres -d restore_test < "$DUMP_RAW"
+          q() { docker exec scratch psql -U postgres -d restore_test -At -c "$1"; }
+          tables=$(q "select count(*) from information_schema.tables where table_schema='public'")
+          migrations=$(q "select count(*) from django_migrations")
+          users=$(q "select count(*) from users")
+          audit=$(q "select count(*) from audit_events")
+          echo "Restored into a scratch database: $tables tables, $migrations applied migrations, $users users, $audit audit events."
+          { [ "$tables" -gt 20 ] && [ "$migrations" -gt 0 ] && [ "$users" -gt 0 ]; } || { echo "::error::Restore check failed: the dump restores but looks empty"; exit 1; }
+          {
+            echo "### Backup restore test passed"
+            echo "$tables tables, $migrations migrations, $users users, $audit audit events restored into a scratch database."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the scratch database
+        if: always()
+        run: docker rm -f scratch > /dev/null 2>&1 || true
 
       - name: Refresh the Neon copy (optional)
         if: env.NEON_URL != ''

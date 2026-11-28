@@ -1,3 +1,4 @@
+import { BulkAvatars } from "../components/BulkAvatars";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ApiError, uploadForm } from "../api/client";
@@ -125,6 +126,7 @@ export function UsersBulk() {
           </div>
         </section>
       )}
+      <BulkAvatars />
     </>
   );
 }

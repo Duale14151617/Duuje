@@ -33,6 +33,8 @@ class User(AbstractBaseUser):
     must_change_password = models.BooleanField(default=False)
     # When a temporary password (must_change_password) stops working. Null = no deadline. Cleared once the user sets their own.
     temp_password_expires_at = models.DateTimeField(null=True, blank=True)
+    # When the password was last set (by the user or an administrator). Drives the optional password age limit (PASSWORD_MAX_AGE_DAYS).
+    password_changed_at = models.DateTimeField(null=True, blank=True)
     # The user asked for an email when new notifications arrive (also needs a verified address and NOTIFICATION_EMAILS_ENABLED).
     notify_email = models.BooleanField(default=False)
     mfa_enabled = models.BooleanField(default=False)
@@ -48,6 +50,10 @@ class User(AbstractBaseUser):
     updated_at = models.DateTimeField(auto_now=True)
 
     objects = UserManager()
+
+    def set_password(self, raw_password):
+        super().set_password(raw_password)
+        self.password_changed_at = timezone.now()
     USERNAME_FIELD = "username"
     REQUIRED_FIELDS = ["full_name"]
 

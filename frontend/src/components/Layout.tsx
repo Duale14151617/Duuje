@@ -5,6 +5,8 @@ import { useFetch } from "../api/useFetch";
 import { useAuth } from "../auth/AuthContext";
 import { Avatar } from "./Avatar";
 import { useI18n, type Key } from "../i18n";
+import { MfaPrompt } from "./MfaPrompt";
+import { PasswordPrompt } from "./PasswordPrompt";
 import { GlobalSearch } from "./GlobalSearch";
 import { StepUpDialog } from "./StepUpDialog";
 import { Icon, type IconName } from "./Icon";
@@ -282,6 +284,8 @@ export function Layout() {
             ))}
           </nav>
         )}
+        <PasswordPrompt />
+        <MfaPrompt />
         <Outlet />
       </main>
       <footer className="muted small" style={{ textAlign: "center", padding: "1rem" }}>{t("app.name")} · {t("app.footer")}</footer>
