@@ -77,6 +77,8 @@ export const so: Record<keyof typeof en, string> = {
   "dash.welcome": "Soo dhowow",
   "dash.attention": "Feejignaan u baahan",
   "dash.details": "Faahfaahin",
+  "dash.tabCharts": "Garaafyada",
+  "dash.moreLabel": "Qaybo kale oo dashboard-ka ah",
   "dash.allClear": "Wax walba waa nidaamsan yihiin",
   "dash.allClearHint": "Hadda wax feejignaan u baahan ma jiraan.",
   "dash.activeShare": "Shaqaalaha firfircoon",

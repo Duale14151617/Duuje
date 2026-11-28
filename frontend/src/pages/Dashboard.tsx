@@ -1,5 +1,5 @@
 import { EquipmentPanel, FleetPanel, PpePanel } from "../components/EquipmentPanels";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { AuditEvent, Dashboard as Data, DayActivity, NotificationItem, Page, Unit } from "../api/types";
 import { useFetch } from "../api/useFetch";
@@ -168,6 +168,7 @@ export function Dashboard() {
   const { me, can } = useAuth();
   const { data: n, error, loading } = useFetch<Data>("/dashboard/");
   const [range, setRange] = useState<7 | 30>(7);
+  const [tab, setTab] = useState("");
   const longer = useFetch<{ daily: DayActivity[] }>(range === 30 && n?.audit ? "/dashboard/activity/" : null, { days: 30 });
   // the user's first assignment gives the unit for unit-level figures (attendance today, vehicles)
   const home = me?.assignments[0]?.org_unit;
@@ -275,6 +276,50 @@ export function Dashboard() {
     const workload = [showQueue, showTasks, !!n.training].filter(Boolean).length;
     const showSecurity = !!(n.accounts || n.audit);
 
+    // Everything below the headline cards is grouped into tabs so the page stays short: one group is open at a time.
+    const hasCharts = !!(n.personnel?.by_region || daily || can("audit.view"));
+    const tabs: { key: string; label: string; content: ReactNode }[] = [];
+    if (hasCharts) tabs.push({ key: "charts", label: t("dash.tabCharts"), content: (
+      <div className="charts">
+        {n.personnel?.by_region && <ChartPanel icon="map" title={t("dash.byRegion")}><RegionChart rows={regionRows} linkFor={linkFor} /></ChartPanel>}
+        {daily && (
+          <ChartPanel icon="activity" title={t(range === 30 ? "dash.activity30d" : "dash.activity7d")} actions={<RangeSwitch value={range} onChange={setRange} />}>
+            {series
+              ? <ActivityChart key={range} days={series} />
+              : longer.error
+                ? <ErrorNotice error={longer.error} />
+                : <div className="skeleton chart-skeleton" role="status" aria-busy="true" aria-label={t("common.loading")} />}
+          </ChartPanel>
+        )}
+        {can("audit.view") && <ExceptionsPanel />}
+      </div>
+    ) });
+    if (n.fleet || n.equipment) tabs.push({ key: "fleet", label: t("dash.fleetEquipment"), content: (
+      <div className="charts">
+        {n.fleet && <FleetPanel f={n.fleet} />}
+        {n.equipment && <EquipmentPanel e={n.equipment} />}
+        {n.equipment && n.equipment.ppe.lines > 0 && <PpePanel p={n.equipment.ppe} />}
+      </div>
+    ) });
+    if (workload > 0) tabs.push({ key: "workload", label: t("dash.workload"), content: (
+      <div className="workload">
+        {showQueue && <ReviewQueuePanel count={n.reports?.awaiting_review ?? 0} />}
+        {showTasks && <TasksPanel />}
+        {n.training && <TrainingPanel training={n.training} />}
+      </div>
+    ) });
+    if (showSecurity) tabs.push({ key: "security", label: t("dash.security"), content: (
+      <div className="dash-cols security-cols">
+        <SecurityPanel accounts={n.accounts} audit={n.audit} />
+        <RecentActivity />
+      </div>
+    ) });
+    else tabs.push({ key: "recent", label: t("dash.recent"), content: <div className="dash-cols"><RecentActivity /></div> });
+    if (details.length > 0) tabs.push({ key: "details", label: t("dash.details"), content: (
+      <div className="grid">{details.map((p) => <Panel key={p.title} icon={p.icon} title={p.title} rows={p.rows} meter={p.meter} />)}</div>
+    ) });
+    const active = tabs.find((x) => x.key === tab) ?? tabs[0];
+
     body = (
       <>
         {kpis.length > 0 && <div className="kpis">{kpis}</div>}
@@ -302,55 +347,19 @@ export function Dashboard() {
             <QuickActions />
           </div>
         </div>
-        {(n.personnel?.by_region || daily || can("audit.view")) && (
-          <div className="charts">
-            {n.personnel?.by_region && <ChartPanel icon="map" title={t("dash.byRegion")}><RegionChart rows={regionRows} linkFor={linkFor} /></ChartPanel>}
-            {daily && (
-              <ChartPanel icon="activity" title={t(range === 30 ? "dash.activity30d" : "dash.activity7d")} actions={<RangeSwitch value={range} onChange={setRange} />}>
-                {series
-                  ? <ActivityChart key={range} days={series} />
-                  : longer.error
-                    ? <ErrorNotice error={longer.error} />
-                    : <div className="skeleton chart-skeleton" role="status" aria-busy="true" aria-label={t("common.loading")} />}
-              </ChartPanel>
-            )}
-            {can("audit.view") && <ExceptionsPanel />}
-          </div>
-        )}
-        {(n.fleet || n.equipment) && (
+        {tabs.length > 0 && (
           <>
-            <h2 className="section-title">{t("dash.fleetEquipment")}</h2>
-            <div className="charts">
-              {n.fleet && <FleetPanel f={n.fleet} />}
-              {n.equipment && <EquipmentPanel e={n.equipment} />}
-              {n.equipment && n.equipment.ppe.lines > 0 && <PpePanel p={n.equipment.ppe} />}
+            <div className="tabs" role="tablist" aria-label={t("dash.moreLabel")}>
+              {tabs.map((x) => (
+                <button key={x.key} type="button" role="tab" id={`dash-tab-${x.key}`} className="tab" aria-selected={x.key === active?.key}
+                        aria-controls="dash-tab-panel" tabIndex={x.key === active?.key ? 0 : -1} onClick={() => setTab(x.key)}>
+                  {x.label}
+                </button>
+              ))}
             </div>
-          </>
-        )}
-        {workload > 0 && (
-          <>
-            <h2 className="section-title">{t("dash.workload")}</h2>
-            <div className="workload">
-              {showQueue && <ReviewQueuePanel count={n.reports?.awaiting_review ?? 0} />}
-              {showTasks && <TasksPanel />}
-              {n.training && <TrainingPanel training={n.training} />}
+            <div id="dash-tab-panel" className="tab-panel" role="tabpanel" aria-labelledby={`dash-tab-${active?.key}`} tabIndex={0}>
+              {active?.content}
             </div>
-          </>
-        )}
-        {showSecurity && (
-          <>
-            <h2 className="section-title">{t("dash.security")}</h2>
-            <div className="dash-cols security-cols">
-              <SecurityPanel accounts={n.accounts} audit={n.audit} />
-              <RecentActivity />
-            </div>
-          </>
-        )}
-        {!showSecurity && <div className="dash-cols"><RecentActivity /></div>}
-        {details.length > 0 && (
-          <>
-            <h2 className="section-title">{t("dash.details")}</h2>
-            <div className="grid">{details.map((p) => <Panel key={p.title} icon={p.icon} title={p.title} rows={p.rows} meter={p.meter} />)}</div>
           </>
         )}
       </>

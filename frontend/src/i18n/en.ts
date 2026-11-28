@@ -73,6 +73,8 @@ export const en = {
   "dash.welcome": "Welcome back",
   "dash.attention": "Needs attention",
   "dash.details": "Details",
+  "dash.tabCharts": "Charts",
+  "dash.moreLabel": "More dashboard sections",
   "dash.allClear": "All clear",
   "dash.allClearHint": "Nothing needs your attention right now.",
   "dash.activeShare": "Personnel active",
