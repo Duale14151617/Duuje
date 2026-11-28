@@ -15,28 +15,40 @@ import { InstallButton } from "../pwa/install";
 import { ThemeToggle } from "../theme/ThemeToggle";
 
 const SIDEBAR_KEY = "armyhq.sidebar";
-const GROUPS_KEY = "armyhq.navgroups"; // names of the sidebar sections the user has folded away
+const GROUPS_KEY = "armyhq.navgroups.v2"; // names of the sidebar sections that are folded; v2: by default only the section you are in is open
 
 type NavItem = { to: string; label: Key; icon: IconName; show: boolean; match?: string[]; go?: string };
 
 /** Pages that live as tabs inside one sidebar entry. Each tab keeps its own route and its own permission check. */
-const HUBS: { id: string; tabs: string[] }[] = [
-  { id: "ammunition", tabs: ["/ammunition", "/accountability", "/ammo-control"] },
-  { id: "weapons", tabs: ["/weapons", "/inventories", "/holdings"] },
-  { id: "vehicles", tabs: ["/vehicles", "/vehicle-log", "/equipment"] },
+const HUBS: { id: string; title: Key; icon: IconName; tabs: string[] }[] = [
+  { id: "organization", title: "nav.organization", icon: "building", tabs: ["/organization", "/structure", "/units", "/structure-changes"] },
+  { id: "personnel", title: "nav.personnel", icon: "users", tabs: ["/personnel", "/search", "/personnel-report", "/credentials", "/change-requests"] },
+  { id: "attendance", title: "nav.hub.attendance", icon: "calendar", tabs: ["/attendance", "/leave"] },
+  { id: "ranks", title: "nav.hub.ranks", icon: "award", tabs: ["/ranks", "/promotion"] },
+  { id: "training", title: "nav.hub.training", icon: "cap", tabs: ["/training", "/fitness"] },
+  { id: "payroll", title: "nav.payroll", icon: "list", tabs: ["/payroll", "/survivors"] },
+  { id: "reports", title: "nav.reports", icon: "file", tabs: ["/reports", "/summary", "/schedules"] },
+  { id: "tasks", title: "nav.hub.tasks", icon: "check", tabs: ["/tasks", "/due-soon"] },
+  { id: "logistics", title: "nav.logistics", icon: "box", tabs: ["/logistics", "/ppe", "/food"] },
+  { id: "ammunition", title: "nav.hub.ammunition", icon: "box", tabs: ["/ammunition", "/accountability", "/ammo-control"] },
+  { id: "weapons", title: "nav.hub.weapons", icon: "lock", tabs: ["/weapons", "/inventories", "/holdings"] },
+  { id: "vehicles", title: "nav.vehicles", icon: "box", tabs: ["/vehicles", "/vehicle-log", "/equipment"] },
 ];
 const TAB_PATHS = HUBS.flatMap((h) => h.tabs);
 
 /** Which section each page sits in; sections with no visible page are not drawn. `title` is absent for the top block. */
 const NAV_SECTIONS: { key: string; title?: Key; to: string[] }[] = [
   { key: "top", to: ["/", "/notifications"] },
-  { key: "units", title: "nav.group.units", to: ["/organization", "/structure", "/structure-changes", "/units"] },
-  { key: "people", title: "nav.group.people", to: ["/my-record", "/personnel", "/search", "/change-requests", "/attendance", "/leave", "/promotion", "/fitness", "/credentials", "/personnel-report", "/training", "/ranks"] },
-  { key: "pay", title: "nav.group.pay", to: ["/payroll", "/survivors"] },
-  { key: "reporting", title: "nav.group.reporting", to: ["/reports", "/summary", "/schedules", "/due-soon", "/analytics", "/tasks"] },
-  { key: "logistics", title: "nav.group.logistics", to: ["/logistics", "/ammunition", "/ppe", "/weapons", "/vehicles", "/food"] },
+  { key: "units", title: "nav.group.units", to: ["/organization"] },
+  { key: "people", title: "nav.group.people", to: ["/my-record", "/personnel", "/attendance", "/ranks", "/training"] },
+  { key: "pay", title: "nav.group.pay", to: ["/payroll"] },
+  { key: "reporting", title: "nav.group.reporting", to: ["/reports", "/tasks", "/analytics"] },
+  { key: "logistics", title: "nav.group.logistics", to: ["/logistics", "/ammunition", "/weapons", "/vehicles"] },
   { key: "admin", title: "nav.group.admin", to: ["/users", "/integrations", "/system-health", "/audit"] },
 ];
+
+/** Every section that has a heading (and so can be folded). */
+const NAV_KEYS = NAV_SECTIONS.filter((sec) => sec.title).map((sec) => sec.key);
 
 export function Layout() {
   const { me, can, logout } = useAuth();
@@ -45,39 +57,11 @@ export function Layout() {
   const location = useLocation();
   const unread = useFetch<{ count: number }>("/notifications/unread-count/", { at: location.pathname });
   const count = unread.data?.count ?? 0;
-  const items: NavItem[] = [
+  const plainItems: NavItem[] = [
     { to: "/", icon: "grid", label: "nav.dashboard", show: can("dashboard.view") },
-    { to: "/organization", icon: "building", label: "nav.organization", show: can("org.view") },
-    { to: "/structure", icon: "layers", label: "nav.structure", show: can("org.view") },
-    { to: "/structure-changes", icon: "swap", label: "nav.structureChanges", show: can("org.structure_propose") || can("org.structure_approve") },
     { to: "/my-record", icon: "users", label: "nav.myRecord", show: Boolean(me?.personnel_id) && (can("personnel.view") || can("personnel.view_team")) },
-    { to: "/personnel", icon: "users", label: "nav.personnel", show: can("personnel.view") || can("personnel.view_team") },
-    { to: "/search", icon: "search", label: "nav.search", show: can("search.cross_service") },
-    { to: "/reports", icon: "file", label: "nav.reports", show: can("reports.view") },
-    { to: "/summary", icon: "list", label: "nav.summary", show: can("reports.summary") },
-    { to: "/logistics", icon: "box", label: "nav.logistics", show: ["logistics.view", "logistics.restricted", "logistics.configure", "logistics.approve", "logistics.restricted_approve", "logistics.report"].some(can) },
-    { to: "/ammunition", go: can("logistics.restricted") ? "/ammunition" : "/accountability", icon: "box", label: "nav.hub.ammunition", show: can("logistics.restricted") || can("weapons.view"), match: ["/ammunition", "/accountability", "/ammo-control"] },
-    { to: "/ppe", icon: "lock", label: "nav.ppe", show: can("logistics.view") },
-    { to: "/weapons", icon: "lock", label: "nav.hub.weapons", show: can("weapons.view"), match: ["/weapons", "/inventories", "/holdings"] },
-    { to: "/vehicles", go: can("vehicles.view") ? "/vehicles" : "/equipment", icon: "box", label: "nav.vehicles", show: ["vehicles.view", "weapons.view", "equipment.manage"].some(can), match: ["/vehicles", "/vehicle-log", "/equipment"] },
-    { to: "/payroll", icon: "list", label: "nav.payroll", show: can("payroll.view") },
-    { to: "/survivors", icon: "users", label: "nav.survivors", show: can("survivor.view") },
-    { to: "/attendance", icon: "check", label: "nav.attendance", show: can("attendance.view") },
-    { to: "/leave", icon: "calendar", label: "nav.leave", show: ["leave.view", "leave.own", "leave.request", "roster.view"].some(can) },
-    { to: "/promotion", icon: "award", label: "nav.promotion", show: can("promotion.view") },
-    { to: "/fitness", icon: "activity", label: "nav.fitness", show: can("fitness.view") },
-    { to: "/credentials", icon: "file", label: "nav.credentials", show: can("credentials.view") },
-    { to: "/personnel-report", icon: "list", label: "nav.personnelReport", show: can("personnel.view") },
-    { to: "/schedules", icon: "clock", label: "nav.schedules", show: can("schedules.manage") },
-    { to: "/due-soon", icon: "alert", label: "nav.dueSoon", show: true },
     { to: "/system-health", icon: "check", label: "nav.systemHealth", show: can("users.view") },
-    { to: "/units", icon: "building", label: "nav.units", show: can("org.view") },
-    { to: "/change-requests", icon: "swap", label: "nav.changeRequests", show: can("changes.propose") || can("changes.approve") },
-    { to: "/tasks", icon: "check", label: "nav.tasks", show: can("tasks.view") },
-    { to: "/food", icon: "box", label: "nav.food", show: can("food.view") },
-    { to: "/training", icon: "cap", label: "nav.training", show: ["training.view", "training.configure", "training.report"].some(can) },
     { to: "/analytics", icon: "activity", label: "nav.analytics", show: can("analytics.view") },
-    { to: "/ranks", icon: "award", label: "nav.ranks", show: can("ranks.view") },
     { to: "/users", icon: "lock", label: "nav.users", show: can("users.view") },
     { to: "/integrations", icon: "plug", label: "nav.integrations", show: can("integrations.view") },
     { to: "/audit", icon: "check", label: "nav.audit", show: can("audit.view") },
@@ -95,7 +79,39 @@ export function Layout() {
     { to: "/vehicles", label: "nav.vehicles", show: can("vehicles.view") },
     { to: "/vehicle-log", label: "vlog.title", show: can("vehicles.view") },
     { to: "/equipment", label: "nav.equipment", show: ["vehicles.view", "weapons.view", "equipment.manage"].some(can) },
+    { to: "/organization", label: "nav.organization", show: can("org.view") },
+    { to: "/structure", label: "nav.structure", show: can("org.view") },
+    { to: "/units", label: "nav.units", show: can("org.view") },
+    { to: "/structure-changes", label: "nav.structureChanges", show: can("org.structure_propose") || can("org.structure_approve") },
+    { to: "/personnel", label: "nav.personnel", show: can("personnel.view") || can("personnel.view_team") },
+    { to: "/search", label: "nav.search", show: can("search.cross_service") },
+    { to: "/personnel-report", label: "nav.personnelReport", show: can("personnel.view") },
+    { to: "/credentials", label: "nav.credentials", show: can("credentials.view") },
+    { to: "/change-requests", label: "nav.changeRequests", show: can("changes.propose") || can("changes.approve") },
+    { to: "/attendance", label: "nav.attendance", show: can("attendance.view") },
+    { to: "/leave", label: "nav.leave", show: ["leave.view", "leave.own", "leave.request", "roster.view"].some(can) },
+    { to: "/ranks", label: "nav.ranks", show: can("ranks.view") },
+    { to: "/promotion", label: "nav.promotion", show: can("promotion.view") },
+    { to: "/training", label: "nav.training", show: ["training.view", "training.configure", "training.report"].some(can) },
+    { to: "/fitness", label: "nav.fitness", show: can("fitness.view") },
+    { to: "/payroll", label: "nav.payroll", show: can("payroll.view") },
+    { to: "/survivors", label: "nav.survivors", show: can("survivor.view") },
+    { to: "/reports", label: "nav.reports", show: can("reports.view") },
+    { to: "/summary", label: "nav.summary", show: can("reports.summary") },
+    { to: "/schedules", label: "nav.schedules", show: can("schedules.manage") },
+    { to: "/tasks", label: "nav.tasks", show: can("tasks.view") },
+    { to: "/due-soon", label: "nav.dueSoon", show: true },
+    { to: "/logistics", label: "nav.logistics", show: ["logistics.view", "logistics.restricted", "logistics.configure", "logistics.approve", "logistics.restricted_approve", "logistics.report"].some(can) },
+    { to: "/ppe", label: "nav.ppe", show: can("logistics.view") },
+    { to: "/food", label: "nav.food", show: can("food.view") },
   ];
+  // one sidebar entry per group of related pages; it opens the first tab this person may see
+  const hubItems: NavItem[] = HUBS.map((h) => {
+    const vis = h.tabs.filter((to) => tabDefs.find((d) => d.to === to)?.show);
+    return { to: h.tabs[0], go: vis[0], icon: h.icon, label: h.title, show: vis.length > 0, match: h.tabs };
+  });
+  const items: NavItem[] = [...plainItems, ...hubItems];
+
 
   // ---- responsive sidebar: drawer < 768px, persistent sidebar/rail >= 768px ----
   const isMobile = useMedia("(max-width: 767px)");
@@ -106,7 +122,12 @@ export function Layout() {
   const collapsed = isTablet || pref === "collapsed"; // below 960px always the icon rail; from 960px the full sidebar unless the user collapsed it
   const [open, setOpen] = useState(false);
   const [folded, setFolded] = useState<string[]>(() => {
-    try { const v: unknown = JSON.parse(localStorage.getItem(GROUPS_KEY) ?? "[]"); return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []; } catch { return []; }
+    try {
+      const raw = localStorage.getItem(GROUPS_KEY);
+      if (raw === null) return NAV_KEYS; // first visit: everything folded; the effect below opens the section you are in
+      const v: unknown = JSON.parse(raw);
+      return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : NAV_KEYS;
+    } catch { return NAV_KEYS; }
   });
   const saveFolded = (next: string[]) => {
     setFolded(next);
@@ -170,9 +191,9 @@ export function Layout() {
   const hereHub = HUBS.find((h) => h.tabs.some(isHere));
   const hubTabs = hereHub ? hereHub.tabs.map((to) => tabDefs.find((d) => d.to === to)).filter((d): d is (typeof tabDefs)[number] => !!d && d.show) : [];
   const hereKey = sections.find((sec) => sec.items.some((i) => (i.match ?? [i.to]).some(isHere)))?.key;
-  // arriving at a page inside a folded section (a dashboard link, the back button) opens that section
+  // the menu works like an accordion: arriving at a page (link, dashboard card, back button) opens its section and folds the rest
   useEffect(() => {
-    if (hereKey && folded.includes(hereKey)) saveFolded(folded.filter((k) => k !== hereKey));
+    if (hereKey) saveFolded(NAV_KEYS.filter((k) => k !== hereKey));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hereKey, location.pathname]);
 
@@ -248,7 +269,7 @@ export function Layout() {
               <div className="nav-group" key={sec.key}>
                 {sec.title && !rail && (
                   <button type="button" className="nav-group-head" aria-expanded={isOpen} aria-controls={`nav-g-${sec.key}`}
-                          onClick={() => saveFolded(isOpen ? [...folded, sec.key] : folded.filter((k) => k !== sec.key))}>
+                          onClick={() => saveFolded(isOpen ? [...folded, sec.key] : NAV_KEYS.filter((k) => k !== sec.key))}>
                     <span>{t(sec.title)}</span>
                     <Icon name="arrow" size={14} />
                   </button>
@@ -275,7 +296,7 @@ export function Layout() {
       {tip && <div className="nav-tip" role="presentation" style={{ top: tip.top }}>{tip.text}</div>}
       <main>
         {hubTabs.length > 1 && (
-          <nav className="tabs" aria-label={t(hereHub!.id === "weapons" ? "nav.hub.weapons" : hereHub!.id === "ammunition" ? "nav.hub.ammunition" : "nav.vehicles")}>
+          <nav className="tabs" aria-label={t(hereHub!.title)}>
             {hubTabs.map((i) => (
               <NavLink key={i.to} to={i.to} className={() => `tab${isHere(i.to) ? " active" : ""}`} aria-current={isHere(i.to) ? "page" : undefined}>
                 {t(i.label)}
