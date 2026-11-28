@@ -1,4 +1,4 @@
-"""Member role: own record + direct subordinates only. Synthetic data only."""
+"""Member role: own record + direct subordinates only."""
 from apps.audit.models import AuditEvent
 from apps.personnel import services as svc
 from apps.personnel.models import Personnel

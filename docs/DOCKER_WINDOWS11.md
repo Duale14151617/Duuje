@@ -1,6 +1,6 @@
 # ARMY HQ — Windows 11 + Docker Desktop (local run)
 
-This setup runs the React frontend, Django API, and PostgreSQL database together on your own PC. It is for synthetic sample data only, not real personnel or operational records.
+This setup runs the React frontend, Django API, and PostgreSQL database together on your own PC.
 
 ## 1. Install Docker Desktop
 1. Download Docker Desktop for Windows: https://www.docker.com/products/docker-desktop/

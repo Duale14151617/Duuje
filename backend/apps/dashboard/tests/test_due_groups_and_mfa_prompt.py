@@ -1,4 +1,4 @@
-"""Due-soon groups for fitness, leave, training and roles; and the sensitive-role two-step sign-in prompt. Synthetic data only."""
+"""Due-soon groups for fitness, leave, training and roles; and the sensitive-role two-step sign-in prompt."""
 from datetime import timedelta
 from unittest import mock
 

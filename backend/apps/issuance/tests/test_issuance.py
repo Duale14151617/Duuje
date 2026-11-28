@@ -1,4 +1,4 @@
-"""ID cards, official letters and the public QR check. Synthetic data only."""
+"""ID cards, official letters and the public QR check."""
 import io
 
 from django.utils import timezone

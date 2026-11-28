@@ -1,4 +1,4 @@
-"""Attendance, absence reporting and the unit situation report. Synthetic data only."""
+"""Attendance, absence reporting and the unit situation report."""
 from datetime import date, timedelta
 
 from django.core.files.uploadedfile import SimpleUploadedFile

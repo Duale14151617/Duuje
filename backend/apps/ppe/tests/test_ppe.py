@@ -1,4 +1,4 @@
-"""PPE ledger, asset lifecycle, procurement cost and the dashboard figures. Synthetic data only."""
+"""PPE ledger, asset lifecycle, procurement cost and the dashboard figures."""
 from django.db import IntegrityError, transaction
 
 from apps.audit.models import AuditEvent

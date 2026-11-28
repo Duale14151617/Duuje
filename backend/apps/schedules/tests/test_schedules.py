@@ -1,4 +1,4 @@
-"""Scheduled email reports. Synthetic data only."""
+"""Scheduled email reports."""
 from datetime import datetime, timezone as dt_tz
 
 from datetime import timedelta

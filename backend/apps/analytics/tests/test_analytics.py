@@ -1,4 +1,4 @@
-"""Analytics (2.0): scope is inherited from the permissions that already govern each data set. Synthetic data only."""
+"""Analytics (2.0): scope is inherited from the permissions that already govern each data set."""
 from datetime import timedelta
 
 from django.test import SimpleTestCase

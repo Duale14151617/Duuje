@@ -1,4 +1,4 @@
-"""Unit report (PDF) and event alert emails. Synthetic data only."""
+"""Unit report (PDF) and event alert emails."""
 from types import SimpleNamespace
 
 from django.core import mail

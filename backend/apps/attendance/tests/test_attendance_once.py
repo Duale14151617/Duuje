@@ -1,4 +1,4 @@
-"""Each serving person appears once on the roll and is recorded once per day. Synthetic data only."""
+"""Each serving person appears once on the roll and is recorded once per day."""
 from .test_attendance import A, AttendanceBase
 
 

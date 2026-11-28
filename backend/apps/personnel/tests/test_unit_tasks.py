@@ -1,4 +1,4 @@
-"""Administrative task tracking for units. Synthetic data only."""
+"""Administrative task tracking for units."""
 from datetime import date, timedelta
 
 from apps.audit.models import AuditEvent

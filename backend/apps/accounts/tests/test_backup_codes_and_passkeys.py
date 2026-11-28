@@ -1,4 +1,4 @@
-"""Backup codes and passkeys as extra second factors. Synthetic data only."""
+"""Backup codes and passkeys as extra second factors."""
 import pyotp
 from rest_framework.test import APIClient
 

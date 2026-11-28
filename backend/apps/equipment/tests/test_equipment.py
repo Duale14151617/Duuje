@@ -1,4 +1,4 @@
-"""Equipment Reference Catalogue and its links into the vehicle register. Synthetic data only."""
+"""Equipment Reference Catalogue and its links into the vehicle register."""
 from django.core.files.uploadedfile import SimpleUploadedFile
 
 from apps.audit.models import AuditEvent

@@ -1,4 +1,4 @@
-"""Ammunition ledger: movements, vouchers, authorizations, balances from transactions, statement. Synthetic data only."""
+"""Ammunition ledger: movements, vouchers, authorizations, balances from transactions, statement."""
 from datetime import date
 
 from django.db import IntegrityError, transaction

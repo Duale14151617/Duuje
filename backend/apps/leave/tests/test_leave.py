@@ -1,4 +1,4 @@
-"""Leave requests and the duty roster. Synthetic data only."""
+"""Leave requests and the duty roster."""
 from datetime import date, timedelta
 
 from apps.audit.models import AuditEvent

@@ -1,4 +1,4 @@
-"""Due soon list and daily digest. Synthetic data only."""
+"""Due soon list and daily digest."""
 from datetime import timedelta
 
 from django.utils import timezone

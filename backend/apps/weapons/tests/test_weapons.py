@@ -1,4 +1,4 @@
-"""Weapon register: serial numbers, custody, issue and return, history. Synthetic data only."""
+"""Weapon register: serial numbers, custody, issue and return, history."""
 from apps.audit.models import AuditEvent
 from apps.core.appendonly import AppendOnlyError
 from apps.logistics.models import Asset, AssetEvent, InventoryCategory

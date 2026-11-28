@@ -1,4 +1,4 @@
-"""Shared helpers for tests. Synthetic data only."""
+"""Shared helpers for tests."""
 import time
 
 import pyotp

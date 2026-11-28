@@ -1,4 +1,4 @@
-"""Recent activity, password age, new-address notice for every account, and bulk profile pictures. Synthetic data only."""
+"""Recent activity, password age, new-address notice for every account, and bulk profile pictures."""
 import zipfile
 from datetime import timedelta
 from io import BytesIO

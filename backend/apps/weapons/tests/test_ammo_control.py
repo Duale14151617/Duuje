@@ -1,4 +1,4 @@
-"""Ammunition control: events that must balance, warning flags, lot and weapon trace. Synthetic data only."""
+"""Ammunition control: events that must balance, warning flags, lot and weapon trace."""
 from datetime import timedelta
 
 from django.utils import timezone

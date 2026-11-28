@@ -1,7 +1,7 @@
 # Implementation report: Army requirements from the meeting with army personnel
 
 Scope: extend the existing system, do not rebuild it. Everything below was built on the existing authentication, RBAC with organizational
-scope, audit (`record()`), append-only ledgers, workflows and document store. Synthetic data only.
+scope, audit (`record()`), append-only ledgers, workflows and document store.
 
 **Read this first.** Nothing in this report has been executed. The authoring environment had no Django, no database and no network, so the new tests
 were written and read through but never run, the migrations were hand-written (not generated), and the screens were syntax-checked only. The first

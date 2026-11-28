@@ -1,4 +1,4 @@
-"""Setup health check, test email and the backup heartbeat. Synthetic data only."""
+"""Setup health check, test email and the backup heartbeat."""
 from datetime import timedelta
 
 from django.core import mail

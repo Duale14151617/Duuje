@@ -1,4 +1,4 @@
-"""Statuses (Jailed, Died) and the death workflow: report -> evidence -> confirm. Synthetic data only."""
+"""Statuses (Jailed, Died) and the death workflow: report -> evidence -> confirm."""
 from datetime import date, timedelta
 
 from django.core.files.uploadedfile import SimpleUploadedFile

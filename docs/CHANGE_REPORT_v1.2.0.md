@@ -1,7 +1,7 @@
 # Change report: Version 1.2.0
 
 Base: Version 1.1 (same repository; no feature removed). Scope: requests, reports, approvals, summaries, notifications.
-No tactical features; synthetic data only.
+No tactical features.
 
 ## Verification actually performed
 | Check | Result |

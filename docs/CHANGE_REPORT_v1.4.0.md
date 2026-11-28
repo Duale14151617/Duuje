@@ -1,7 +1,7 @@
 # Change report: Version 1.4.0
 
 Base: Version 1.3 (same repository; no product module added or removed). Scope: security and reliability hardening,
-operations documents and scripts, test evidence. No tactical features; synthetic data only.
+operations documents and scripts, test evidence. No tactical features.
 
 ## Verification actually performed
 | Check | Result |

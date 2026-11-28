@@ -1,5 +1,5 @@
 """Regional finance pays salaries: headquarters prepares and approves the run, a regional command's finance accounts
-authorize, send and reconcile only the SALARY payments of their own command. Synthetic data only."""
+authorize, send and reconcile only the SALARY payments of their own command."""
 from apps.payroll.tests.test_payroll import P, TODAY
 from apps.payroll.tests.test_policy_payments import PAY, PolicyBase
 

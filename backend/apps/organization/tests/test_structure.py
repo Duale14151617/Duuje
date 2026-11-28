@@ -1,4 +1,4 @@
-"""Tests for the Puntland Army addendum (ranks, regional commands, unit types, designations, strength). Synthetic data only."""
+"""Tests for the Puntland Army addendum (ranks, regional commands, unit types, designations, strength)."""
 from django.core.management import call_command
 from django.test import override_settings
 from django.utils import timezone

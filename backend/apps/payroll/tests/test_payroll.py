@@ -1,4 +1,4 @@
-"""Payroll, survivor benefits and sensitive-read auditing. Synthetic data only."""
+"""Payroll, survivor benefits and sensitive-read auditing."""
 from datetime import date
 
 from apps.audit.models import AuditEvent

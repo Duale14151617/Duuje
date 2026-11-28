@@ -201,7 +201,7 @@ fieldset { border: 1px solid var(--line); border-radius: 6px; margin: 0 0 1rem; 
 .topbar { transition: background-color .2s; }
 body, .card, .item, .nav, .sidebar, .scope-strip { transition: background-color .2s, color .2s, border-color .2s; }
 
-/* preview banner, hero, dashboard (ported from the preview build) */
+/* preview banner, hero, dashboard */
 .preview-banner { background: var(--amber-bg); color: var(--amber); padding: .35rem 1rem; font-size: .8125rem; text-align: center;
   border-bottom: 1px solid var(--line); }
 .muted.small { font-size: .8125rem; margin-top: 1rem; }

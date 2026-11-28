@@ -1,7 +1,6 @@
 # Change report: Version 1.1.0
 
-Base: Version 1.0 (same repository; no feature removed). Scope: personnel management only; no tactical features;
-synthetic data only.
+Base: Version 1.0 (same repository; no feature removed). Scope: personnel management only; no tactical features.
 
 ## Verification actually performed
 | Check | Result |

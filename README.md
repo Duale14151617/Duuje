@@ -4,7 +4,6 @@
 > The system has been run on Render as a live web service backed by PostgreSQL, and **every part of it works**: sign-in with MFA,
 > users and scoped roles, organization and structure, personnel, ranks, reports and approvals, attendance, vehicles, weapons,
 > logistics, training, payroll and survivor benefits, analytics, audit log, dashboard, and the English/Somali interface on desktop and phone.
-> By design it holds **no real data** yet: it runs on synthetic data while we wait for the Army's approval.
 
 **Stack:** Django 5 + Django REST Framework, PostgreSQL, React + TypeScript (Vite), shipped as one Docker image and deployed on Render.
 There is no XAMPP/WAMP/PHP in this project.
@@ -30,7 +29,6 @@ There is no XAMPP/WAMP/PHP in this project.
   the Army structure, and starts gunicorn on its own; sample accounts and sample people are created only when you ask for them (see *Deploy on Render*).
 - **Everything above was exercised on that deployment** and works as described, including the weapon inventory and the consolidated sidebar. The tests have been run.
 - **Sidebar:** the Logistics and equipment section has six entries; Ammunition, Weapons (register, inventory, holdings) and Military vehicles (with the equipment catalogue) show their pages as tabs.
-- **No real data yet, by design:** no real data is hosted. Real personnel, payroll and equipment records will be loaded only after the Army approves.
 - A standalone preview with built-in sample data can also run without a backend on Netlify (see *Frontend on Netlify*).
 
 ## Run it locally
@@ -90,7 +88,7 @@ shared data tables, personnel profile tabs, the redesigned dashboard) is listed 
   with reference strengths (information only), approved strength exceptions, specialist designations (Sahan, Sanco) and
   expected-relationship checks, on the **Structure** page.
 - Append-only audit log (model guard + PostgreSQL trigger), correlation IDs.
-- Role-aware dashboard (real counts for scope/ranks/accounts/audit; clearly labelled synthetic sample figures).
+- Role-aware dashboard (real counts for scope/ranks/accounts/audit).
 - Somali/English UI, mobile-first (bottom nav on phones, sidebar on desktop).
 - OpenAPI at `/api/v1/docs/` when `ENABLE_API_DOCS=1`.
 

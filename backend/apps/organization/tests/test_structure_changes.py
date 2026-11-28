@@ -1,4 +1,4 @@
-"""Governed structure changes: propose -> submit -> a different person approves (and applies) or rejects. Synthetic data only."""
+"""Governed structure changes: propose -> submit -> a different person approves (and applies) or rejects."""
 import json
 
 from django.test import override_settings

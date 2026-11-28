@@ -1,4 +1,4 @@
-"""Strength trend: daily aggregate snapshots shown on the combined report. Synthetic data only."""
+"""Strength trend: daily aggregate snapshots shown on the combined report."""
 from datetime import timedelta
 
 from django.core.management import call_command

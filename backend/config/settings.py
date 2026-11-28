@@ -219,7 +219,7 @@ REST_FRAMEWORK = {
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "ARMY HQ API",
-    "DESCRIPTION": "Administrative platform API (draft, synthetic data only).",
+    "DESCRIPTION": "Administrative platform API.",
     "VERSION": "2.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
 }

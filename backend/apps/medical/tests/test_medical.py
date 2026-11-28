@@ -1,4 +1,4 @@
-"""Fitness for duty and restricted medical records. Synthetic data only."""
+"""Fitness for duty and restricted medical records."""
 from datetime import date, timedelta
 
 from apps.audit.models import AuditEvent

@@ -1,6 +1,6 @@
 """Organizational structure upgrade: departments, unit and department profiles, chart, analytics, restricted rosters, audit.
 
-Synthetic data only: every unit, person and appointment below is created by the test itself.
+Every unit, person and appointment below is created by the test itself.
 """
 from datetime import date, timedelta
 

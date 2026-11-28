@@ -1,4 +1,4 @@
-"""Approval queue for hierarchy-affecting actions: HQ administrators propose, the super administrator decides. Synthetic data only."""
+"""Approval queue for hierarchy-affecting actions: HQ administrators propose, the super administrator decides."""
 from apps.audit.models import AuditEvent
 from apps.organization.models import ChangeRequest
 from apps.personnel.models import Personnel

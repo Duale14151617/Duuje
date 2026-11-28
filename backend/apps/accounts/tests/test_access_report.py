@@ -1,4 +1,4 @@
-"""Access report: usernames, roles, scope and capabilities, read-only and without secrets. Synthetic data only."""
+"""Access report: usernames, roles, scope and capabilities, read-only and without secrets."""
 import csv
 import io
 import json

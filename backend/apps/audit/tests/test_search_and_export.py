@@ -1,4 +1,4 @@
-"""Audit log search by one box, person and dates, and the CSV export. Synthetic data only."""
+"""Audit log search by one box, person and dates, and the CSV export."""
 import hashlib
 from datetime import datetime, timezone as tz
 

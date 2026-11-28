@@ -5,7 +5,6 @@ Keep this file free of passwords, keys and connection strings. Values live only 
 ## 1. What this is
 - Django (API) + React (web app) in one Docker image, served from a single Render web service named `armyhq-demo` (Singapore).
 - Database: PostgreSQL on Neon (free tier, Singapore). It does not expire. The old Render free database expired after 30 days and was lost.
-- The deployment is a **sample build with synthetic data only**. It is not approved for operational use. Do not enter real personnel records.
 - Source: this repository. Deploys are triggered from Render ("Manual Deploy" or on push).
 
 ## 2. Environment variables on the `armyhq-demo` service

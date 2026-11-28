@@ -1,4 +1,4 @@
-"""Self-hosted map tiles: HTTP Range answers, sign-in and permission. Synthetic data only."""
+"""Self-hosted map tiles: HTTP Range answers, sign-in and permission."""
 import tempfile
 from pathlib import Path
 

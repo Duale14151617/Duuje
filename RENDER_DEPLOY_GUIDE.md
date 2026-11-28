@@ -4,7 +4,7 @@ This package adds a Render Blueprint and a single-origin Docker deployment. It k
 
 ## Before you start
 
-- This is a fully functional system deployed on Render. It currently runs on synthetic data only: do not enter real personnel, operational, security, or confidential records until the Army approves loading them.
+- This is a fully functional system deployed on Render.
 - Render's free PostgreSQL plan is temporary (currently 30 days) and may be subject to plan/region availability. Export anything you need to keep.
 - The `ARMYHQ_SAMPLE_PASSWORD` environment variable sets one shared password for the synthetic sample accounts created by the project's sample seed command. Use a unique password of at least 12 characters; do not reuse a personal password. Privileged sample roles require MFA enrolment at first login.
 - The FIELD_ENCRYPTION_KEY must remain stable after the first deployment, otherwise encrypted MFA secrets cannot be decrypted. Do not rotate it casually.

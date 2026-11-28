@@ -1,4 +1,4 @@
-"""Rounds held by soldiers and the superior's holdings report. Synthetic data only."""
+"""Rounds held by soldiers and the superior's holdings report."""
 from django.db import IntegrityError, transaction
 
 from apps.audit.models import AuditEvent

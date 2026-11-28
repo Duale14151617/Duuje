@@ -1,4 +1,4 @@
-"""Email verification and self-service "forgot password". Synthetic data only."""
+"""Email verification and self-service "forgot password"."""
 import re
 from datetime import timedelta
 from unittest import mock

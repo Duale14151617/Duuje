@@ -1,4 +1,4 @@
-"""Every role has at least one synthetic sample account, so each can be tried out. Synthetic data only."""
+"""Every role has at least one synthetic sample account, so each can be tried out."""
 from apps.accounts.management.commands.seed_sample_data import SAMPLE_USERS
 from apps.accounts.models import Role
 from apps.core.testing import BaseApiTest

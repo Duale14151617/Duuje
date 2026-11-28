@@ -1,4 +1,4 @@
-"""Promotion eligibility by rank and time in rank. Synthetic data only."""
+"""Promotion eligibility by rank and time in rank."""
 from datetime import date, timedelta
 
 from apps.audit.models import AuditEvent

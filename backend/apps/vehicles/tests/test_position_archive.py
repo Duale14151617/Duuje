@@ -1,4 +1,4 @@
-"""Signed archive and controlled purge of old vehicle positions. Synthetic data only."""
+"""Signed archive and controlled purge of old vehicle positions."""
 import io
 import os
 import tempfile

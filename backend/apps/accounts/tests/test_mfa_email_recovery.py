@@ -1,4 +1,4 @@
-"""Email recovery for a lost authenticator app. The authenticator stays the normal second factor. Synthetic data only."""
+"""Email recovery for a lost authenticator app. The authenticator stays the normal second factor."""
 import re
 from datetime import timedelta
 from unittest import mock

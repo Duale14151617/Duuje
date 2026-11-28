@@ -1,4 +1,4 @@
-"""Command appointments: separate from rank, assignment and application role. Synthetic data only."""
+"""Command appointments: separate from rank, assignment and application role."""
 from datetime import date, timedelta
 
 from django.core.management import call_command

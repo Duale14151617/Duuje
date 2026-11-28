@@ -1,4 +1,4 @@
-"""Personnel report: counts by unit, region and rank for a period, scope, audit, no personal data. Synthetic data only."""
+"""Personnel report: counts by unit, region and rank for a period, scope, audit, no personal data."""
 from datetime import timedelta
 
 from django.utils import timezone

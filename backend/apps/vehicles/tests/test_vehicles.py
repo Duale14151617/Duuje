@@ -1,4 +1,4 @@
-"""Military vehicle registry: acceptance tests. Synthetic data only; plates and names below are test placeholders."""
+"""Military vehicle registry: acceptance tests. Plates and names below are test placeholders."""
 from datetime import date, timedelta
 from io import BytesIO
 

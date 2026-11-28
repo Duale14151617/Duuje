@@ -1,4 +1,4 @@
-"""Dashboard chart series: personnel by region and the 7-day audit activity. Synthetic data only."""
+"""Dashboard chart series: personnel by region and the 7-day audit activity."""
 from datetime import timedelta
 
 from django.utils import timezone

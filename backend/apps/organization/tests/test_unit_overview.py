@@ -1,4 +1,4 @@
-"""Read-only unit overview (Guuto / Urur / section pages): counts once, aggregates for HQ admins. Synthetic data only."""
+"""Read-only unit overview (Guuto / Urur / section pages): counts once, aggregates for HQ admins."""
 from django.core.management import call_command
 
 from apps.audit.models import AuditEvent

@@ -1,4 +1,4 @@
-"""Break-glass override of the different-person payroll rules. Synthetic data only."""
+"""Break-glass override of the different-person payroll rules."""
 from django.test import override_settings
 
 from apps.audit.models import AuditEvent

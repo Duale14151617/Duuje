@@ -1,4 +1,4 @@
-"""Integrations (2.0): credentials, scope, failure handling, audit. Synthetic data only."""
+"""Integrations (2.0): credentials, scope, failure handling, audit."""
 import json
 from datetime import timedelta
 from unittest import mock

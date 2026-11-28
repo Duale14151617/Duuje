@@ -29,8 +29,7 @@ This shows that the administrator works every day but cannot take authority.
 ## Likely questions
 - **Who can see what?** Roles and the unit tree decide it; people only see their own area.
 - **What if the HQ admin is compromised?** They cannot approve, move money, confirm deaths, or give anyone more authority than they hold themselves. Their requests wait for the super administrator.
-- **Is it real data?** No, the sample data is synthetic.
 - **Where is it hosted?** Render (backend and frontend in one service) with a managed database.
 
-## If something fails during the sample
+## If something fails during the presentation
 Stay calm, move to the next section, and note the screen. A server error never loses data: refresh and continue.

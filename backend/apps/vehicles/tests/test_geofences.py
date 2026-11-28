@@ -1,4 +1,4 @@
-"""Geofences (entry and exit events) and the daily movement report. Synthetic data only."""
+"""Geofences (entry and exit events) and the daily movement report."""
 import hashlib
 from datetime import datetime, timedelta, timezone as tz
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError

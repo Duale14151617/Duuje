@@ -1,4 +1,4 @@
-"""Ranks are changeable and swappable. Synthetic data only."""
+"""Ranks are changeable and swappable."""
 from apps.audit.models import AuditEvent
 from apps.core.testing import BaseApiTest
 from apps.organization.models import ServiceBranch

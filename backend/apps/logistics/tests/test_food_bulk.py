@@ -1,4 +1,4 @@
-"""Food stores, bulk entry: opening stock from a spreadsheet and one order issued to many units. Synthetic data only."""
+"""Food stores, bulk entry: opening stock from a spreadsheet and one order issued to many units."""
 import io
 
 from django.core.files.uploadedfile import SimpleUploadedFile

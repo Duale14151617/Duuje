@@ -1,7 +1,7 @@
 # Change report: Version 1.3.0
 
 Base: Version 1.2 (same repository; no feature removed). Scope: logistics inventory and training only. No tactical or
-operational logistics; no person-by-person equipment directory; synthetic data only.
+operational logistics; no person-by-person equipment directory.
 
 ## Verification actually performed
 | Check | Result |

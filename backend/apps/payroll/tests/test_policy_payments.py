@@ -1,5 +1,5 @@
 """Confirmed payroll and survivor policy: month of death, arrears, suspended/jailed flags, indefinite survivor benefits,
-Sahal / bank payments with separated duties and reconciliation. Synthetic data only."""
+Sahal / bank payments with separated duties and reconciliation."""
 from datetime import date
 
 from apps.audit.models import AuditEvent

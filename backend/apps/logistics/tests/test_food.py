@@ -1,4 +1,4 @@
-"""Food stores: suppliers, receipts with expiry, allocations with delivery acknowledgement, warnings. Synthetic data only."""
+"""Food stores: suppliers, receipts with expiry, allocations with delivery acknowledgement, warnings."""
 from datetime import date, timedelta
 
 from apps.audit.models import AuditEvent

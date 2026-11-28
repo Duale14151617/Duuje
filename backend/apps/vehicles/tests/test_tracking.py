@@ -1,4 +1,4 @@
-"""Vehicle position reports (manual / phone): acceptance tests. Synthetic data only."""
+"""Vehicle position reports (manual / phone): acceptance tests."""
 from datetime import timedelta
 
 from django.utils import timezone

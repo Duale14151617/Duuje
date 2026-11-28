@@ -1,4 +1,4 @@
-"""Dashboard trend figures and the leave-approval block: scoped to what the caller may see. Synthetic data only."""
+"""Dashboard trend figures and the leave-approval block: scoped to what the caller may see."""
 from datetime import timedelta
 
 from django.utils import timezone

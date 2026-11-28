@@ -1,5 +1,5 @@
 # Local-only complete stack for Windows 11 + Docker Desktop.
-# Synthetic sample data only. Never use these credentials for a public deployment.
+# Local setup. Never use these credentials for a public deployment.
 services:
   db:
     healthcheck:

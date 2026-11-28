@@ -1,4 +1,4 @@
-"""The stored DEMO labels are renamed to SAMPLE without deleting anything. Synthetic data only."""
+"""The stored DEMO labels are renamed to SAMPLE without deleting anything."""
 from django.core.management import call_command
 
 from apps.accounts.models import User
