@@ -73,7 +73,7 @@ export function Account() {
           {current || <span className="muted">{t("account.noEmail")}</span>}{" "}
           {current && (verified ? <Chip tone="ok">{t("account.verified")}</Chip> : <Chip tone="warn">{t("account.notVerified")}</Chip>)}
         </p>
-        {done && <Notice>{t("account.verifiedDone")}</Notice>}}
+        {done && <Notice>{t("account.verifiedDone")}</Notice>}
         {!enabled ? (
           !verified && <Notice>{t("account.unavailable")}</Notice>
         ) : verified && !editing ? (
